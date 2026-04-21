@@ -73,7 +73,8 @@ const Search = ({ queryParams }) => {
             if (!target) return;
             e.preventDefault();
             e.stopPropagation();
-            const firstCard = target.querySelector('[tabindex], a, button');
+            const firstCard = target.querySelector('[class*="meta-item-container"]') ||
+                target.querySelector('a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])');
             if (firstCard) firstCard.focus({ preventScroll: true });
             target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             return;
@@ -86,8 +87,7 @@ const Search = ({ queryParams }) => {
         if (!targetCard) return;
         e.preventDefault();
         e.stopPropagation();
-        const focusable = targetCard.querySelector('[tabindex], a, button') || targetCard;
-        focusable.focus({ preventScroll: true });
+        targetCard.focus({ preventScroll: true });
         const rowScroll = currentRow.querySelector('[class*="meta-items-container"]');
         if (rowScroll) {
             const cardRect = targetCard.getBoundingClientRect();
@@ -110,7 +110,7 @@ const Search = ({ queryParams }) => {
             if (!root) return;
             const ae = document.activeElement;
             if (ae && ae !== document.body && root.contains(ae) && ae.closest('[class*="meta-item-container"]')) return;
-            const firstCard = root.querySelector('[class*="meta-item-container"] [tabindex], [class*="meta-item-container"] a, [class*="meta-item-container"] button, [class*="meta-item-container"][tabindex]');
+            const firstCard = root.querySelector('[class*="meta-item-container"]');
             if (firstCard) firstCard.focus({ preventScroll: true });
         }, 500);
         return () => clearTimeout(tid);

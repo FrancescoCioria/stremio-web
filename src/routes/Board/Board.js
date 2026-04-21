@@ -81,7 +81,13 @@ const Board = () => {
             if (!target) return;
             e.preventDefault();
             e.stopPropagation();
-            const firstCard = target.querySelector('[tabindex], a, button');
+            // Prima card della riga: preferisci l'elemento meta-item-container
+            // stesso (di solito un <a href>) invece di querySelector-are i
+            // figli, perche' Multiselect (menu 3-pallini) ha tabindex=-1 e
+            // confonde la ricerca con ':not([tabindex="-1"])'.
+            const firstCardEl = target.querySelector('[class*="meta-item-container"]');
+            const firstCard = firstCardEl ||
+                target.querySelector('a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])');
             if (firstCard) firstCard.focus({ preventScroll: true });
             target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             return;
@@ -96,8 +102,11 @@ const Board = () => {
         if (!targetCard) return;
         e.preventDefault();
         e.stopPropagation();
-        const focusable = targetCard.querySelector('[tabindex], a, button') || targetCard;
-        focusable.focus({ preventScroll: true });
+        // La card stessa e' un <a href> (la Button di stremio/components
+        // renderizza anchor). Focussiamo direttamente la card, non cerchiamo
+        // figli focusabili (il menu 3-pallini Multiselect ha tabindex=-1
+        // ma veniva matchato comunque da querySelector('[tabindex]')).
+        targetCard.focus({ preventScroll: true });
         // Scroll SOLO orizzontale nel container della riga (no scrollIntoView
         // generico che involverebbe anche il board-content e farebbe uscire
         // il titolo della riga dalla vista).
@@ -136,7 +145,8 @@ const Board = () => {
                 initialFocusDoneRef.current = true;
                 return;
             }
-            const firstCard = root.querySelector('[class*="meta-item-container"] [tabindex], [class*="meta-item-container"] a, [class*="meta-item-container"] button, [class*="meta-item-container"][tabindex]');
+            // Il meta-item-container (<a href>) e' gia' focusable.
+            const firstCard = root.querySelector('[class*="meta-item-container"]');
             if (!firstCard) return;
             initialFocusDoneRef.current = true;
             firstCard.focus({ preventScroll: true });
