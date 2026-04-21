@@ -11,6 +11,7 @@ const styles = require('./styles');
 // TV layout: pill per ogni season, niente piu' prev/next ne' dropdown.
 // Focus su una pill con frecce + Enter per selezionare.
 const SeasonsBar = ({ className, seasons, season, onSelect }) => {
+    const rootRef = React.useRef(null);
     const pillOnClick = React.useCallback((event) => {
         if (typeof onSelect !== 'function') return;
         const value = Number(event.currentTarget.dataset.season);
@@ -22,8 +23,32 @@ const SeasonsBar = ({ className, seasons, season, onSelect }) => {
         });
     }, [onSelect]);
 
+    const onKeyDown = React.useCallback((e) => {
+        const root = rootRef.current;
+        if (!root) return;
+        if (e.key === 'ArrowDown') {
+            // Vai alla prima card episodio nel VideosList sottostante.
+            const content = root.closest('[class*="metadetails-content"]') || root.parentElement?.parentElement;
+            const videoCard = content?.querySelector('[class*="videos-container"] [data-video-id] [tabindex], [class*="videos-container"] [data-video-id] a, [class*="videos-container"] [data-video-id] button');
+            if (!videoCard) return;
+            e.preventDefault();
+            e.stopPropagation();
+            videoCard.focus({ preventScroll: true });
+            return;
+        }
+        if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+        const current = e.target.closest('button');
+        if (!current) return;
+        const target = e.key === 'ArrowRight' ? current.nextElementSibling : current.previousElementSibling;
+        if (!target || target.tagName !== 'BUTTON') return;
+        e.preventDefault();
+        e.stopPropagation();
+        target.focus({ preventScroll: true });
+        target.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    }, []);
+
     return (
-        <div className={classnames(className, styles['seasons-bar-container'])}>
+        <div ref={rootRef} onKeyDown={onKeyDown} className={classnames(className, styles['seasons-bar-container'])}>
             {seasons.map((s) => {
                 const label = s > 0 ? t('SEASON_NUMBER', { season: s }) : t('SPECIAL');
                 const active = s === season;

@@ -64,7 +64,23 @@ const VideosList = ({ className, metaItem, libraryItem, season, seasonOnSelect, 
     // sibling (senza passare per lo scroll nativo di Chrome che scorre di
     // ~40px per volta e richiede piu' pressioni per arrivare alla card
     // successiva quando quella attuale e' ai bordi del viewport).
+    // ArrowUp porta alle Season pills; ArrowDown non fa nulla (rail e'
+    // l'ultima zona utile).
     const onVideosKeyDown = React.useCallback((e) => {
+        if (e.key === 'ArrowUp') {
+            // Trova la prima Season pill focusabile nell'antenato
+            // meta-details-content e portaci il focus.
+            const container = videosContainerRef.current;
+            if (!container) return;
+            const content = container.closest('[class*="metadetails-content"]') || container.parentElement?.parentElement;
+            if (!content) return;
+            const seasonPill = content.querySelector('[class*="seasons-bar-container"] [class*="season-pill"], [class*="seasons-bar-container"] button');
+            if (!seasonPill) return;
+            e.preventDefault();
+            e.stopPropagation();
+            seasonPill.focus({ preventScroll: true });
+            return;
+        }
         if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
         const container = videosContainerRef.current;
         if (!container) return;
