@@ -44,6 +44,12 @@
                     margin-bottom: 0.5rem;
                     padding: 0 1rem;
                 }
+
+                /* CW: nascondi il menu 3-pallini. Non servono da TV (mark
+                 * watched / remove gestite altrove o irrilevanti). */
+                .continue-watching-row [class*="menu-label-container"] {
+                    display: none;
+                }
             }
         }
     }
