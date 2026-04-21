@@ -76,7 +76,8 @@ const Search = ({ queryParams }) => {
             const firstCard = target.querySelector('[class*="meta-item-container"]') ||
                 target.querySelector('a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])');
             if (firstCard) firstCard.focus({ preventScroll: true });
-            target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            // block:'start' mantiene il titolo della riga visibile in cima.
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
             return;
         }
         const currentCard = e.target.closest('[class*="meta-item-container"]');

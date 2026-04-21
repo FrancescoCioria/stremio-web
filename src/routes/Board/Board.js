@@ -81,15 +81,15 @@ const Board = () => {
             if (!target) return;
             e.preventDefault();
             e.stopPropagation();
-            // Prima card della riga: preferisci l'elemento meta-item-container
-            // stesso (di solito un <a href>) invece di querySelector-are i
-            // figli, perche' Multiselect (menu 3-pallini) ha tabindex=-1 e
-            // confonde la ricerca con ':not([tabindex="-1"])'.
             const firstCardEl = target.querySelector('[class*="meta-item-container"]');
             const firstCard = firstCardEl ||
                 target.querySelector('a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])');
             if (firstCard) firstCard.focus({ preventScroll: true });
-            target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            // block:'start' allinea la TOP della riga (titolo) con il top
+            // del scroller (meno lo scroll-margin-top). 'nearest' invece
+            // non scrollava quando la riga era gia' parzialmente in view,
+            // lasciando il titolo cropped sopra il viewport.
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
             return;
         }
 

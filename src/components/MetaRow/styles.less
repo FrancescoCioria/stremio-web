@@ -5,10 +5,10 @@
 
 .meta-row-container {
     overflow: visible;
-    /* TV: quando il browser scrolla automaticamente per portare in vista una
-     * card focus-ata, lascia >= 6rem di respiro sopra e sotto. Evita che
-     * la riga precedente venga tagliata a meta' dal bordo superiore. */
-    scroll-margin-top: 6rem;
+    /* TV: scroll-margin-top abbastanza da tenere il TITOLO della riga
+     * visibile quando scrollata in view con block:'start' (vedi
+     * Board.js onBoardKeyDown). 1rem di cushion sopra, poi il titolo. */
+    scroll-margin-top: 1rem;
     scroll-margin-bottom: 4rem;
 
     .header-container {
