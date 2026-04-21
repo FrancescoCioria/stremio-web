@@ -34,6 +34,10 @@
                 width: 100%;
                 padding: 0;
                 overflow-y: auto;
+                /* z-index sopra l'eventuale bleed del hero BG che sfora
+                 * sotto la hero-container: la lista resta leggibile. */
+                position: relative;
+                z-index: 1;
 
                 .board-row {
                     margin-top: 0;

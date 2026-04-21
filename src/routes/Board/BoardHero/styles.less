@@ -6,13 +6,15 @@
     flex: none;
     height: 28rem;
     width: 100%;
-    /* Niente overflow:hidden: il BG estende oltre la container e sfuma
-     * sopra la prima lista. */
+    /* Overflow visibile: il BG estende oltre la container e sfuma sopra
+     * la prima lista via mask-image radial. */
+    overflow: visible;
 
     .hero-bg-layer {
         position: absolute;
-        /* L'immagine "sfora" nel quadrante alto-destra e si estende
-         * leggermente sotto la hero-container, sfumando su TUTTI i lati. */
+        /* L'immagine "sfora" in alto-destra e scende ~10rem sotto la
+         * hero-container. Il mask-image radial si occupa del fade su
+         * TUTTI i lati. */
         top: 0;
         left: 0;
         right: 0;
@@ -27,41 +29,34 @@
 
         .hero-bg-image {
             display: block;
-            width: 100%;
+            /* Immagine larga 60vw ancorata a destra (offset per la
+             * sidebar ~84px). Mask radial crea fade morbido sui bordi. */
+            width: 60vw;
             height: 100%;
+            margin-left: calc(40vw - 84px);
             object-fit: cover;
-            /* Favorisce il quadrante destro-alto come centro focale. */
-            object-position: 85% 18%;
+            object-position: center center;
             opacity: 0.95;
+            mask-image: radial-gradient(circle, black 50%, rgba(0, 0, 0, 0) 100%);
+            -webkit-mask-image: radial-gradient(circle, black 50%, rgba(0, 0, 0, 0) 100%);
             animation: hero-fade 260ms ease-out;
         }
 
         .hero-bg-gradient {
             position: absolute;
             inset: 0;
-            /* 3 gradienti:
-             *  1) Orizzontale: dark fort a sinistra (testo leggibile),
-             *     sfuma verso trasparente poco dopo meta'
-             *  2) Verticale: trasparente alto -> dark in basso (sforo sopra
-             *     la prima lista)
-             *  3) Radial: il quadrante alto-destra e' mantenuto piu'
-             *     pulito (pochissima oscurazione) per vedere l'immagine
-             */
+            /* Tinta scura leggera sotto il testo a sinistra per legibilita',
+             * + fade bottom che si salda con lo sfondo della lista. Il
+             * mask radial dell'immagine gestisce la sfumatura radiale. */
             background:
                 linear-gradient(90deg,
                     var(--primary-background-color) 0%,
-                    rgba(15, 17, 25, 0.88) 30%,
-                    rgba(15, 17, 25, 0.35) 55%,
-                    rgba(15, 17, 25, 0) 75%),
+                    rgba(15, 17, 25, 0.55) 25%,
+                    rgba(15, 17, 25, 0) 55%),
                 linear-gradient(180deg,
-                    rgba(0, 0, 0, 0) 30%,
-                    rgba(15, 17, 25, 0.4) 65%,
-                    rgba(15, 17, 25, 0.9) 88%,
-                    var(--primary-background-color) 100%),
-                radial-gradient(ellipse 80% 100% at 85% 15%,
-                    rgba(0, 0, 0, 0) 0%,
-                    rgba(15, 17, 25, 0.15) 40%,
-                    rgba(15, 17, 25, 0.4) 80%);
+                    rgba(0, 0, 0, 0) 55%,
+                    rgba(15, 17, 25, 0.6) 85%,
+                    var(--primary-background-color) 100%);
         }
     }
 

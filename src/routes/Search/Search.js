@@ -88,7 +88,13 @@ const Search = ({ queryParams }) => {
         e.stopPropagation();
         const focusable = targetCard.querySelector('[tabindex], a, button') || targetCard;
         focusable.focus({ preventScroll: true });
-        targetCard.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        const rowScroll = currentRow.querySelector('[class*="meta-items-container"]');
+        if (rowScroll) {
+            const cardRect = targetCard.getBoundingClientRect();
+            const rowRect = rowScroll.getBoundingClientRect();
+            const delta = cardRect.left + cardRect.width / 2 - (rowRect.left + rowRect.width / 2);
+            rowScroll.scrollTo({ left: rowScroll.scrollLeft + delta, behavior: 'smooth' });
+        }
     }, []);
 
     // Default focus sulla prima card risultato dopo 500ms di stabilita'.
