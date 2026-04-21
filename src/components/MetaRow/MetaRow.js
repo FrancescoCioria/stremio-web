@@ -77,18 +77,28 @@ const MetaRow = ({ className, title, catalog, message, itemComponent, notificati
     itemsRef.current = items;
     const onRowFocus = React.useCallback((e) => {
         const btn = e.target.closest('a[href]');
-        if (!btn) return;
+        if (!btn || !rowRef.current) return;
         const href = btn.getAttribute('href') || '';
         // href pattern puo' essere:
         //   #/metadetails/{type}/{id}
         //   #/detail/{type}/{metaId}            (metaDetailsVideos)
         //   #/detail/{type}/{metaId}/{videoId}  (metaDetailsStreams)
         //   #/player/...                         (continue watching)
+        let it = null;
         const m = href.match(/#\/(?:metadetails|detail)\/[^/]+\/([^/?]+)/);
-        if (!m) return;
-        const id = decodeURIComponent(m[1]);
-        const it = itemsRef.current.find((x) => x && x.id === id);
-        if (!it || !rowRef.current) return;
+        if (m) {
+            const id = decodeURIComponent(m[1]);
+            it = itemsRef.current.find((x) => x && (x.id === id || x._id === id));
+        }
+        if (!it) {
+            // Fallback per CW e altri formati: trova l'item dalla posizione
+            // DOM della card focus-ata rispetto alle card della riga.
+            const card = btn;
+            const allCards = rowRef.current.querySelectorAll('a[href]');
+            const idx = [...allCards].indexOf(card);
+            if (idx >= 0) it = itemsRef.current[idx];
+        }
+        if (!it) return;
         rowRef.current.dispatchEvent(new CustomEvent('casa-meta-focus', {
             bubbles: true,
             detail: { item: it },
