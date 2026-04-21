@@ -179,22 +179,9 @@ const MetaPreview = React.forwardRef(({ className, compact, name, logo, backgrou
                         :
                         null
                 }
-                {
-                    Array.from(linksGroups.keys())
-                        .filter((category) => {
-                            return category !== CONSTANTS.IMDB_LINK_CATEGORY &&
-                                category !== CONSTANTS.SHARE_LINK_CATEGORY &&
-                                category !== CONSTANTS.WRITERS_LINK_CATEGORY;
-                        })
-                        .map((category, index) => (
-                            <MetaLinks
-                                key={index}
-                                className={styles['meta-links']}
-                                label={category}
-                                links={linksGroups.get(category)}
-                            />
-                        ))
-                }
+                {/* TV: rimossi MetaLinks (Genres, Cast, Directors). Sono
+                    chips cliccabili che entrano nella spatial nav e
+                    rubano il focus senza servire su TV. */}
                 {
                     !compact && typeof description === 'string' && description.length > 0 ?
                         <div className={styles['description-container']}>
@@ -222,8 +209,19 @@ const MetaPreview = React.forwardRef(({ className, compact, name, logo, backgrou
                         null
                 }
                 {
+                    /* TV: invece dell'ActionsGroup (div+tooltip, non focusabili)
+                     * renderizziamo ogni action come ActionButton pill stand-alone. */
                     typeof toggleInLibrary === 'function' && typeof toggleWatched === 'function'
-                        ? <ActionsGroup items={metaItemActions} className={styles['group-container']} />
+                        ? metaItemActions.map((action, i) => (
+                            <ActionButton
+                                key={i}
+                                className={styles['action-button']}
+                                icon={action.icon}
+                                label={action.label}
+                                tabIndex={compact ? -1 : 0}
+                                onClick={action.onClick}
+                            />
+                        ))
                         : null
                 }
                 {

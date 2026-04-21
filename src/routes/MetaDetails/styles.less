@@ -48,16 +48,26 @@
         align-self: stretch;
         position: relative;
         z-index: 0;
-        display: flex;
-        flex-direction: row;
+        /* TV layout: nav rail a sinistra (se presente), meta-preview in alto,
+         * videos/streams list come rail orizzontale in basso. Niente piu'
+         * colonna stretta a destra con thumbs mini.
+         */
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        grid-template-rows: minmax(0, 1fr) auto;
+        grid-template-areas:
+            "nav meta"
+            "nav videos";
         margin-top: calc(var(--top-overlay-size) * -1);
         padding-top: var(--top-overlay-size);
         padding-bottom: var(--safe-area-inset-bottom, 0rem);
         .vertical-nav-bar {
             flex: none;
+            grid-area: nav;
         }
 
         .meta-message-container {
+            grid-area: meta;
             align-self: stretch;
             display: flex;
             flex-direction: column;
@@ -88,21 +98,22 @@
         }
 
         .meta-preview {
-            flex: 0 1 auto;
-            align-self: stretch;
+            grid-area: meta;
+            align-self: start;
             padding: 0 4rem 2rem 4rem;
-
             padding-left: max(1rem, calc(4rem - var(--safe-area-inset-left)));
+            max-width: 55%;
         }
 
         .spacing {
-            flex: 1;
+            display: none;
         }
 
         .videos-list, .streams-list {
-            flex: 0 0 30rem;
-            align-self: stretch;
-            border-radius: var(--border-radius) 0 0 var(--border-radius);
+            grid-area: videos;
+            align-self: end;
+            width: 100%;
+            border-radius: var(--border-radius) var(--border-radius) 0 0;
             background-color: rgba(0, 0, 0, 0.4);
             backdrop-filter: blur(15px);
         }

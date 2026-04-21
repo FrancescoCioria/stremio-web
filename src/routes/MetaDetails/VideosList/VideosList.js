@@ -71,10 +71,10 @@ const VideosList = ({ className, metaItem, libraryItem, season, seasonOnSelect, 
         return videosForSeason.every((video) => video.watched);
     }, [videosForSeason]);
 
-    const [search, setSearch] = React.useState('');
-    const searchInputOnChange = React.useCallback((event) => {
-        setSearch(event.currentTarget.value);
-    }, []);
+    // TV: niente SearchBar locale — la filtraggio via tastiera da divano e'
+    // assurdo. Manteniamo lo state per compat con il rendering esistente ma
+    // con stringa vuota fissa (mostra tutti).
+    const search = '';
 
     const onMarkVideoAsWatched = (video, watched) => {
         core.transport.dispatch({
@@ -148,12 +148,6 @@ const VideosList = ({ className, metaItem, libraryItem, season, seasonOnSelect, 
                                     :
                                     null
                             }
-                            <SearchBar
-                                className={styles['search-bar']}
-                                title={t('SEARCH_VIDEOS')}
-                                value={search}
-                                onChange={searchInputOnChange}
-                            />
                             <div className={styles['videos-container']}>
                                 {
                                     videosForSeason

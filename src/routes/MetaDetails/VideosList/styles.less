@@ -67,10 +67,38 @@
     }
 
     .videos-container {
-        flex: 1;
+        flex: none;
         align-self: stretch;
-        padding: 0 1rem;
-        overflow-y: auto;
+        display: flex;
+        flex-direction: row;
+        gap: 1rem;
+        padding: 0.5rem 2rem 1rem;
+        overflow-x: auto;
+        overflow-y: hidden;
+        scroll-snap-type: x proximity;
+
+        &>* {
+            flex: none;
+            scroll-snap-align: start;
+        }
+
+        &::-webkit-scrollbar {
+            display: none;
+        }
+    }
+
+    .videos-scroll-container {
+        flex: none;
+        align-self: stretch;
+        display: flex;
+        flex-direction: row;
+        gap: 1rem;
+        padding: 0.5rem 2rem 1rem;
+        overflow: hidden;
+
+        &>* {
+            flex: none;
+        }
     }
 }
 

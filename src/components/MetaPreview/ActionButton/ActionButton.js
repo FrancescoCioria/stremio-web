@@ -26,7 +26,9 @@ const ActionButton = ({ className, icon, label, tooltip, ...props }) => {
                     null
             }
             {
-                !tooltip && typeof label === 'string' && label.length > 0 ?
+                /* TV: label sempre visibile, tooltip non fa piu' nascondere
+                 * il testo (circle icon-only non ha senso da divano). */
+                typeof label === 'string' && label.length > 0 ?
                     <div className={styles['label-container']}>
                         <div className={styles['label']}>{label}</div>
                     </div>
