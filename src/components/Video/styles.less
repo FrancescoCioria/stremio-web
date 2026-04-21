@@ -50,8 +50,10 @@
         background-color: transparent;
 
         .thumbnail-container {
-            /* Alone largo e morbido: attira il focus senza inquinare la UI. */
-            box-shadow: 0 0.5rem 4rem 0.6rem rgba(255, 255, 255, 0.14);
+            /* Elevation amplificata + alone bianco morbido per il focus. */
+            box-shadow:
+                0 1.2rem 3rem rgba(0, 0, 0, 0.55),
+                0 0.5rem 4rem 0.4rem rgba(255, 255, 255, 0.14);
         }
     }
 
@@ -60,7 +62,9 @@
         position: relative;
         border-radius: 0.5rem;
         overflow: hidden;
-        transition: box-shadow 120ms ease-out;
+        /* Elevation di default: ombra scura leggera. */
+        box-shadow: 0 0.5rem 1.4rem rgba(0, 0, 0, 0.38);
+        transition: box-shadow 180ms ease-out;
 
         .thumbnail {
             pointer-events: none;

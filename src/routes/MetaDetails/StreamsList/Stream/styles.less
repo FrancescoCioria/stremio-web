@@ -25,21 +25,25 @@
     margin-bottom: 0;
     border-radius: 0.8rem;
     background-color: rgba(255, 255, 255, 0.06);
+    /* Elevation di default per depth. */
+    box-shadow: 0 0.5rem 1.4rem rgba(0, 0, 0, 0.35);
 
-    transition: transform 120ms ease-out;
+    transition: transform 120ms ease-out, box-shadow 180ms ease-out;
     transform-origin: center;
 
     &:hover {
         background-color: rgba(255, 255, 255, 0.1);
     }
 
-    /* Focus TV: scale + alone largo e morbido, coerente con Video card. */
+    /* Focus TV: scale + elevation amplificata + alone bianco morbido. */
     &:focus-visible {
         outline: none;
-        transform: scale(1.05);
+        transform: scale(1.08);
         z-index: 2;
         background-color: rgba(255, 255, 255, 0.12);
-        box-shadow: 0 0.5rem 4rem 0.6rem rgba(255, 255, 255, 0.14);
+        box-shadow:
+            0 1.2rem 3rem rgba(0, 0, 0, 0.55),
+            0 0.5rem 4rem 0.4rem rgba(255, 255, 255, 0.14);
 
         .icon {
             opacity: 1;

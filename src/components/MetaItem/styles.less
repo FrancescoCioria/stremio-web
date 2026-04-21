@@ -29,15 +29,23 @@
         }
     }
 
-    /* Focus TV: scale intera card + alone largo/chiaro sotto il POSTER.
-     * Niente outline "quadratino bianco" o box-shadow bordato. */
+    .poster-container {
+        /* Ombra scura di default per elevation a tutte le tile. */
+        box-shadow: 0 0.6rem 1.6rem rgba(0, 0, 0, 0.42);
+        transition: box-shadow 180ms ease-out;
+    }
+
+    /* Focus TV: scale 1.16 + ombra dark AMPLIFICATA (elevation piu' alta)
+     * piu' alone bianco per attrarre il focus. */
     &:focus-visible {
         outline: none;
-        transform: scale(1.08);
+        transform: scale(1.16);
         z-index: 2;
 
         .poster-container {
-            box-shadow: 0 0.5rem 4rem 0.6rem rgba(255, 255, 255, 0.14);
+            box-shadow:
+                0 1.5rem 3.5rem rgba(0, 0, 0, 0.6),
+                0 0.8rem 5rem 0.4rem rgba(255, 255, 255, 0.14);
 
             .dismiss-icon-layer {
                 opacity: 1;
@@ -303,12 +311,13 @@
         display: flex;
         flex-direction: row;
         align-items: center;
-        height: 4rem;
+        height: 3.5rem;
         overflow: visible;
 
         .title-label {
             flex: 1;
             padding-left: 1.5rem;
+            font-size: 1rem;
             font-weight: 600;
             text-align: center;
             color: var(--primary-foreground-color);

@@ -17,13 +17,14 @@
         align-items: center;
         justify-content: flex-end;
         padding: 0 1rem;
-        margin-bottom: 0.25rem;
+        margin-bottom: 0;
 
         .title-container {
             flex: 1;
             max-height: 2.4em;
-            font-size: 1.6rem;
-            font-weight: 500;
+            font-size: 2.1rem;
+            font-weight: 700;
+            letter-spacing: -0.01em;
             color: var(--primary-foreground-color);
         }
 
@@ -70,15 +71,15 @@
     }
 
     /* TV: rail orizzontale scrollabile, con card a larghezza fissa e
-     * abbondante padding verticale per accogliere la scale(1.08) sul focus
-     * senza essere croppata (overflow-x: auto implica overflow-y: auto nel
+     * padding verticale per accogliere la scale(1.16) sul focus senza
+     * essere croppata (overflow-x: auto implica overflow-y: auto nel
      * box model CSS). */
     .meta-items-container {
         display: flex;
         flex-direction: row;
         align-items: stretch;
         gap: 1rem;
-        padding: 2.5rem 1rem;
+        padding: 1.5rem 1rem;
         overflow-x: auto;
         overflow-y: hidden;
         scroll-snap-type: x proximity;
@@ -91,16 +92,17 @@
             flex: none;
             scroll-snap-align: start;
 
+            /* 55" 4K a 2m: bump ~20% rispetto al default web */
             &.poster-shape-poster {
-                width: 12rem;
+                width: 14rem;
             }
 
             &.poster-shape-square {
-                width: 12rem;
+                width: 14rem;
             }
 
             &.poster-shape-landscape {
-                width: 20rem;
+                width: 24rem;
             }
         }
     }
