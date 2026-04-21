@@ -55,13 +55,66 @@ const Search = ({ queryParams }) => {
         const handler = (e) => { if (e?.detail?.item) setFocusedMeta(e.detail.item); };
         root.addEventListener('casa-meta-focus', handler);
         return () => root.removeEventListener('casa-meta-focus', handler);
+    }, [query]);
+
+    // Arrow key nav: row-a-row / tile-a-tile (stesso pattern Board).
+    const onSearchKeyDown = React.useCallback((e) => {
+        const isVertical = e.key === 'ArrowUp' || e.key === 'ArrowDown';
+        const isHorizontal = e.key === 'ArrowLeft' || e.key === 'ArrowRight';
+        if (!isVertical && !isHorizontal) return;
+        const root = scrollContainerRef.current;
+        if (!root) return;
+        const currentRow = e.target.closest('[class*="meta-row-container"]');
+        if (!currentRow) return;
+        if (isVertical) {
+            const allRows = [...root.querySelectorAll('[class*="meta-row-container"]')];
+            const idx = allRows.indexOf(currentRow);
+            const target = e.key === 'ArrowDown' ? allRows[idx + 1] : allRows[idx - 1];
+            if (!target) return;
+            e.preventDefault();
+            e.stopPropagation();
+            const firstCard = target.querySelector('[tabindex], a, button');
+            if (firstCard) firstCard.focus({ preventScroll: true });
+            target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            return;
+        }
+        const currentCard = e.target.closest('[class*="meta-item-container"]');
+        if (!currentCard) return;
+        const rowItems = [...currentRow.querySelectorAll('[class*="meta-item-container"]')];
+        const cardIdx = rowItems.indexOf(currentCard);
+        const targetCard = e.key === 'ArrowRight' ? rowItems[cardIdx + 1] : rowItems[cardIdx - 1];
+        if (!targetCard) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const focusable = targetCard.querySelector('[tabindex], a, button') || targetCard;
+        focusable.focus({ preventScroll: true });
+        targetCard.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
     }, []);
+
+    // Default focus sulla prima card risultato dopo 500ms di stabilita'.
+    const catalogsStateKey = React.useMemo(() => {
+        return (query || '') + ':' + search.catalogs.map((c) => c.content?.type || 'pending').join(',');
+    }, [search.catalogs, query]);
+    const initialFocusDoneRef = React.useRef(null);
+    React.useEffect(() => {
+        if (initialFocusDoneRef.current === catalogsStateKey) return;
+        const tid = setTimeout(() => {
+            initialFocusDoneRef.current = catalogsStateKey;
+            const root = scrollContainerRef.current;
+            if (!root) return;
+            const ae = document.activeElement;
+            if (ae && ae !== document.body && root.contains(ae) && ae.closest('[class*="meta-item-container"]')) return;
+            const firstCard = root.querySelector('[class*="meta-item-container"] [tabindex], [class*="meta-item-container"] a, [class*="meta-item-container"] button, [class*="meta-item-container"][tabindex]');
+            if (firstCard) firstCard.focus({ preventScroll: true });
+        }, 500);
+        return () => clearTimeout(tid);
+    }, [catalogsStateKey]);
 
     return (
         <MainNavBars className={styles['search-container']} route={'search'} query={query}>
             <div className={styles['search-vstack']}>
                 {query !== null ? <BoardHero meta={focusedMeta} /> : null}
-                <div ref={scrollContainerRef} className={styles['search-content']} onScroll={onScroll}>
+                <div ref={scrollContainerRef} className={styles['search-content']} onScroll={onScroll} onKeyDown={onSearchKeyDown}>
                 {
                     query === null ?
                         <div className={classnames(styles['search-hints-wrapper'])}>
