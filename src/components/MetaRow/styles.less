@@ -5,6 +5,11 @@
 
 .meta-row-container {
     overflow: visible;
+    /* TV: quando il browser scrolla automaticamente per portare in vista una
+     * card focus-ata, lascia >= 6rem di respiro sopra e sotto. Evita che
+     * la riga precedente venga tagliata a meta' dal bordo superiore. */
+    scroll-margin-top: 6rem;
+    scroll-margin-bottom: 4rem;
 
     .header-container {
         display: flex;
@@ -64,23 +69,38 @@
         opacity: 0.6;
     }
 
+    /* TV: rail orizzontale scrollabile, con card a larghezza fissa e
+     * abbondante padding verticale per accogliere la scale(1.08) sul focus
+     * senza essere croppata (overflow-x: auto implica overflow-y: auto nel
+     * box model CSS). */
     .meta-items-container {
         display: flex;
         flex-direction: row;
         align-items: stretch;
-        overflow: visible;
+        gap: 1rem;
+        padding: 2.5rem 1rem;
+        overflow-x: auto;
+        overflow-y: hidden;
+        scroll-snap-type: x proximity;
+
+        &::-webkit-scrollbar {
+            display: none;
+        }
 
         .meta-item {
+            flex: none;
+            scroll-snap-align: start;
+
             &.poster-shape-poster {
-                flex: calc(1 / var(--poster-shape-ratio));
+                width: 12rem;
             }
 
             &.poster-shape-square {
-                flex: 1;
+                width: 12rem;
             }
 
             &.poster-shape-landscape {
-                flex: calc(1 / var(--landscape-shape-ratio));
+                width: 20rem;
             }
         }
     }

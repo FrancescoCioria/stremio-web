@@ -8,6 +8,7 @@ const { useStreamingServer, useNotifications, withCoreSuspender, getVisibleChild
 const { ContinueWatchingItem, EventModal, MainNavBars, MetaItem, MetaRow } = require('stremio/components');
 const useBoard = require('./useBoard');
 const useContinueWatchingPreview = require('./useContinueWatchingPreview');
+const BoardHero = require('./BoardHero');
 const styles = require('./styles');
 const { default: StreamingServerWarning } = require('./StreamingServerWarning');
 
@@ -45,11 +46,102 @@ const Board = () => {
     React.useLayoutEffect(() => {
         onVisibleRangeChange();
     }, [board.catalogs, onVisibleRangeChange]);
+
+    // TV: hero meta-preview sopra le rail che mostra l'info dell'item
+    // focusato. Ascoltiamo un CustomEvent emesso da MetaRow quando una
+    // card prende focus (event bus decoupled).
+    const [focusedMeta, setFocusedMeta] = React.useState(null);
+    React.useEffect(() => {
+        const root = scrollContainerRef.current;
+        if (!root) return undefined;
+        const handler = (e) => {
+            if (e?.detail?.item) setFocusedMeta(e.detail.item);
+        };
+        root.addEventListener('casa-meta-focus', handler);
+        return () => root.removeEventListener('casa-meta-focus', handler);
+    }, []);
+
+    // TV: nav row-a-row su Up/Down + tile-a-tile su Left/Right. Lo scroll
+    // nativo del browser per le frecce su elemento focus-ato fa passettini
+    // quantizzati (~40px) invece di muovere il focus — pessimo da divano.
+    const onBoardKeyDown = React.useCallback((e) => {
+        const isVertical = e.key === 'ArrowUp' || e.key === 'ArrowDown';
+        const isHorizontal = e.key === 'ArrowLeft' || e.key === 'ArrowRight';
+        if (!isVertical && !isHorizontal) return;
+        const current = e.target;
+        const root = scrollContainerRef.current;
+        if (!root) return;
+        const currentRow = current.closest('[class*="meta-row-container"]');
+        if (!currentRow) return;
+
+        if (isVertical) {
+            const allRows = [...root.querySelectorAll('[class*="meta-row-container"]')];
+            const idx = allRows.indexOf(currentRow);
+            const target = e.key === 'ArrowDown' ? allRows[idx + 1] : allRows[idx - 1];
+            if (!target) return;
+            e.preventDefault();
+            e.stopPropagation();
+            const firstCard = target.querySelector('[tabindex], a, button');
+            if (firstCard) firstCard.focus({ preventScroll: true });
+            target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            return;
+        }
+
+        // Horizontal: trova la card corrente + salta alla sibling.
+        const currentCard = current.closest('[class*="meta-item-container"]');
+        if (!currentCard) return;
+        const rowItems = [...currentRow.querySelectorAll('[class*="meta-item-container"]')];
+        const cardIdx = rowItems.indexOf(currentCard);
+        const targetCard = e.key === 'ArrowRight' ? rowItems[cardIdx + 1] : rowItems[cardIdx - 1];
+        if (!targetCard) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const focusable = targetCard.querySelector('[tabindex], a, button') || targetCard;
+        focusable.focus({ preventScroll: true });
+        targetCard.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    }, []);
+
+    // TV: default focus sulla prima card, ma solo DOPO che l'array catalogs
+    // smette di cambiare per 500ms. I cataloghi arrivano in modo async e
+    // possono inserire righe nuove (es. Continue Watching) sopra la prima,
+    // shiftando il layout: se focussiamo prima che tutto si sia stabilizzato
+    // il focus finisce su una card che poi si sposta visivamente.
+    // Key stabile su tipi+conteggio per non re-firare ad ogni render quando
+    // l'identita' di board.catalogs cambia senza che il contenuto sia mosso.
+    const catalogsStateKey = React.useMemo(() => {
+        return (
+            continueWatchingPreview.items.length + ':' +
+            board.catalogs.map((c) => c.content?.type || 'pending').join(',')
+        );
+    }, [board.catalogs, continueWatchingPreview.items.length]);
+    const initialFocusDoneRef = React.useRef(false);
+    React.useEffect(() => {
+        if (initialFocusDoneRef.current) return;
+        const tid = setTimeout(() => {
+            if (initialFocusDoneRef.current) return;
+            const root = scrollContainerRef.current;
+            if (!root) return;
+            const ae = document.activeElement;
+            // L'utente ha gia' scelto una card? Non sovrascrivere.
+            if (ae && ae !== document.body && root.contains(ae) && ae.closest('[class*="meta-item-container"]')) {
+                initialFocusDoneRef.current = true;
+                return;
+            }
+            const firstCard = root.querySelector('[class*="meta-item-container"] [tabindex], [class*="meta-item-container"] a, [class*="meta-item-container"] button, [class*="meta-item-container"][tabindex]');
+            if (!firstCard) return;
+            initialFocusDoneRef.current = true;
+            firstCard.focus({ preventScroll: true });
+            firstCard.scrollIntoView({ behavior: 'instant', block: 'start' });
+        }, 500);
+        return () => clearTimeout(tid);
+    }, [catalogsStateKey]);
     return (
         <div className={styles['board-container']}>
             <EventModal />
             <MainNavBars className={styles['board-content-container']} route={'board'}>
-                <div ref={scrollContainerRef} className={styles['board-content']} onScroll={onScroll}>
+                <div className={styles['board-vstack']}>
+                    <BoardHero meta={focusedMeta} />
+                    <div ref={scrollContainerRef} className={styles['board-content']} onScroll={onScroll} onKeyDown={onBoardKeyDown}>
                     {
                         continueWatchingPreview.items.length > 0 ?
                             <MetaRow
@@ -99,6 +191,7 @@ const Board = () => {
                             }
                         }
                     })}
+                    </div>
                 </div>
             </MainNavBars>
             {

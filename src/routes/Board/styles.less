@@ -22,15 +22,24 @@
         align-self: stretch;
         background: transparent;
 
-        .board-content {
+        .board-vstack {
+            display: flex;
+            flex-direction: column;
             height: 100%;
             width: 100%;
-            padding: 0 1rem;
-            overflow-y: auto;
 
-            .board-row {
-                margin-top: 1rem;
-                margin-bottom: 2rem;
+            .board-content {
+                flex: 1;
+                min-height: 0;
+                width: 100%;
+                padding: 0;
+                overflow-y: auto;
+
+                .board-row {
+                    margin-top: 1rem;
+                    margin-bottom: 2rem;
+                    padding: 0 1rem;
+                }
             }
         }
     }
@@ -43,149 +52,9 @@
     }
 }
 
-@media only screen and (max-width: @large) {
-    .board-container {
-        .board-content-container {
-            .board-content {
-                .board-row-poster, .board-row-square, .continue-watching-row {
-                    .meta-item, .meta-item-placeholder {
-                        &:nth-child(n+10) {
-                            display: none;
-                        }
-                    }
-                }
-
-                .board-row-landscape {
-                    .meta-item, .meta-item-placeholder {
-                        &:nth-child(n+9) {
-                            display: none;
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@media only screen and (max-width: @normal) {
-    .board-container {
-        .board-content-container {
-            .board-content {
-                .board-row-poster, .board-row-square, .continue-watching-row {
-                    .meta-item, .meta-item-placeholder {
-                        &:nth-child(n+9) {
-                            display: none;
-                        }
-                    }
-                }
-
-                .board-row-landscape {
-                    .meta-item, .meta-item-placeholder {
-                        &:nth-child(n+8) {
-                            display: none;
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@media only screen and (max-width: @medium) {
-    .board-container {
-        .board-content-container {
-            .board-content {
-                .board-row-poster, .board-row-square, .continue-watching-row {
-                    .meta-item, .meta-item-placeholder {
-                        &:nth-child(n+8) {
-                            display: none;
-                        }
-                    }
-                }
-
-                .board-row-landscape {
-                    .meta-item, .meta-item-placeholder {
-                        &:nth-child(n+7) {
-                            display: none;
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@media only screen and (max-width: @small) {
-    .board-container {
-        .board-content-container {
-            .board-content {
-                .board-row-poster, .board-row-square, .continue-watching-row {
-                    .meta-item, .meta-item-placeholder {
-                        &:nth-child(n+7) {
-                            display: none;
-                        }
-                    }
-                }
-
-                .board-row-landscape {
-                    .meta-item, .meta-item-placeholder {
-                        &:nth-child(n+6) {
-                            display: none;
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@media only screen and (max-width: @xsmall) {
-    .board-container {
-        .board-content-container {
-            .board-content {
-                .board-row-poster, .board-row-square, .continue-watching-row {
-                    .meta-item, .meta-item-placeholder {
-                        &:nth-child(n+6) {
-                            display: none;
-                        }
-                    }
-                }
-
-                .board-row-landscape {
-                    .meta-item, .meta-item-placeholder {
-                        &:nth-child(n+5) {
-                            display: none;
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@media only screen and (max-width: @xxsmall) {
-    .board-container {
-        .board-content-container {
-            .board-content {
-                .board-row-poster, .board-row-square, .continue-watching-row {
-                    .meta-item, .meta-item-placeholder {
-                        &:nth-child(n+5) {
-                            display: none;
-                        }
-                    }
-                }
-
-                .board-row-landscape {
-                    .meta-item, .meta-item-placeholder {
-                        &:nth-child(n+4) {
-                            display: none;
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
+/* TV: rimossi tutti i media-query che nascondevano le card oltre la
+ * nth-child(N). Vogliamo mostrare tutti i 25 item in rail scrollabile
+ * orizzontalmente; niente hiding viewport-based. */
 
 @media only screen and (max-width: @minimum) {
     .board-container {

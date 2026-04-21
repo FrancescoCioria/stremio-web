@@ -91,14 +91,23 @@
             display: flex;
             flex-direction: row;
             align-items: center;
-            flex-wrap: wrap;
+            /* TV: niente wrap + altezza fissa cosi' passando da "63 min · 2019
+             * · IMDb" a "S01E01 · date · title" la UI non si sposta anche
+             * quando i due set di valori hanno altezze intrinseche diverse
+             * (IMDb pill > testo). */
+            flex-wrap: nowrap;
+            height: 2.8rem;
             margin-top: 1rem;
+            overflow: hidden;
 
             .runtime-label, .release-info-label {
                 flex: 0 1 auto;
                 margin-right: 3rem;
                 font-size: 1.25rem;
                 font-weight: 600;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
                 color: var(--primary-foreground-color);
             }
 
@@ -137,14 +146,21 @@
             margin-top: 1rem;
             font-size: 1rem;
             font-weight: 400;
-            line-height: 2em;
+            line-height: 1.5em;
+            /* TV: altezza fissa per non far muovere il layout quando la
+             * descrizione cambia al variare dell'episodio in focus.
+             * ~1.8em label SUMMARY + 3 righe * 1.5em = ~6.5em. */
+            height: 6.5em;
+            overflow: hidden;
             color: var(--primary-foreground-color);
             .label-container {
+                display: block;
                 text-transform: uppercase;
                 font-size: 0.95rem;
                 font-weight: 700;
                 color: var(--primary-foreground-color);
                 opacity: 0.3;
+                margin-bottom: 0.3em;
             }
         }
 

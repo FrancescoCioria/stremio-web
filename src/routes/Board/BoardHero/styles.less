@@ -1,0 +1,123 @@
+// Copyright (C) 2024 — Casa TV fork
+@import (reference) '~@stremio/stremio-colors/less/stremio-colors.less';
+
+.board-hero-container {
+    position: relative;
+    flex: none;
+    height: 26rem;
+    width: 100%;
+    overflow: hidden;
+
+    .hero-bg-layer {
+        position: absolute;
+        inset: 0;
+        z-index: 0;
+
+        .hero-bg-image {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center 20%;
+            opacity: 0.9;
+            animation: hero-fade 240ms ease-out;
+        }
+
+        .hero-bg-gradient {
+            position: absolute;
+            inset: 0;
+            /* Sfumatura: sinistra molto scura (dove sta la info), a destra
+             * quasi trasparente (l'art deve respirare). In basso fade dark
+             * per integrarsi col resto della Board. */
+            background:
+                linear-gradient(90deg, var(--primary-background-color) 0%, rgba(15, 17, 25, 0.7) 45%, rgba(15, 17, 25, 0) 70%),
+                linear-gradient(180deg, rgba(0, 0, 0, 0) 40%, var(--primary-background-color) 100%);
+        }
+    }
+
+    .hero-info {
+        position: relative;
+        z-index: 1;
+        max-width: 55%;
+        padding: 3rem 3rem 2rem 3rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.7rem;
+
+        .hero-logo {
+            max-width: 22rem;
+            max-height: 8rem;
+            object-fit: contain;
+            object-position: left center;
+            filter: drop-shadow(0 0 1rem rgba(0,0,0,0.4));
+        }
+
+        .hero-title {
+            font-size: 3rem;
+            font-weight: 800;
+            color: var(--primary-foreground-color);
+            line-height: 1.1;
+        }
+
+        .hero-subline {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 1rem;
+            color: var(--primary-foreground-color);
+            opacity: 0.92;
+
+            .sub-item {
+                font-size: 1.1rem;
+                font-weight: 600;
+            }
+
+            .rating {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.4rem;
+
+                .imdb-badge {
+                    font-size: 0.75rem;
+                    font-weight: 800;
+                    padding: 0.15rem 0.4rem;
+                    background-color: #f5c518;
+                    color: #000;
+                    border-radius: 0.2rem;
+                }
+            }
+
+            .genres {
+                opacity: 0.8;
+            }
+        }
+
+        .hero-description {
+            font-size: 1rem;
+            line-height: 1.5;
+            color: var(--primary-foreground-color);
+            opacity: 0.88;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            /* Altezza fissa cosi' il layout non si sposta tra item con
+             * description piu' o meno lunghe. */
+            height: calc(3 * 1.5em);
+        }
+
+        .hero-cast {
+            font-size: 0.9rem;
+            color: var(--primary-foreground-color);
+            opacity: 0.6;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+    }
+}
+
+@keyframes hero-fade {
+    from { opacity: 0; }
+    to { opacity: 0.9; }
+}

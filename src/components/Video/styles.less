@@ -18,7 +18,8 @@
     flex-wrap: nowrap;
     align-items: stretch;
     flex: none;
-    width: 16rem;
+    /* 55" 4K a 2m: bump a ~22rem per una card leggibile da divano. */
+    width: 22rem;
     padding: 0.5rem;
     margin-bottom: 0;
     border-radius: var(--border-radius);
@@ -28,16 +29,30 @@
         scroll-margin: 1.25rem;
     }
 
+    /* TV: transizione scale per focus. z-index alto durante focus cosi'
+     * la card scalata overlay-a le vicine senza essere clippata. */
+    transition: transform 120ms ease-out;
+    transform-origin: center;
+
     &:hover,
     &:global(.active) {
         background-color: var(--overlay-color);
     }
 
-    /* Focus ring evidente da 2m: outline, no background. */
+    /* Focus TV: la card si ingrandisce (scale). Alone morbido chiaro solo
+     * dietro la THUMBNAIL (via selettore discendente qui sotto), non
+     * attorno a tutto il box: il titolo/data sono testo e l'alone li
+     * sfocava. Niente outline "quadratino bianco". */
     &:focus-visible {
-        outline: 0.2rem solid var(--primary-foreground-color);
-        outline-offset: 0.1rem;
+        outline: none;
+        transform: scale(1.08);
+        z-index: 2;
         background-color: transparent;
+
+        .thumbnail-container {
+            /* Alone largo e morbido: attira il focus senza inquinare la UI. */
+            box-shadow: 0 0.5rem 4rem 0.6rem rgba(255, 255, 255, 0.14);
+        }
     }
 
     .thumbnail-container {
@@ -45,12 +60,14 @@
         position: relative;
         border-radius: 0.5rem;
         overflow: hidden;
+        transition: box-shadow 120ms ease-out;
 
         .thumbnail {
             pointer-events: none;
             display: block;
             width: 100%;
-            height: 8.5rem;
+            /* 22rem larghezza, 16:9 -> ~12.4rem. Rotondiamo. */
+            height: 12.5rem;
             object-fit: cover;
             object-position: center;
             opacity: 0.9;
@@ -65,8 +82,8 @@
         .placeholder-icon {
             display: block;
             width: 100%;
-            height: 8.5rem;
-            padding: 1.5rem;
+            height: 12.5rem;
+            padding: 2rem;
             color: var(--primary-foreground-color);
             background-color: var(--overlay-color);
             opacity: 0.25;
@@ -113,7 +130,7 @@
             -webkit-box-orient: vertical;
             overflow: hidden;
             margin-bottom: 0.25rem;
-            font-size: 0.9rem;
+            font-size: 1.05rem;
             color: var(--primary-foreground-color);
         }
 

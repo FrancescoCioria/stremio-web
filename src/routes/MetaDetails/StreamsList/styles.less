@@ -79,28 +79,41 @@
         overflow: visible;
 
         .back-button-container {
+            /* TV: pill coerente con le Season tabs / action buttons. */
             display: flex;
+            flex: none;
             justify-content: center;
             align-items: center;
-            border-radius: 0.5em;
-            padding: 1em;
-            max-height: 3em;
+            gap: 0.5rem;
+            height: 3rem;
+            padding: 0 1.5rem;
+            border-radius: 1.5rem;
+            background-color: var(--overlay-color);
+            backdrop-filter: blur(5px);
+            transition: transform 120ms ease-out;
 
             .icon {
-                width: 1.5em;
-                height: 1.5em;
+                width: 1.4rem;
+                height: 1.4rem;
                 color: var(--primary-foreground-color);
-                opacity: 0.6;
+                opacity: 0.95;
             }
 
-            &:hover, &:global(.active) {
-                background-color: var(--overlay-color);
-                opacity: 1;
-    
-                .icon {
-                    color: var(--primary-foreground-color);
-                    opacity: 0.8;
-                }
+            .label {
+                font-size: 0.95rem;
+                font-weight: 600;
+                color: var(--primary-foreground-color);
+                opacity: 0.95;
+            }
+
+            &:hover {
+                background-color: rgba(255, 255, 255, 0.16);
+            }
+
+            &:focus-visible {
+                outline: none;
+                transform: scale(1.06);
+                background-color: rgba(255, 255, 255, 0.16);
             }
         }
 

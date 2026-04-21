@@ -17,15 +17,7 @@ const MetaRowPlaceholder = ({ className, title, deepLinks }) => {
                 <div className={styles['title-container']} title={typeof title === 'string' && title.length > 0 ? title : null}>
                     {typeof title === 'string' && title.length > 0 ? title : null}
                 </div>
-                {
-                    deepLinks && typeof deepLinks.discover === 'string' ?
-                        <Button className={styles['see-all-container']} title={t('BUTTON_SEE_ALL')} href={deepLinks.discover} tabIndex={-1}>
-                            <div className={styles['label']}>{ t('BUTTON_SEE_ALL') }</div>
-                            <Icon className={styles['icon']} name={'chevron-forward'} />
-                        </Button>
-                        :
-                        null
-                }
+                {/* TV: see-all rimosso (vedi MetaRow.js). */}
             </div>
             <div className={styles['meta-items-container']}>
                 {Array(CONSTANTS.CATALOG_PREVIEW_SIZE).fill(null).map((_, index) => (

@@ -98,14 +98,28 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
         onEpisodeSearch(season, episode);
     }, [onEpisodeSearch]);
 
+    // Default focus: al primo load della lista stream, porta il focus sulla
+    // prima card. Evita all'utente da telecomando di dover scrollare per
+    // "trovare" il punto di partenza.
+    const initialFocusDoneRef = React.useRef(false);
+    React.useEffect(() => {
+        if (initialFocusDoneRef.current) return;
+        const container = streamsContainerRef.current;
+        if (!container || filteredStreams.length === 0) return;
+        initialFocusDoneRef.current = true;
+        const el = container.querySelector('[tabindex], a, button');
+        if (el) el.focus();
+    }, [filteredStreams]);
+
     return (
         <div className={classnames(className, styles['streams-list-container'])}>
             <div className={styles['select-choices-wrapper']}>
                 {
                     video ?
                         <React.Fragment>
-                            <Button className={classnames(styles['button-container'], styles['back-button-container'])} tabIndex={-1} onClick={backButtonOnClick}>
+                            <Button className={classnames(styles['button-container'], styles['back-button-container'])} onClick={backButtonOnClick}>
                                 <Icon className={styles['icon']} name={'chevron-back'} />
+                                <div className={styles['label']}>Back</div>
                             </Button>
                             <div className={styles['episode-title']}>
                                 {typeof video.season === 'number' && typeof video.episode === 'number'

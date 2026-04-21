@@ -26,7 +26,7 @@ const ALLOWED_LINK_REDIRECTS = [
     routesRegexp.metadetails.regexp
 ];
 
-const MetaPreview = React.forwardRef(({ className, compact, name, logo, background, runtime, releaseInfo, released, description, deepLinks, links, trailerStreams, inLibrary, toggleInLibrary, watched, toggleWatched, ratingInfo }, ref) => {
+const MetaPreview = React.forwardRef(({ className, compact, name, logo, background, runtime, releaseInfo, released, description, deepLinks, links, trailerStreams, inLibrary, toggleInLibrary, watched, toggleWatched, ratingInfo, focusedEpisode, hideActions }, ref) => {
     const { t } = useTranslation();
     const [shareModalOpen, openShareModal, closeShareModal] = useBinaryState(false);
     const linksGroups = React.useMemo(() => {
@@ -105,12 +105,11 @@ const MetaPreview = React.forwardRef(({ className, compact, name, logo, backgrou
             label: inLibrary ? t('REMOVE_FROM_LIB') : t('ADD_TO_LIB'),
             onClick: typeof toggleInLibrary === 'function' ? toggleInLibrary : null,
         },
-        {
-            icon: watched ? 'eye-off' : 'eye',
-            label: watched ? t('CTX_MARK_UNWATCHED') : t('CTX_MARK_WATCHED'),
-            onClick: typeof toggleWatched === 'function' ? toggleWatched : undefined,
-        },
-    ], [inLibrary, watched, toggleInLibrary, toggleWatched]);
+        // TV: "Mark as watched" nascosto per ora. Sul metaItem segnerebbe
+        // l'INTERA serie come vista, rischioso con una pressione sola da
+        // telecomando. Da riesporre in futuro come toggle per singolo
+        // episodio sulla card focus-ata.
+    ], [inLibrary, toggleInLibrary]);
     return (
         <div className={classnames(className, styles['meta-preview-container'], { [styles['compact']]: compact })} ref={ref}>
             {
@@ -135,6 +134,35 @@ const MetaPreview = React.forwardRef(({ className, compact, name, logo, backgrou
                         renderLogoFallback()
                 }
                 {
+                    focusedEpisode ?
+                        /* TV: episodio focus-ato -> "S02E01 · Dec 25, 2024 · Ppang-gwa boggwon"
+                         * al posto di "runtime · year · IMDb". Info della serie
+                         * torna quando il focus esce dal rail. */
+                        <div className={styles['runtime-release-info-container']}>
+                            {
+                                typeof focusedEpisode.season === 'number' && typeof focusedEpisode.episode === 'number' ?
+                                    <div className={styles['runtime-label']}>
+                                        S{String(focusedEpisode.season).padStart(2, '0')}E{String(focusedEpisode.episode).padStart(2, '0')}
+                                    </div>
+                                    :
+                                    null
+                            }
+                            {
+                                focusedEpisode.released instanceof Date && !isNaN(focusedEpisode.released.getTime()) ?
+                                    <div className={styles['release-info-label']}>
+                                        {focusedEpisode.released.toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                                    </div>
+                                    :
+                                    null
+                            }
+                            {
+                                typeof focusedEpisode.title === 'string' && focusedEpisode.title.length > 0 ?
+                                    <div className={styles['release-info-label']}>{focusedEpisode.title}</div>
+                                    :
+                                    null
+                            }
+                        </div>
+                        :
                     (typeof releaseInfo === 'string' && releaseInfo.length > 0) || (released instanceof Date && !isNaN(released.getTime())) || (typeof runtime === 'string' && runtime.length > 0) || linksGroups.has(CONSTANTS.IMDB_LINK_CATEGORY) ?
                         <div className={styles['runtime-release-info-container']}>
                             {
@@ -153,13 +181,15 @@ const MetaPreview = React.forwardRef(({ className, compact, name, logo, backgrou
                                         null
                             }
                             {
+                                /* TV: rating IMDb resta visibile come info,
+                                 * ma non entra nella spatial nav (tabIndex=-1). */
                                 linksGroups.has(CONSTANTS.IMDB_LINK_CATEGORY) ?
                                     <Button
                                         className={styles['imdb-button-container']}
                                         title={linksGroups.get(CONSTANTS.IMDB_LINK_CATEGORY).label}
                                         href={linksGroups.get(CONSTANTS.IMDB_LINK_CATEGORY).href}
                                         target={'_blank'}
-                                        {...(compact ? { tabIndex: -1 } : null)}
+                                        tabIndex={-1}
                                     >
                                         <div className={styles['label']}>{linksGroups.get(CONSTANTS.IMDB_LINK_CATEGORY).label}</div>
                                         <Icon className={styles['icon']} name={'imdb'} />
@@ -195,8 +225,12 @@ const MetaPreview = React.forwardRef(({ className, compact, name, logo, backgrou
                 }
             </div>
             <div className={styles['action-buttons-container']}>
+                {/* TV: in "streams mode" (episodio gia' selezionato, torrent
+                 *  picker sotto) non mostriamo Trailer + Add to Library —
+                 *  l'utente ha gia' scelto l'episodio, le azioni meta-level
+                 *  non hanno senso li. hideActions salta tutto il blocco. */}
                 {
-                    typeof trailerHref === 'string' ?
+                    !hideActions && typeof trailerHref === 'string' ?
                         <ActionButton
                             className={styles['action-button']}
                             icon={'trailer'}
@@ -209,9 +243,8 @@ const MetaPreview = React.forwardRef(({ className, compact, name, logo, backgrou
                         null
                 }
                 {
-                    /* TV: invece dell'ActionsGroup (div+tooltip, non focusabili)
-                     * renderizziamo ogni action come ActionButton pill stand-alone. */
-                    typeof toggleInLibrary === 'function' && typeof toggleWatched === 'function'
+                    /* TV: ogni action come ActionButton pill stand-alone. */
+                    !hideActions && typeof toggleInLibrary === 'function'
                         ? metaItemActions.map((action, i) => (
                             <ActionButton
                                 key={i}
@@ -245,32 +278,8 @@ const MetaPreview = React.forwardRef(({ className, compact, name, logo, backgrou
                         :
                         null
                 }
-                {
-                    linksGroups.has(CONSTANTS.SHARE_LINK_CATEGORY) && !compact ?
-                        <React.Fragment>
-                            <ActionButton
-                                className={styles['action-button']}
-                                icon={'share'}
-                                label={t('CTX_SHARE')}
-                                tooltip={true}
-                                tabIndex={compact ? -1 : 0}
-                                onClick={openShareModal}
-                            />
-                            {
-                                shareModalOpen ?
-                                    <ModalDialog title={t('CTX_SHARE')} onCloseRequest={closeShareModal}>
-                                        <SharePrompt
-                                            className={styles['share-prompt']}
-                                            url={linksGroups.get(CONSTANTS.SHARE_LINK_CATEGORY).href}
-                                        />
-                                    </ModalDialog>
-                                    :
-                                    null
-                            }
-                        </React.Fragment>
-                        :
-                        null
-                }
+                {/* TV: rimosso bottone Share (copiare un link non ha senso
+                    da telecomando). */}
             </div>
         </div>
     );

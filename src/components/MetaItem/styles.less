@@ -16,40 +16,36 @@
 @play-icon-size: 4rem;
 
 .meta-item-container {
-    padding: 1rem;
+    padding: 0.5rem;
     overflow: visible;
+    /* TV: transizione scale per focus, coerente con Video/Stream card. */
+    transition: transform 120ms ease-out;
+    transform-origin: center;
 
-    &:hover, &:focus, &:global(.active), &:global(.selected) {
+    &:hover, &:global(.active), &:global(.selected) {
         outline-style: none;
-        transition: background-color 100ms ease-out;
+        .title-bar-container .menu-label-container {
+            opacity: 1;
+        }
+    }
+
+    /* Focus TV: scale intera card + alone largo/chiaro sotto il POSTER.
+     * Niente outline "quadratino bianco" o box-shadow bordato. */
+    &:focus-visible {
+        outline: none;
+        transform: scale(1.08);
+        z-index: 2;
 
         .poster-container {
-            box-shadow: 0 0 0 0.2rem var(--primary-foreground-color);
+            box-shadow: 0 0.5rem 4rem 0.6rem rgba(255, 255, 255, 0.14);
 
             .dismiss-icon-layer {
                 opacity: 1;
             }
-
-            .poster-image-layer {
-                transform: scale(1.05);
-            }
-
-            .play-icon-layer {
-                .play-icon-outer {
-                    color: transparent;
-                }
-
-                .play-icon-background {
-                    background-color: var(--secondary-accent-color);
-                    opacity: 1;
-                }
-            }
         }
 
-        .title-bar-container {
-            .menu-label-container {
-                opacity: 1;
-            }
+        .title-bar-container .menu-label-container {
+            opacity: 1;
         }
     }
 

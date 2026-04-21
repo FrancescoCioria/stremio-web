@@ -11,9 +11,73 @@ const SeasonsBar = require('./SeasonsBar');
 const { default: EpisodePicker } = require('../EpisodePicker');
 const styles = require('./styles');
 
-const VideosList = ({ className, metaItem, libraryItem, season, seasonOnSelect, selectedVideoId, toggleNotifications }) => {
+const VideosList = ({ className, metaItem, libraryItem, season, seasonOnSelect, selectedVideoId, toggleNotifications, onFocusedVideoChange }) => {
     const { core } = useServices();
     const profile = useProfile();
+
+    // Track quale episodio ha il focus adesso (non clicked, solo focused) cosi'
+    // il MetaPreview di sopra puo' aggiornarsi dinamicamente con i dati
+    // dell'episodio su cui l'utente sta "hovering" via telecomando.
+    //
+    // Usiamo DOM listeners (focusin/focusout) via CALLBACK REF invece di
+    // onFocusCapture React: (1) il Popup di Video puo' portalare l'elemento
+    // focusable fuori dal React tree del wrapper; (2) useEffect con [] non
+    // basta perche' al primo mount il container non esiste ancora (rendering
+    // condizionale). La callback ref invece viene chiamata da React appena
+    // il nodo esiste.
+    const videosContainerRef = React.useRef(null);
+    const [focusedVideoId, setFocusedVideoId] = React.useState(null);
+    React.useEffect(() => {
+        if (typeof onFocusedVideoChange === 'function') {
+            onFocusedVideoChange(focusedVideoId);
+        }
+    }, [focusedVideoId, onFocusedVideoChange]);
+    const setVideosContainerRef = React.useCallback((el) => {
+        const prev = videosContainerRef.current;
+        if (prev && prev._casaTvCleanup) prev._casaTvCleanup();
+        videosContainerRef.current = el;
+        if (!el) return;
+        const onFocusIn = (e) => {
+            let n = e.target;
+            while (n && n !== el) {
+                if (n.dataset && n.dataset.videoId) {
+                    setFocusedVideoId(n.dataset.videoId);
+                    return;
+                }
+                n = n.parentNode;
+            }
+        };
+        const onFocusOut = (e) => {
+            if (!el.contains(e.relatedTarget)) setFocusedVideoId(null);
+        };
+        el.addEventListener('focusin', onFocusIn);
+        el.addEventListener('focusout', onFocusOut);
+        el._casaTvCleanup = () => {
+            el.removeEventListener('focusin', onFocusIn);
+            el.removeEventListener('focusout', onFocusOut);
+        };
+    }, []);
+
+    const initialFocusDoneRef = React.useRef(null);
+
+    // Arrow nav interna: ArrowLeft/Right saltano IMMEDIATAMENTE alla card
+    // sibling (senza passare per lo scroll nativo di Chrome che scorre di
+    // ~40px per volta e richiede piu' pressioni per arrivare alla card
+    // successiva quando quella attuale e' ai bordi del viewport).
+    const onVideosKeyDown = React.useCallback((e) => {
+        if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+        const container = videosContainerRef.current;
+        if (!container) return;
+        const current = e.target.closest('[data-video-id]');
+        if (!current) return;
+        const target = e.key === 'ArrowRight' ? current.nextElementSibling : current.previousElementSibling;
+        if (!target || !target.dataset || !target.dataset.videoId) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const focusable = target.querySelector('[tabindex], a, button') || target;
+        focusable.focus({ preventScroll: true });
+        target.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    }, []);
 
     const showNotificationsToggle = React.useMemo(() => {
         return metaItem?.content?.content?.inLibrary && metaItem?.content?.content?.videos?.length;
@@ -66,6 +130,32 @@ const VideosList = ({ className, metaItem, libraryItem, season, seasonOnSelect, 
                 return a.episode - b.episode;
             });
     }, [videos, selectedSeason]);
+
+    // Default focus: al primo load di una stagione porta il focus sul primo
+    // episodio NON VISTO (o il primo in assoluto se sono tutti visti), cosi'
+    // l'utente da telecomando trova subito il punto di ripresa. IMPORTANTE:
+    // questo effect deve stare DOPO la definizione di videosForSeason/
+    // selectedSeason — altrimenti i deps vengono captured come undefined
+    // (TDZ hoisting di Babel) e React non ri-fire mai l'effect.
+    React.useEffect(() => {
+        const container = videosContainerRef.current;
+        if (!container || videosForSeason.length === 0) return;
+        if (initialFocusDoneRef.current === selectedSeason) return;
+        initialFocusDoneRef.current = selectedSeason;
+        const target =
+            videosForSeason.find((v) => !v.watched) ||
+            videosForSeason[0];
+        if (!target) return;
+        const tid = setTimeout(() => {
+            const sel = (typeof CSS !== 'undefined' && CSS.escape) ? CSS.escape(target.id) : target.id;
+            const card = container.querySelector(`[data-video-id="${sel}"]`);
+            if (!card) return;
+            const el = card.querySelector('[tabindex], a, button') || card;
+            el.focus();
+            card.scrollIntoView({ behavior: 'instant', inline: 'center', block: 'nearest' });
+        }, 0);
+        return () => clearTimeout(tid);
+    }, [videosForSeason, selectedSeason]);
 
     const seasonWatched = React.useMemo(() => {
         return videosForSeason.every((video) => video.watched);
@@ -148,7 +238,11 @@ const VideosList = ({ className, metaItem, libraryItem, season, seasonOnSelect, 
                                     :
                                     null
                             }
-                            <div className={styles['videos-container']}>
+                            <div
+                                ref={setVideosContainerRef}
+                                className={styles['videos-container']}
+                                onKeyDown={onVideosKeyDown}
+                            >
                                 {
                                     videosForSeason
                                         .filter((video) => {
@@ -159,24 +253,29 @@ const VideosList = ({ className, metaItem, libraryItem, season, seasonOnSelect, 
                                                 );
                                         })
                                         .map((video, index) => (
-                                            <Video
+                                            <div
                                                 key={index}
-                                                id={video.id}
-                                                title={video.title}
-                                                thumbnail={video.thumbnail}
-                                                season={video.season}
-                                                episode={video.episode}
-                                                released={video.released}
-                                                upcoming={video.upcoming}
-                                                watched={video.watched}
-                                                progress={video.progress}
-                                                deepLinks={video.deepLinks}
-                                                scheduled={video.scheduled}
-                                                seasonWatched={seasonWatched}
-                                                selected={video.id === selectedVideoId}
-                                                onMarkVideoAsWatched={onMarkVideoAsWatched}
-                                                onMarkSeasonAsWatched={onMarkSeasonAsWatched}
-                                            />
+                                                className={styles['video-wrapper']}
+                                                data-video-id={video.id}
+                                            >
+                                                <Video
+                                                    id={video.id}
+                                                    title={video.title}
+                                                    thumbnail={video.thumbnail}
+                                                    season={video.season}
+                                                    episode={video.episode}
+                                                    released={video.released}
+                                                    upcoming={video.upcoming}
+                                                    watched={video.watched}
+                                                    progress={video.progress}
+                                                    deepLinks={video.deepLinks}
+                                                    scheduled={video.scheduled}
+                                                    seasonWatched={seasonWatched}
+                                                    selected={video.id === selectedVideoId}
+                                                    onMarkVideoAsWatched={onMarkVideoAsWatched}
+                                                    onMarkSeasonAsWatched={onMarkSeasonAsWatched}
+                                                />
+                                            </div>
                                         ))
                                 }
                             </div>
@@ -194,6 +293,7 @@ VideosList.propTypes = {
     selectedVideoId: PropTypes.string,
     seasonOnSelect: PropTypes.func,
     toggleNotifications: PropTypes.func,
+    onFocusedVideoChange: PropTypes.func,
 };
 
 module.exports = VideosList;

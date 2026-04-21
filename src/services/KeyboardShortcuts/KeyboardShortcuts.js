@@ -58,6 +58,20 @@ function KeyboardShortcuts() {
 
                 break;
             }
+            case 'Escape': {
+                // TV: tasto B del controller -> Esc. Se c'e' una modale
+                // aperta, ModalDialog.js gestisce gia' la chiusura (listener
+                // separato). Se NON c'e' modale, facciamo history.back()
+                // cosi' da TV "B" si comporta come "indietro" universale.
+                const modalsContainer = document.querySelector('.modals-container');
+                // childElementCount === 1 e' solo il lock-div di focus-trap
+                // che esiste sempre; > 1 vuol dire modale attiva.
+                const modalOpen = !!modalsContainer && modalsContainer.childElementCount > 1;
+                if (modalOpen) break;
+                event.preventDefault();
+                window.history.back();
+                break;
+            }
         }
     }
     function onStateChanged() {

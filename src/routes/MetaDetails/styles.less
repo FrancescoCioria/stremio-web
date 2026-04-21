@@ -49,15 +49,17 @@
         position: relative;
         z-index: 0;
         /* TV layout: nav rail a sinistra (se presente), meta-preview in alto,
-         * videos/streams list come rail orizzontale in basso. Niente piu'
-         * colonna stretta a destra con thumbs mini.
+         * videos/streams list come rail orizzontale SUBITO sotto (e' il
+         * cuore della pagina, non va pinnato in fondo). Riga "filler"
+         * assorbe lo spazio residuo cosi' il rail sta alto.
          */
         display: grid;
         grid-template-columns: auto minmax(0, 1fr);
-        grid-template-rows: minmax(0, 1fr) auto;
+        grid-template-rows: auto auto minmax(0, 1fr);
         grid-template-areas:
             "nav meta"
-            "nav videos";
+            "nav videos"
+            "nav filler";
         margin-top: calc(var(--top-overlay-size) * -1);
         padding-top: var(--top-overlay-size);
         padding-bottom: var(--safe-area-inset-bottom, 0rem);
@@ -111,9 +113,9 @@
 
         .videos-list, .streams-list {
             grid-area: videos;
-            align-self: end;
+            align-self: start;
             width: 100%;
-            border-radius: var(--border-radius) var(--border-radius) 0 0;
+            border-radius: var(--border-radius);
             background-color: rgba(0, 0, 0, 0.4);
             backdrop-filter: blur(15px);
         }

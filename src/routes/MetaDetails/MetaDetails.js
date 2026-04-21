@@ -38,6 +38,19 @@ const MetaDetails = ({ urlParams, queryParams }) => {
             :
             null;
     }, [metaDetails.metaItem, streamPath]);
+
+    // TV: track dell'episodio su cui e' il focus (non cliccato). MetaPreview
+    // mostra dinamicamente i dati di QUELL'episodio (titolo, data, overview)
+    // mentre l'utente naviga il rail col telecomando.
+    const [focusedVideoId, setFocusedVideoId] = React.useState(null);
+    const focusedVideo = React.useMemo(() => {
+        if (!focusedVideoId || !metaDetails?.metaItem || metaDetails.metaItem.content.type !== 'Ready') {
+            return null;
+        }
+        return metaDetails.metaItem.content.content.videos.find((v) => v.id === focusedVideoId) || null;
+    }, [focusedVideoId, metaDetails.metaItem]);
+    // Priorita': focused (hover-by-remote) > selected-by-url > null (show series-level)
+    const previewVideo = focusedVideo || video;
     const addToLibrary = React.useCallback(() => {
         if (metaDetails.metaItem === null || metaDetails.metaItem.content.type !== 'Ready') {
             return;
@@ -174,13 +187,18 @@ const MetaDetails = ({ urlParams, queryParams }) => {
                                             logo={metaDetails.metaItem.content.content.logo}
                                             runtime={metaDetails.metaItem.content.content.runtime}
                                             releaseInfo={metaDetails.metaItem.content.content.releaseInfo}
-                                            released={metaDetails.metaItem.content.content.released}
-                                            description={
-                                                video !== null && typeof video.overview === 'string' && video.overview.length > 0 ?
-                                                    video.overview
-                                                    :
-                                                    metaDetails.metaItem.content.content.description
+                                            released={
+                                                previewVideo?.released instanceof Date && !isNaN(previewVideo.released.getTime())
+                                                    ? previewVideo.released
+                                                    : metaDetails.metaItem.content.content.released
                                             }
+                                            description={
+                                                previewVideo && typeof previewVideo.overview === 'string' && previewVideo.overview.length > 0
+                                                    ? previewVideo.overview
+                                                    : metaDetails.metaItem.content.content.description
+                                            }
+                                            focusedEpisode={previewVideo}
+                                            hideActions={streamPath !== null}
                                             links={metaDetails.metaItem.content.content.links}
                                             trailerStreams={metaDetails.metaItem.content.content.trailerStreams}
                                             inLibrary={metaDetails.metaItem.content.content.inLibrary}
@@ -212,6 +230,7 @@ const MetaDetails = ({ urlParams, queryParams }) => {
                                 selectedVideoId={metaDetails.libraryItem?.state?.video_id}
                                 seasonOnSelect={seasonOnSelect}
                                 toggleNotifications={toggleNotifications}
+                                onFocusedVideoChange={setFocusedVideoId}
                             />
                             :
                             null

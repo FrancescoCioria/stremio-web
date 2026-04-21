@@ -72,7 +72,11 @@
         display: flex;
         flex-direction: row;
         gap: 1rem;
-        padding: 0.5rem 2rem 1rem;
+        /* Padding verticale abbondante: la scale(1.08) + il box-shadow
+         * della thumbnail hanno bisogno di respirare, altrimenti vengono
+         * croppati dall'overflow (overflow-x auto implica anche y auto
+         * nel box model CSS). */
+        padding: 2.5rem 2rem 2.5rem;
         overflow-x: auto;
         overflow-y: hidden;
         scroll-snap-type: x proximity;
@@ -84,6 +88,12 @@
 
         &::-webkit-scrollbar {
             display: none;
+        }
+
+        /* Il wrapper esiste solo per il data-video-id (focus tracking).
+         * display: contents lo toglie dal layout. */
+        .video-wrapper {
+            display: contents;
         }
     }
 
