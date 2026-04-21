@@ -15,21 +15,24 @@ const BoardHero = ({ meta }) => {
         return <div className={styles['board-hero-container']} />;
     }
 
-    const rating =
-        (meta.imdbRating && `${meta.imdbRating}`) ||
-        (meta.releaseInfo ? null : null);
+    const rating = meta.imdbRating ? `${meta.imdbRating}` : null;
     const genresText = Array.isArray(meta.genres) ? meta.genres.slice(0, 3).join(' · ') : null;
     const castText = Array.isArray(meta.cast) ? meta.cast.slice(0, 3).join(', ') : null;
+    // Se non c'e' background, fallback al poster (blur per non distrarre).
+    const bgSrc = (typeof meta.background === 'string' && meta.background.length > 0)
+        ? meta.background
+        : (typeof meta.poster === 'string' && meta.poster.length > 0 ? meta.poster : null);
+    const bgIsPoster = bgSrc === meta.poster;
 
     return (
         <div className={classnames(styles['board-hero-container'], 'animation-fade-in')}>
             {
-                typeof meta.background === 'string' && meta.background.length > 0 ?
-                    <div className={styles['hero-bg-layer']}>
+                bgSrc ?
+                    <div className={classnames(styles['hero-bg-layer'], { [styles['blurred']]: bgIsPoster })}>
                         <Image
                             key={meta.id}
                             className={styles['hero-bg-image']}
-                            src={meta.background}
+                            src={bgSrc}
                             alt={' '}
                             renderFallback={() => null}
                         />

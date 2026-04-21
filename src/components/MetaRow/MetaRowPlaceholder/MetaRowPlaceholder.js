@@ -3,14 +3,11 @@
 const React = require('react');
 const PropTypes = require('prop-types');
 const classnames = require('classnames');
-const { useTranslation } = require('react-i18next');
-const { default: Icon } = require('@stremio/stremio-icons/react');
-const { Button } = require('stremio/components');
-const CONSTANTS = require('stremio/common/CONSTANTS');
 const styles = require('./styles');
 
-const MetaRowPlaceholder = ({ className, title, deepLinks }) => {
-    const { t } = useTranslation();
+const PLACEHOLDER_COUNT = 12;
+
+const MetaRowPlaceholder = ({ className, title }) => {
     return (
         <div className={classnames(className, styles['meta-row-placeholder-container'])}>
             <div className={styles['header-container']}>
@@ -20,7 +17,7 @@ const MetaRowPlaceholder = ({ className, title, deepLinks }) => {
                 {/* TV: see-all rimosso (vedi MetaRow.js). */}
             </div>
             <div className={styles['meta-items-container']}>
-                {Array(CONSTANTS.CATALOG_PREVIEW_SIZE).fill(null).map((_, index) => (
+                {Array(PLACEHOLDER_COUNT).fill(null).map((_, index) => (
                     <div key={index} className={styles['meta-item']}>
                         <div className={styles['poster-container']} />
                         <div className={styles['title-bar-container']}>
@@ -36,9 +33,6 @@ const MetaRowPlaceholder = ({ className, title, deepLinks }) => {
 MetaRowPlaceholder.propTypes = {
     className: PropTypes.string,
     title: PropTypes.string,
-    deepLinks: PropTypes.shape({
-        discover: PropTypes.string
-    })
 };
 
 module.exports = MetaRowPlaceholder;
