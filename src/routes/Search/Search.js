@@ -9,6 +9,7 @@ const { default: Icon } = require('@stremio/stremio-icons/react');
 const { withCoreSuspender, getVisibleChildrenRange } = require('stremio/common');
 const { Image, MainNavBars, MetaItem, MetaRow } = require('stremio/components');
 const useSearch = require('./useSearch');
+const BoardHero = require('../Board/BoardHero');
 const styles = require('./styles');
 
 const THRESHOLD = 100;
@@ -45,9 +46,22 @@ const Search = ({ queryParams }) => {
     React.useLayoutEffect(() => {
         onVisibleRangeChange();
     }, [search.catalogs, onVisibleRangeChange]);
+
+    // TV: hero con meta-info del focus corrente (stesso pattern Board).
+    const [focusedMeta, setFocusedMeta] = React.useState(null);
+    React.useEffect(() => {
+        const root = scrollContainerRef.current;
+        if (!root) return undefined;
+        const handler = (e) => { if (e?.detail?.item) setFocusedMeta(e.detail.item); };
+        root.addEventListener('casa-meta-focus', handler);
+        return () => root.removeEventListener('casa-meta-focus', handler);
+    }, []);
+
     return (
         <MainNavBars className={styles['search-container']} route={'search'} query={query}>
-            <div ref={scrollContainerRef} className={styles['search-content']} onScroll={onScroll}>
+            <div className={styles['search-vstack']}>
+                {query !== null ? <BoardHero meta={focusedMeta} /> : null}
+                <div ref={scrollContainerRef} className={styles['search-content']} onScroll={onScroll}>
                 {
                     query === null ?
                         <div className={classnames(styles['search-hints-wrapper'])}>
@@ -122,6 +136,7 @@ const Search = ({ queryParams }) => {
                                 }
                             })
                 }
+                </div>
             </div>
         </MainNavBars>
     );
