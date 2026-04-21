@@ -27,6 +27,22 @@
         }
     }
 
+    /* TV: focus-visible (frecce) — match lo stile hover (bg + label
+     * visibile) invece del solo ring outline. Cosi' l'utente vede
+     * subito su quale tab e'. */
+    &:focus-visible {
+        outline: none;
+        background-color: var(--overlay-color);
+
+        .label {
+            opacity: 0.8;
+        }
+
+        &:global(.selected) .label {
+            opacity: 1;
+        }
+    }
+
     &:global(.selected) {
         .icon {
             opacity: 1;

@@ -10,6 +10,9 @@ const { withCoreSuspender, getVisibleChildrenRange } = require('stremio/common')
 const { Image, MainNavBars, MetaItem, MetaRow } = require('stremio/components');
 const useSearch = require('./useSearch');
 const BoardHero = require('../Board/BoardHero');
+// TV: riusiamo la SearchBar della vecchia HorizontalNavBar (con history +
+// local-search). Ora vive inline in cima a Search (la HBar e' stata rimossa).
+const SearchBar = require('stremio/components/NavBar/HorizontalNavBar/SearchBar');
 const styles = require('./styles');
 
 const THRESHOLD = 100;
@@ -84,6 +87,20 @@ const Search = ({ queryParams }) => {
         if (!currentCard) return;
         const rowItems = [...currentRow.querySelectorAll('[class*="meta-item-container"]')];
         const cardIdx = rowItems.indexOf(currentCard);
+        // ArrowLeft sulla PRIMA card → esci alla sidebar (tab selezionata).
+        if (e.key === 'ArrowLeft' && cardIdx === 0) {
+            const navBar = document.querySelector('[class*="vertical-nav-bar-container"]');
+            if (navBar) {
+                const selectedTab = navBar.querySelector('[class*="nav-tab-button-container"].selected')
+                    || navBar.querySelector('[class*="nav-tab-button-container"]');
+                if (selectedTab) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    selectedTab.focus({ preventScroll: true });
+                    return;
+                }
+            }
+        }
         const targetCard = e.key === 'ArrowRight' ? rowItems[cardIdx + 1] : rowItems[cardIdx - 1];
         if (!targetCard) return;
         e.preventDefault();
@@ -112,7 +129,13 @@ const Search = ({ queryParams }) => {
             const ae = document.activeElement;
             if (ae && ae !== document.body && root.contains(ae) && ae.closest('[class*="meta-item-container"]')) return;
             const firstCard = root.querySelector('[class*="meta-item-container"]');
-            if (firstCard) firstCard.focus({ preventScroll: true });
+            if (firstCard) {
+                firstCard.focus({ preventScroll: true });
+                // Scrolla la ROW intera (titolo + cards) al top, non la card
+                // isolata. Stessa logica di Board.js.
+                const firstRow = firstCard.closest('[class*="meta-row-container"]');
+                if (firstRow) firstRow.scrollIntoView({ block: 'start' });
+            }
         }, 500);
         return () => clearTimeout(tid);
     }, [catalogsStateKey]);
@@ -120,6 +143,9 @@ const Search = ({ queryParams }) => {
     return (
         <MainNavBars className={styles['search-container']} route={'search'} query={query}>
             <div className={styles['search-vstack']}>
+                <div className={styles['search-bar-wrapper']}>
+                    <SearchBar className={styles['search-bar']} query={query} active={true} />
+                </div>
                 {query !== null ? <BoardHero meta={focusedMeta} /> : null}
                 <div ref={scrollContainerRef} className={styles['search-content']} onScroll={onScroll} onKeyDown={onSearchKeyDown}>
                 {

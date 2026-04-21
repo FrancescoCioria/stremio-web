@@ -12,6 +12,9 @@ const styles = require('./styles.less');
 const NavMenu = (props) => {
     const routeFocused = useRouteFocused();
     const [menuOpen, , closeMenu, toggleMenu] = useBinaryState(false);
+    // TV: permetti di override la direction (di default bottom-left, giusto
+    // per HorizontalNavBar in alto; per VBar-bottom-slot serve top-right).
+    const direction = props.direction || 'bottom-left';
     const popupLabelOnClick = React.useCallback((event) => {
         if (!event.nativeEvent.togglePopupPrevented) {
             toggleMenu();
@@ -39,7 +42,7 @@ const NavMenu = (props) => {
     return (
         <Popup
             open={menuOpen}
-            direction={'bottom-left'}
+            direction={direction}
             onCloseRequest={closeMenu}
             renderLabel={renderLabel}
             renderMenu={renderMenu}
@@ -49,7 +52,8 @@ const NavMenu = (props) => {
 };
 
 NavMenu.propTypes = {
-    renderLabel: PropTypes.func
+    renderLabel: PropTypes.func,
+    direction: PropTypes.oneOf(['top-left', 'top-right', 'bottom-left', 'bottom-right'])
 };
 
 module.exports = NavMenu;

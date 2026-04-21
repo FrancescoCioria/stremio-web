@@ -12,7 +12,10 @@
     height: 100%;
     padding: 1rem 0;
     background-color: transparent;
-    overflow-y: auto;
+    /* TV: overflow visible cosi' il popup del profilo (bottom-slot) puo'
+     * uscire a destra del sidebar. Con soli 4 tab + profilo non serve lo
+     * scroll verticale. */
+    overflow: visible;
     scrollbar-width: none;
     -ms-overflow-style: none;
 

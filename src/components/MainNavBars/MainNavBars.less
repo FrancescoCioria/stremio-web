@@ -5,7 +5,11 @@
 .main-nav-bars-container {
     position: relative;
     z-index: 0;
-    overflow: clip;
+    /* TV: overflow visible sul container + VBar affinche' il popup del
+     * profilo (NavMenu) non venga clippato quando apre verso destra.
+     * Il content-container (.nav-content-container) ha comunque overflow
+     * hidden proprio, quindi niente bleed della lista su destra. */
+    overflow: visible;
     margin-left: var(--safe-area-inset-left);
     margin-right: var(--safe-area-inset-right);
     width: calc(100% - var(--safe-area-inset-left) - var(--safe-area-inset-right));
@@ -19,7 +23,12 @@
         top: 0;
         bottom: 0;
         left: 0;
-        z-index: 1;
+        /* overflow visible per permettere al popup profilo di uscire a
+         * destra, oltre la colonna del sidebar. NIENTE z-index qui:
+         * creerebbe uno stacking context nested che impedisce al popup
+         * absolute-positioned (figlio del Button) di essere renderizzato
+         * anche quando visibility/opacity sono corretti. */
+        overflow: visible;
     }
 
     .nav-content-container {
@@ -30,6 +39,20 @@
         left: var(--vertical-nav-bar-size);
         z-index: 0;
         overflow: hidden;
+    }
+
+    /* TV: il popup del NavMenu (absolute inside al Button) aveva un bug
+     * di rendering — non veniva dipinto nonostante visibility/opacity
+     * corretti. Lo forziamo a position:fixed con coords viewport-based
+     * (bottom-left, appena sopra il profile button). Sovrascrive le
+     * regole .menu-direction-* del Popup. */
+    .profile-button [class*="menu-container"][class*="menu-direction"] {
+        position: fixed;
+        top: auto;
+        right: auto;
+        bottom: calc(var(--safe-area-inset-bottom) + 5rem);
+        left: calc(var(--safe-area-inset-left) + var(--vertical-nav-bar-size) + 0.5rem);
+        z-index: 100;
     }
 
     /* Bottone profilo (popup NavMenu) nel bottom-slot della sidebar. */

@@ -157,6 +157,16 @@ const VideosList = ({ className, metaItem, libraryItem, season, seasonOnSelect, 
         const container = videosContainerRef.current;
         if (!container || videosForSeason.length === 0) return;
         if (initialFocusDoneRef.current === selectedSeason) return;
+        // Se l'utente sta scorrendo le SEASON pills (filtraggio live
+        // al focus), NON rubare il focus portandolo sul primo episodio —
+        // l'utente vuole restare sulle pills per saltare rapidamente
+        // tra S1/S2/S5. Auto-focus episodio solo al primo ingresso.
+        const ae = document.activeElement;
+        const onSeasonPill = ae && ae.closest && ae.closest('[class*="season-pill"]');
+        if (onSeasonPill) {
+            initialFocusDoneRef.current = selectedSeason;
+            return;
+        }
         initialFocusDoneRef.current = selectedSeason;
         const target =
             videosForSeason.find((v) => !v.watched) ||

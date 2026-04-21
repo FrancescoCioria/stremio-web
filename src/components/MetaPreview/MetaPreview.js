@@ -26,7 +26,7 @@ const ALLOWED_LINK_REDIRECTS = [
     routesRegexp.metadetails.regexp
 ];
 
-const MetaPreview = React.forwardRef(({ className, compact, name, logo, background, runtime, releaseInfo, released, description, deepLinks, links, trailerStreams, inLibrary, toggleInLibrary, watched, toggleWatched, ratingInfo, focusedEpisode, hideActions }, ref) => {
+const MetaPreview = React.forwardRef(({ className, compact, name, logo, background, runtime, releaseInfo, released, description, deepLinks, links, trailerStreams, inLibrary, toggleInLibrary, watched, toggleWatched, ratingInfo, focusedEpisode, hideActions, showWatchedToggle }, ref) => {
     const { t } = useTranslation();
     const [shareModalOpen, openShareModal, closeShareModal] = useBinaryState(false);
     const linksGroups = React.useMemo(() => {
@@ -99,17 +99,26 @@ const MetaPreview = React.forwardRef(({ className, compact, name, logo, backgrou
     const renderLogoFallback = React.useCallback(() => (
         <div className={styles['logo-placeholder']}>{name}</div>
     ), [name]);
-    const metaItemActions = React.useMemo(() => [
-        {
-            icon: inLibrary ? 'remove-from-library' : 'add-to-library',
-            label: inLibrary ? t('REMOVE_FROM_LIB') : t('ADD_TO_LIB'),
-            onClick: typeof toggleInLibrary === 'function' ? toggleInLibrary : null,
-        },
-        // TV: "Mark as watched" nascosto per ora. Sul metaItem segnerebbe
-        // l'INTERA serie come vista, rischioso con una pressione sola da
-        // telecomando. Da riesporre in futuro come toggle per singolo
-        // episodio sulla card focus-ata.
-    ], [inLibrary, toggleInLibrary]);
+    const metaItemActions = React.useMemo(() => {
+        const actions = [
+            {
+                icon: inLibrary ? 'remove-from-library' : 'add-to-library',
+                label: inLibrary ? t('REMOVE_FROM_LIB') : t('ADD_TO_LIB'),
+                onClick: typeof toggleInLibrary === 'function' ? toggleInLibrary : null,
+            },
+        ];
+        // Mark-as-watched esposto solo per FILM (dove segna SOLO il
+        // film). Per le serie segnerebbe TUTTI gli episodi con una
+        // pressione sola — troppo distruttivo da telecomando.
+        if (showWatchedToggle && typeof toggleWatched === 'function') {
+            actions.push({
+                icon: watched ? 'unwatched' : 'watched',
+                label: watched ? t('MARK_AS_NON_WATCHED') : t('MARK_AS_WATCHED'),
+                onClick: toggleWatched,
+            });
+        }
+        return actions;
+    }, [inLibrary, toggleInLibrary, showWatchedToggle, watched, toggleWatched]);
     return (
         <div className={classnames(className, styles['meta-preview-container'], { [styles['compact']]: compact })} ref={ref}>
             {
@@ -313,6 +322,9 @@ MetaPreview.propTypes = {
     watched: PropTypes.bool,
     toggleWatched: PropTypes.func,
     ratingInfo: PropTypes.object,
+    focusedEpisode: PropTypes.object,
+    hideActions: PropTypes.bool,
+    showWatchedToggle: PropTypes.bool,
 };
 
 module.exports = MetaPreview;

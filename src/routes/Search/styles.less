@@ -23,12 +23,37 @@
         width: 100%;
     }
 
+    /* TV: SearchBar inline in cima (prima stava nella HorizontalNavBar
+     * rimossa). Centrata orizzontalmente + piu' margin-top per respiro. */
+    .search-bar-wrapper {
+        flex: none;
+        display: flex;
+        justify-content: center;
+        padding: 3rem 1.5rem 1rem;
+        /* overflow visible + z-index alto cosi' il popover history (history
+         * suggestions) esce sotto la search bar senza essere coperto
+         * dall'hero o dal content scroller (che creano stacking context). */
+        overflow: visible;
+        position: relative;
+        z-index: 10;
+    }
+
+    .search-bar {
+        width: 100%;
+        max-width: 60rem;
+    }
+
     .search-content {
         flex: 1;
         min-height: 0;
         width: 100%;
         padding: 0;
         overflow-y: auto;
+        /* Stesso stacking di .board-content: la lista sopra il bleed della
+         * hero (bottom:-10rem) cosi' il titolo della prima riga non viene
+         * offuscato dal mask-image dell'immagine hero. */
+        position: relative;
+        z-index: 1;
 
         .search-row {
             margin-top: 1rem;

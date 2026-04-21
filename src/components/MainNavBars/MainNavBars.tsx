@@ -52,7 +52,7 @@ const MainNavBars = memo(({ className, route, children }: Props) => {
                 className={styles['vertical-nav-bar']}
                 selected={route}
                 tabs={TABS}
-                bottomSlot={<NavMenu renderLabel={renderProfileLabel} />}
+                bottomSlot={<NavMenu renderLabel={renderProfileLabel} direction={'top-right'} />}
             />
             <div className={styles['nav-content-container']}>{children}</div>
         </div>

@@ -100,12 +100,16 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
 
     // Default focus: al primo load della lista stream, porta il focus sulla
     // prima card. Evita all'utente da telecomando di dover scrollare per
-    // "trovare" il punto di partenza.
+    // "trovare" il punto di partenza. Ma se l'utente sta gia' scorrendo
+    // le addon-pills (filtraggio live al focus) NON rubare il focus.
     const initialFocusDoneRef = React.useRef(false);
     React.useEffect(() => {
         if (initialFocusDoneRef.current) return;
         const container = streamsContainerRef.current;
         if (!container || filteredStreams.length === 0) return;
+        const ae = document.activeElement;
+        const onAddonPill = ae && ae.closest && ae.closest('[class*="addon-pill"]');
+        if (onAddonPill) return;
         initialFocusDoneRef.current = true;
         const el = container.querySelector('[tabindex], a, button');
         if (el) el.focus();
@@ -131,11 +135,22 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
                         null
                 }
                 {
-                    Object.keys(streamsByAddon).length > 1 ?
-                        <MultiselectMenu
-                            {...selectableOptions}
-                            className={styles['select-input-container']}
-                        />
+                    /* TV: mostra le pills sempre che ci sia almeno un
+                     * addon — coerenza col pattern Android TV (stesse
+                     * pills anche con singolo addon). */
+                    Object.keys(streamsByAddon).length >= 1 ?
+                        <div className={styles['addon-pills']}>
+                            {selectableOptions.options.map((opt) => (
+                                <Button
+                                    key={opt.value}
+                                    className={classnames(styles['addon-pill'], { [styles['selected']]: opt.value === selectedAddon })}
+                                    onClick={() => onAddonSelected(opt.value)}
+                                    onFocus={() => onAddonSelected(opt.value)}
+                                >
+                                    <div className={styles['label']}>{opt.label}</div>
+                                </Button>
+                            ))}
+                        </div>
                         :
                         null
                 }

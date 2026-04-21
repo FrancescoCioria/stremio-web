@@ -12,53 +12,58 @@
 }
 
 .stream-container {
-    /* Stile Android TV: badge-column a sinistra, filename a destra, play
-     * icon centrale sul focus. Layout compatto ma leggibile da divano. */
+    /* Stile Android TV: card orizzontale wide con badge-column a sx
+     * (addon + quality stackati), filename al centro su piu' righe,
+     * play icon grande a destra sempre visibile (piu' prominente
+     * quando focus). Cards impilate orizzontalmente in uno scroller. */
     position: relative;
     display: flex;
     flex-direction: row;
     align-items: stretch;
     flex: none;
-    width: 28rem;
-    gap: 1rem;
-    padding: 0.9rem 1rem;
+    width: 36rem;
+    min-height: 12rem;
+    gap: 1.5rem;
+    padding: 1.75rem 2rem;
     margin-bottom: 0;
-    border-radius: 0.8rem;
+    border-radius: 1rem;
     background-color: rgba(255, 255, 255, 0.06);
-    /* Elevation di default per depth. */
-    box-shadow: 0 0.5rem 1.4rem rgba(0, 0, 0, 0.35);
+    /* Default elevation (stesso shadow di base di .meta-item-container). */
+    box-shadow: 0 0.6rem 1.6rem rgba(0, 0, 0, 0.42);
 
-    transition: transform 120ms ease-out, box-shadow 180ms ease-out;
+    transition: transform 140ms ease-out, box-shadow 180ms ease-out, background-color 140ms ease-out;
     transform-origin: center;
 
     &:hover {
         background-color: rgba(255, 255, 255, 0.1);
     }
 
-    /* Focus TV: scale + elevation amplificata + alone bianco morbido. */
+    /* Focus-visible TV: stessa sensazione del MetaItem nella Home
+     * (scale + drop-shadow scuro + alone bianco morbido). */
     &:focus-visible {
         outline: none;
-        transform: scale(1.08);
+        transform: scale(1.06);
         z-index: 2;
-        background-color: rgba(255, 255, 255, 0.12);
+        background-color: rgba(255, 255, 255, 0.16);
         box-shadow:
-            0 1.2rem 3rem rgba(0, 0, 0, 0.55),
-            0 0.5rem 4rem 0.4rem rgba(255, 255, 255, 0.14);
+            0 1.5rem 3.5rem rgba(0, 0, 0, 0.6),
+            0 0.8rem 5rem 0.4rem rgba(255, 255, 255, 0.14);
 
         .icon {
             opacity: 1;
-            transform: translate(-50%, -50%) scale(1);
+            background-color: var(--primary-accent-color);
+            color: var(--primary-background-color);
         }
     }
 
     .info-container {
         flex: none;
-        width: 8rem;
+        width: 9rem;
         display: flex;
         flex-direction: column;
         align-items: stretch;
         justify-content: center;
-        gap: 0.3rem;
+        gap: 0.4rem;
 
         .thumbnail {
             display: none;
@@ -70,15 +75,15 @@
 
         .addon-name {
             width: 100%;
-            font-size: 0.9rem;
+            font-size: 1.15rem;
             font-weight: 700;
-            line-height: 1.35;
+            line-height: 1.3;
             text-align: left;
             white-space: pre-wrap;
             color: var(--primary-foreground-color);
             background-color: rgba(120, 130, 200, 0.28);
-            padding: 0.5rem 0.7rem;
-            border-radius: 0.5rem;
+            padding: 0.7rem 0.9rem;
+            border-radius: 0.7rem;
         }
 
         .progress-bar-container {
@@ -116,27 +121,25 @@
         overflow: hidden;
         white-space: pre-wrap;
         text-overflow: ellipsis;
-        font-size: 0.85rem;
-        line-height: 1.4;
+        font-size: 1.15rem;
+        line-height: 1.45;
         color: var(--primary-foreground-color);
-        opacity: 0.92;
+        opacity: 0.94;
     }
 
     .icon {
-        /* Play icon centrale, visibile solo su focus (fade-in da scale 0.7) */
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%) scale(0.7);
+        /* Play icon grande sulla destra, SEMPRE visibile (semi-transparente)
+         * e colorato/pieno quando la card e' focussata. Come Android TV. */
+        flex: none;
+        align-self: center;
         width: 3.5rem;
         height: 3.5rem;
-        padding: 0.8rem;
+        padding: 0.85rem;
         border-radius: 50%;
-        color: var(--primary-background-color);
-        background-color: var(--primary-accent-color);
-        opacity: 0;
-        transition: opacity 140ms ease-out, transform 140ms ease-out;
-        pointer-events: none;
+        color: var(--primary-foreground-color);
+        background-color: rgba(255, 255, 255, 0.14);
+        opacity: 0.75;
+        transition: opacity 140ms ease-out, background-color 140ms ease-out, color 140ms ease-out;
         z-index: 3;
     }
 

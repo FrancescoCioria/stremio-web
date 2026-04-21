@@ -9,8 +9,39 @@ const styles = require('./styles');
 
 const VerticalNavBar = React.memo(({ className, selected, tabs, bottomSlot }) => {
     const { t } = useTranslation();
+    const navRef = React.useRef(null);
+
+    // TV: navigazione tra i tab con ArrowUp/Down + ritorno al contenuto
+    // con ArrowRight. I NavTabButton hanno tabIndex=-1 quindi li focussiamo
+    // programmaticamente.
+    const onKeyDown = React.useCallback((e) => {
+        if (!['ArrowUp', 'ArrowDown', 'ArrowRight'].includes(e.key)) return;
+        if (e.key === 'ArrowRight') {
+            e.preventDefault();
+            e.stopPropagation();
+            // Trova il content-container sibling e focussa il primo
+            // focusable al suo interno (tipicamente la prima card).
+            const container = navRef.current?.parentElement;
+            const content = container?.querySelector('[class*="nav-content-container"]');
+            if (content) {
+                const target = content.querySelector('[class*="meta-item-container"]')
+                    || content.querySelector('a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])');
+                if (target) target.focus({ preventScroll: true });
+            }
+            return;
+        }
+        const focusables = [...navRef.current.querySelectorAll('a[href], [class*="profile-button"]')];
+        const current = focusables.indexOf(document.activeElement);
+        if (current < 0) return;
+        const next = e.key === 'ArrowDown' ? focusables[current + 1] : focusables[current - 1];
+        if (!next) return;
+        e.preventDefault();
+        e.stopPropagation();
+        next.focus({ preventScroll: true });
+    }, []);
+
     return (
-        <nav className={classnames(className, styles['vertical-nav-bar-container'])}>
+        <nav ref={navRef} className={classnames(className, styles['vertical-nav-bar-container'])} onKeyDown={onKeyDown}>
             {
                 Array.isArray(tabs) ?
                     tabs.map((tab, index) => (

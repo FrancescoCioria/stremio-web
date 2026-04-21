@@ -74,7 +74,12 @@
         display: flex;
         align-items: center;
         z-index: 2;
-        margin: 1em 1em 0 1em;
+        /* Stessa struttura di VideosList .seasons-bar: margin esterno
+         * 0.5rem 1rem 1rem 1rem + padding interno 0.75rem 2rem come
+         * .seasons-bar-container. Cosi' le pills torrent si allineano
+         * (x + gap verticale verso le card) alle pills season. */
+        margin: 0.5rem 1rem 1rem 1rem;
+        padding: 0.75rem 2rem;
         gap: 0 0.5em;
         overflow: visible;
 
@@ -133,17 +138,74 @@
             &:hover, &:focus, &:global(.active) {
                 background-color: var(--overlay-color);
             }
-    
+
             & >.multiselect-label {
                 color: var(--primary-foreground-color);
             }
-    
+
             & >.multiselect-icon {
                 color: var(--primary-foreground-color);
             }
-    
+
             .multiselect-menu-container {
                 overflow: auto;
+            }
+        }
+
+        /* TV: pill-list per filtrare per addon (stile Android TV:
+         * "All Torrentio RD Cometa | RD"). Sostituisce il MultiselectMenu. */
+        .addon-pills {
+            flex: 1 1 auto;
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            /* Match seasons-bar gap (0.75rem). */
+            gap: 0.75rem;
+            /* overflow visible + padding interno per non tagliare il
+             * focus-ring outline (0.2rem + 0.1rem offset = 0.3rem per
+             * lato). overflow-x:auto clippava l'outline sui lati. */
+            overflow: visible;
+            padding: 0.3rem 0.4rem;
+            scrollbar-width: none;
+
+            &::-webkit-scrollbar { display: none; }
+
+            /* Stesso stile delle season pills (VideosList/SeasonsBar). */
+            .addon-pill {
+                flex: none;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                height: 2.5rem;
+                padding: 0 1.25rem;
+                border-radius: 1.25rem;
+                background-color: transparent;
+                border: 0.1rem solid transparent;
+
+                .label {
+                    font-size: 1rem;
+                    font-weight: 500;
+                    color: var(--primary-foreground-color);
+                    white-space: nowrap;
+                }
+
+                &:hover {
+                    background-color: var(--overlay-color);
+                }
+
+                &:focus-visible {
+                    outline: 0.2rem solid var(--primary-foreground-color);
+                    outline-offset: 0.1rem;
+                }
+
+                &.selected {
+                    background-color: var(--primary-foreground-color);
+
+                    .label {
+                        color: var(--primary-background-color);
+                        font-weight: 700;
+                    }
+                }
             }
         }
     }
@@ -153,9 +215,13 @@
         align-self: stretch;
         display: flex;
         flex-direction: row;
-        gap: 1rem;
-        margin-top: 1rem;
-        padding: 0.5rem 2rem 1rem;
+        /* Stesso padding verticale delle episodes (.videos-container)
+         * per far respirare il focus-scale/box-shadow. Gap molto piu'
+         * ampio delle episodes: le card stream sono piu' grandi e
+         * con focus-scale 1.06 + alone, serve piu' aria. */
+        gap: 3rem;
+        margin-top: 0;
+        padding: 2.5rem 2rem 2.5rem;
         overflow-x: auto;
         overflow-y: hidden;
         scroll-snap-type: x proximity;

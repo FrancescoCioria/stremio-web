@@ -98,6 +98,22 @@ const Board = () => {
         if (!currentCard) return;
         const rowItems = [...currentRow.querySelectorAll('[class*="meta-item-container"]')];
         const cardIdx = rowItems.indexOf(currentCard);
+        // ArrowLeft sulla PRIMA card di una riga → esci dalla lista e
+        // focussa la sidebar (tab selezionata). Consente di navigare a
+        // Search/Library/Settings/Profile con le frecce.
+        if (e.key === 'ArrowLeft' && cardIdx === 0) {
+            const navBar = document.querySelector('[class*="vertical-nav-bar-container"]');
+            if (navBar) {
+                const selectedTab = navBar.querySelector('[class*="nav-tab-button-container"].selected')
+                    || navBar.querySelector('[class*="nav-tab-button-container"]');
+                if (selectedTab) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    selectedTab.focus({ preventScroll: true });
+                    return;
+                }
+            }
+        }
         const targetCard = e.key === 'ArrowRight' ? rowItems[cardIdx + 1] : rowItems[cardIdx - 1];
         if (!targetCard) return;
         e.preventDefault();
@@ -150,7 +166,12 @@ const Board = () => {
             if (!firstCard) return;
             initialFocusDoneRef.current = true;
             firstCard.focus({ preventScroll: true });
-            firstCard.scrollIntoView({ behavior: 'instant', block: 'start' });
+            // Scrolla la ROW (titolo+cards) al top, non la card da sola.
+            // firstCard.scrollIntoView allineava il TOP della card col top
+            // dello scroller, ma la card sta sotto il titolo della riga
+            // → titolo scrollato via dal viewport (cropped).
+            const firstRow = firstCard.closest('[class*="meta-row-container"]');
+            if (firstRow) firstRow.scrollIntoView({ block: 'start' });
         }, 500);
         return () => clearTimeout(tid);
     }, [catalogsStateKey]);

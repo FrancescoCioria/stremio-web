@@ -37,26 +37,23 @@
             object-fit: cover;
             object-position: center center;
             opacity: 0.95;
-            mask-image: radial-gradient(circle, black 50%, rgba(0, 0, 0, 0) 100%);
-            -webkit-mask-image: radial-gradient(circle, black 50%, rgba(0, 0, 0, 0) 100%);
+            mask-image:
+                linear-gradient(to right, transparent 0%, black 20%),
+                linear-gradient(to top, transparent 0%, black 20%);
+            mask-composite: intersect;
+            -webkit-mask-image:
+                linear-gradient(to right, transparent 0%, black 20%),
+                linear-gradient(to top, transparent 0%, black 20%);
+            -webkit-mask-composite: source-in;
             animation: hero-fade 260ms ease-out;
         }
 
+        /* TV: hero-bg-gradient nascosto — creava uno stacco visibile
+         * sul background della pagina (sia Home che Search) perche' le
+         * tinte anchorate a primary-bg-color non combaciavano col body
+         * gradient. Il mask-image della hero-bg-image fa gia' il fade. */
         .hero-bg-gradient {
-            position: absolute;
-            inset: 0;
-            /* Tinta scura leggera sotto il testo a sinistra per legibilita',
-             * + fade bottom che si salda con lo sfondo della lista. Il
-             * mask radial dell'immagine gestisce la sfumatura radiale. */
-            background:
-                linear-gradient(90deg,
-                    var(--primary-background-color) 0%,
-                    rgba(15, 17, 25, 0.55) 25%,
-                    rgba(15, 17, 25, 0) 55%),
-                linear-gradient(180deg,
-                    rgba(0, 0, 0, 0) 55%,
-                    rgba(15, 17, 25, 0.6) 85%,
-                    var(--primary-background-color) 100%);
+            display: none;
         }
     }
 

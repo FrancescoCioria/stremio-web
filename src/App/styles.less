@@ -48,7 +48,7 @@
     --poster-shape-ratio: 1.464;
     --scroll-bar-size: 6px;
     --horizontal-nav-bar-size: 5.5rem;
-    --vertical-nav-bar-size: 6rem;
+    --vertical-nav-bar-size: 8rem;
     --focus-outline-size: 2px;
     --color-facebook: #1877F1;
     --color-x: #000000;
@@ -173,7 +173,10 @@ html {
     body {
         width: 100%;
         height: 100%;
-        background: linear-gradient(41deg, var(--primary-background-color) 0%, var(--secondary-background-color) 100%);
+        /* TV: gradient verticale dark-top → light-bottom. "Light" piu'
+         * scuro del secondary originale (22,20,50 vs 26,23,62) per non
+         * impastarsi con le card. */
+        background: linear-gradient(180deg, var(--primary-background-color) 0%, rgba(22, 20, 50, 1) 100%);
         -webkit-font-smoothing: antialiased;
 
         :global(#app) {

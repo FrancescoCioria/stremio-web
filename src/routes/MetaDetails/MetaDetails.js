@@ -6,7 +6,7 @@ const PropTypes = require('prop-types');
 const classnames = require('classnames');
 const { useServices } = require('stremio/services');
 const { withCoreSuspender } = require('stremio/common');
-const { VerticalNavBar, HorizontalNavBar, DelayedRenderer, Image, MetaPreview, ModalDialog } = require('stremio/components');
+const { VerticalNavBar, DelayedRenderer, Image, MetaPreview, ModalDialog } = require('stremio/components');
 const StreamsList = require('./StreamsList');
 const VideosList = require('./VideosList');
 const useMetaDetails = require('./useMetaDetails');
@@ -195,7 +195,13 @@ const MetaDetails = ({ urlParams, queryParams }) => {
                                                     : metaDetails.metaItem.content.content.description
                                             }
                                             focusedEpisode={previewVideo}
-                                            hideActions={streamPath !== null}
+                                            /* Per i FILM la pagina streams e' anche la pagina
+                                             * di dettaglio (non c'e' episode list prima), quindi
+                                             * manteniamo visibili Trailer/Add to Lib/Mark as
+                                             * watched. Per le SERIE in streams mode nascondiamo
+                                             * perche' l'utente ha gia' scelto l'episodio. */
+                                            hideActions={streamPath !== null && streamPath.type !== 'movie'}
+                                            showWatchedToggle={metaDetails.metaItem.content.content.type === 'movie'}
                                             links={metaDetails.metaItem.content.content.links}
                                             trailerStreams={metaDetails.metaItem.content.content.trailerStreams}
                                             inLibrary={metaDetails.metaItem.content.content.inLibrary}
@@ -261,15 +267,11 @@ MetaDetails.propTypes = {
     queryParams: PropTypes.instanceOf(URLSearchParams)
 };
 
+// TV: fallback minimale durante core-suspend. Niente HBar con profile
+// (quell'icona poi non puo' aprire il popup correttamente in questa
+// route e il pulsante indietro non serve — gamepad B / Esc).
 const MetaDetailsFallback = () => (
-    <div className={styles['metadetails-container']}>
-        <HorizontalNavBar
-            className={styles['nav-bar']}
-            backButton={true}
-            fullscreenButton={true}
-            navMenu={true}
-        />
-    </div>
+    <div className={styles['metadetails-container']} />
 );
 
 module.exports = withCoreSuspender(MetaDetails, MetaDetailsFallback);

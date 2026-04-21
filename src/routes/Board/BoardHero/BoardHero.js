@@ -10,7 +10,52 @@ const classnames = require('classnames');
 const { Image } = require('stremio/components');
 const styles = require('./styles');
 
-const BoardHero = ({ meta }) => {
+// Cache meta arricchiti da cinemeta (CW items hanno solo poster+name+id,
+// mancano description/genres/cast/rating). Modulo-level = sopravvive
+// tra focus switch, evita re-fetch. Max 50 entry ruotate FIFO.
+const metaCache = new Map();
+const MAX_CACHE = 50;
+const CINEMETA = 'https://v3-cinemeta.strem.io/meta/';
+
+const isMetaThin = (m) => !m || (
+    !m.description && (!Array.isArray(m.genres) || m.genres.length === 0) &&
+    (!Array.isArray(m.cast) || m.cast.length === 0)
+);
+
+const useEnrichedMeta = (meta) => {
+    const [enriched, setEnriched] = React.useState(meta);
+    React.useEffect(() => {
+        setEnriched(meta);
+        if (!meta || !isMetaThin(meta) || !meta.id || !meta.type) return undefined;
+        // Solo id imdb-style (tt...) o kitsu:123 — cinemeta gestisce questi.
+        if (!/^(tt\d+|kitsu:)/.test(String(meta.id))) return undefined;
+        const cacheKey = meta.type + ':' + meta.id;
+        if (metaCache.has(cacheKey)) {
+            setEnriched({ ...meta, ...metaCache.get(cacheKey) });
+            return undefined;
+        }
+        let cancelled = false;
+        fetch(CINEMETA + encodeURIComponent(meta.type) + '/' + encodeURIComponent(meta.id) + '.json')
+            .then((r) => r.ok ? r.json() : null)
+            .then((data) => {
+                if (cancelled || !data || !data.meta) return;
+                const { description, genres, cast, imdbRating, releaseInfo, runtime, background, logo, videos } = data.meta;
+                const enrichment = { description, genres, cast, imdbRating, releaseInfo, runtime, background, logo, videos };
+                metaCache.set(cacheKey, enrichment);
+                if (metaCache.size > MAX_CACHE) {
+                    const first = metaCache.keys().next().value;
+                    metaCache.delete(first);
+                }
+                setEnriched({ ...meta, ...enrichment });
+            })
+            .catch(() => {});
+        return () => { cancelled = true; };
+    }, [meta]);
+    return enriched;
+};
+
+const BoardHero = ({ meta: rawMeta }) => {
+    const meta = useEnrichedMeta(rawMeta);
     if (!meta) {
         return <div className={styles['board-hero-container']} />;
     }

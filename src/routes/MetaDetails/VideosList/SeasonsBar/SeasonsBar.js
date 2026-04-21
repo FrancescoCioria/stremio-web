@@ -23,6 +23,20 @@ const SeasonsBar = ({ className, seasons, season, onSelect }) => {
         });
     }, [onSelect]);
 
+    // TV: filtraggio live al focus. L'utente muove il focus tra le
+    // pill con le frecce → il season cambia subito senza dover
+    // confermare con Enter.
+    const pillOnFocus = React.useCallback((event) => {
+        if (typeof onSelect !== 'function') return;
+        const value = Number(event.currentTarget.dataset.season);
+        onSelect({
+            type: 'select',
+            value,
+            reactEvent: event,
+            nativeEvent: event.nativeEvent,
+        });
+    }, [onSelect]);
+
     const onKeyDown = React.useCallback((e) => {
         const root = rootRef.current;
         if (!root) return;
@@ -59,6 +73,7 @@ const SeasonsBar = ({ className, seasons, season, onSelect }) => {
                         title={label}
                         data-season={s}
                         onClick={pillOnClick}
+                        onFocus={pillOnFocus}
                     >
                         <div className={styles['label']}>{label}</div>
                     </Button>

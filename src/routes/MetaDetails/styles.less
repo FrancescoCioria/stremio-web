@@ -102,7 +102,9 @@
         .meta-preview {
             grid-area: meta;
             align-self: start;
-            padding: 0 4rem 2rem 4rem;
+            /* TV: padding-top per non far tagliare il logo (che puo' avere
+             * whitespace sopra o bleed) contro il top del viewport. */
+            padding: 3rem 4rem 2rem 4rem;
             padding-left: max(1rem, calc(4rem - var(--safe-area-inset-left)));
             max-width: 55%;
         }
