@@ -11,17 +11,12 @@
     width: calc(100% - var(--safe-area-inset-left) - var(--safe-area-inset-right));
     height: 100%;
 
-    .horizontal-nav-bar {
-        position: absolute;
-        top: 0;
-        right: 0;
-        left: 0;
-        z-index: 1;
-    }
-
+    /* TV: niente HBar. La VBar va da cima a fondo. Content-container parte
+     * dal top del viewport (solo safe-area-inset-top) e si estende a destra
+     * del sidebar. */
     .vertical-nav-bar {
         position: absolute;
-        top: var(--horizontal-nav-bar-size);
+        top: 0;
         bottom: 0;
         left: 0;
         z-index: 1;
@@ -29,12 +24,43 @@
 
     .nav-content-container {
         position: absolute;
-        top: calc(var(--horizontal-nav-bar-size) + var(--safe-area-inset-top));
+        top: var(--safe-area-inset-top, 0);
         right: 0;
         bottom: 0;
         left: var(--vertical-nav-bar-size);
         z-index: 0;
         overflow: hidden;
+    }
+
+    /* Bottone profilo (popup NavMenu) nel bottom-slot della sidebar. */
+    .profile-button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 3rem;
+        height: 3rem;
+        padding: 0;
+        border-radius: 50%;
+        color: var(--primary-foreground-color);
+        background-color: transparent;
+        opacity: 0.75;
+
+        &:hover, &:global(.active) {
+            opacity: 1;
+            background-color: var(--overlay-color);
+        }
+
+        &:focus-visible {
+            outline: none;
+            opacity: 1;
+            background-color: var(--overlay-color);
+            box-shadow: 0 0 0 0.2rem var(--primary-foreground-color);
+        }
+
+        .profile-icon {
+            width: 1.8rem;
+            height: 1.8rem;
+        }
     }
 }
 

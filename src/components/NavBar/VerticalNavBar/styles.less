@@ -9,6 +9,7 @@
     align-items: center;
     gap: 1rem;
     width: var(--vertical-nav-bar-size);
+    height: 100%;
     padding: 1rem 0;
     background-color: transparent;
     overflow-y: auto;
@@ -22,6 +23,17 @@
     .nav-tab-button {
         width: calc(var(--vertical-nav-bar-size) - 1.2rem);
         height: calc(var(--vertical-nav-bar-size) - 1.2rem);
+        min-height: 3.5rem;
+    }
+
+    /* Slot inferiore (es. profilo NavMenu): margin-top:auto lo spinge in
+     * fondo alla sidebar. Stesso box-size delle altre tab per coerenza. */
+    .bottom-slot {
+        margin-top: auto;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: calc(var(--vertical-nav-bar-size) - 1.2rem);
         min-height: 3.5rem;
     }
 }

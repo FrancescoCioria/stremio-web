@@ -139,12 +139,9 @@ const MetaDetails = ({ urlParams, queryParams }) => {
                     :
                     null
             }
-            <HorizontalNavBar
-                className={styles['nav-bar']}
-                backButton={true}
-                fullscreenButton={true}
-                navMenu={true}
-            />
+            {/* TV: niente horizontal nav bar. Back via gamepad B/Esc
+                 (KeyboardShortcuts.js) o back button pill dentro la
+                 StreamsList. Fullscreen/navmenu non servono su TV. */}
             <div className={styles['metadetails-content']}>
                 {
                     tabs.length > 0 ?

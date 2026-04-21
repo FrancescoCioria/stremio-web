@@ -7,7 +7,7 @@ const { useTranslation } = require('react-i18next');
 const NavTabButton = require('./NavTabButton');
 const styles = require('./styles');
 
-const VerticalNavBar = React.memo(({ className, selected, tabs }) => {
+const VerticalNavBar = React.memo(({ className, selected, tabs, bottomSlot }) => {
     const { t } = useTranslation();
     return (
         <nav className={classnames(className, styles['vertical-nav-bar-container'])}>
@@ -28,6 +28,12 @@ const VerticalNavBar = React.memo(({ className, selected, tabs }) => {
                     :
                     null
             }
+            {
+                bottomSlot ?
+                    <div className={styles['bottom-slot']}>{bottomSlot}</div>
+                    :
+                    null
+            }
         </nav>
     );
 });
@@ -44,7 +50,8 @@ VerticalNavBar.propTypes = {
         icon: PropTypes.string,
         href: PropTypes.string,
         onClick: PropTypes.func
-    }))
+    })),
+    bottomSlot: PropTypes.node
 };
 
 module.exports = VerticalNavBar;
