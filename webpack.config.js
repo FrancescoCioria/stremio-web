@@ -185,7 +185,10 @@ module.exports = (env, argv) => ({
         host: '0.0.0.0',
         static: false,
         hot: false,
-        server: 'https',
+        // Casa TV fork: HTTP per allineare dev (Mac) al Beelink (python
+        // http.server). Service worker su localhost funziona anche senza
+        // HTTPS.
+        server: 'http',
         liveReload: false
     },
     optimization: {
