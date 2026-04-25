@@ -31,6 +31,15 @@ const sortByValues = (items, values) => items.sort((a, b) => {
 });
 
 const SubtitlesMenu = React.memo(React.forwardRef((props, ref) => {
+    // Ref interno (oltre al forwardRef esterno) per poter cercare la
+    // language-option attualmente selezionata e darle il focus al mount.
+    const innerRef = React.useRef(null);
+    const setRef = React.useCallback((node) => {
+        innerRef.current = node;
+        if (typeof ref === 'function') ref(node);
+        else if (ref) ref.current = node;
+    }, [ref]);
+
     const subtitlesTracks = React.useMemo(() => {
         return normalizeTracksLang(Array.isArray(props.subtitlesTracks) ? props.subtitlesTracks : []);
     }, [props.subtitlesTracks]);
@@ -153,8 +162,25 @@ const SubtitlesMenu = React.memo(React.forwardRef((props, ref) => {
             }
         }
     }, [props.selectedSubtitlesTrackId, props.selectedExtraSubtitlesTrackId, props.subtitlesOffset, props.extraSubtitlesOffset, props.onSubtitlesOffsetChanged, props.onExtraSubtitlesOffsetChanged]);
+    // Al mount, focus sull'opzione lingua attualmente selezionata. Cosi'
+    // l'utente da telecomando puo' scorrere ←/→/↑/↓ partendo dalla scelta
+    // corrente invece che dal primo bottone (OFF). Doppio rAF: aspetta
+    // che la <Transition fade> abbia montato e dipinto.
+    React.useEffect(() => {
+        const id = requestAnimationFrame(() => requestAnimationFrame(() => {
+            const root = innerRef.current;
+            if (!root) return;
+            const selected = root.querySelector(`.${styles['language-option']}.selected`)
+                || root.querySelector(`.${styles['variant-option']}.selected`);
+            if (selected && typeof selected.focus === 'function') {
+                selected.focus();
+            }
+        }));
+        return () => cancelAnimationFrame(id);
+    }, []);
+
     return (
-        <div ref={ref} className={classnames(props.className, styles['subtitles-menu-container'])} onMouseDown={onMouseDown}>
+        <div ref={setRef} className={classnames(props.className, styles['subtitles-menu-container'])} onMouseDown={onMouseDown}>
             <div className={styles['languages-container']}>
                 <div className={styles['languages-header']}>{ t('PLAYER_SUBTITLES_LANGUAGES') }</div>
                 <div className={styles['languages-list']}>

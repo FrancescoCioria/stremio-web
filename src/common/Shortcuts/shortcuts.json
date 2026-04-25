@@ -37,7 +37,7 @@
             {
                 "name": "playPause",
                 "label": "SETTINGS_SHORTCUT_PLAY_PAUSE",
-                "combos": [["Space"]]
+                "combos": [["Space"], ["Enter"]]
             },
             {
                 "name": "seekForward",
@@ -48,16 +48,6 @@
                 "name": "seekBackward",
                 "label": "SETTINGS_SHORTCUT_SEEK_BACKWARD",
                 "combos": [["ArrowLeft"], ["Shift", "ArrowLeft"]]
-            },
-            {
-                "name": "volumeUp",
-                "label": "SETTINGS_SHORTCUT_VOLUME_UP",
-                "combos": [["ArrowUp"]]
-            },
-            {
-                "name": "volumeDown",
-                "label": "SETTINGS_SHORTCUT_VOLUME_DOWN",
-                "combos": [["ArrowDown"]]
             },
             {
                 "name": "mute",
@@ -92,7 +82,7 @@
             {
                 "name": "subtitlesMenu",
                 "label": "SETTINGS_SHORTCUT_MENU_SUBTITLES",
-                "combos": [["S"]]
+                "combos": [["S"], ["Ctrl", "Shift", "F13"]]
             },
             {
                 "name": "audioMenu",

@@ -61,6 +61,22 @@ const Player = ({ urlParams, queryParams }) => {
 
     const [immersed, setImmersed] = React.useState(true);
     const setImmersedDebounced = React.useCallback(debounce(setImmersed, 3000), []);
+
+    // TV navigation mode. Tre stati:
+    //   null      = focus sul video (default). ←/→ seek, Enter play/pause.
+    //   'seekbar' = focus sulla SeekBar (timeline). ←/→ seek, ↓ entra
+    //               sui bottoni, ↑ torna al video.
+    //   'buttons' = focus su uno dei bottoni del control bar. ←/→ navigano
+    //               i bottoni adiacenti, Enter attiva il bottone (browser
+    //               nativo via tabIndex=0). seekForward/Backward e playPause
+    //               shortcut sono disabilitati in questo stato.
+    const [tvNavMode, setTvNavMode] = React.useState(null);
+    // Mirror in ref: i keydown handler dentro useLayoutEffect leggono lo
+    // stato senza dover ricreare i listener ad ogni cambio di tvNavMode
+    // (8 add/removeEventListener evitati per ogni transizione null->seekbar
+    // ->buttons).
+    const tvNavModeRef = React.useRef(tvNavMode);
+    React.useEffect(() => { tvNavModeRef.current = tvNavMode; }, [tvNavMode]);
     const [, , , toggleFullscreen] = useFullscreen();
 
     const [optionsMenuOpen, , closeOptionsMenu, toggleOptionsMenu] = useBinaryState(false);
@@ -85,8 +101,12 @@ const Player = ({ urlParams, queryParams }) => {
     }, []);
 
     const overlayHidden = React.useMemo(() => {
+        // Quando l'utente sta navigando con frecce nel control bar, l'overlay
+        // (seek bar + bottoni) DEVE restare visibile a prescindere dallo
+        // stato di immersione.
+        if (tvNavMode !== null) return false;
         return immersed && !casting && video.state.paused !== null && !video.state.paused && !menusOpen;
-    }, [immersed, casting, video.state.paused, menusOpen]);
+    }, [immersed, casting, video.state.paused, menusOpen, tvNavMode]);
 
     const nextVideoPopupDismissed = React.useRef(false);
     const defaultSubtitlesSelected = React.useRef(false);
@@ -649,7 +669,7 @@ const Player = ({ urlParams, queryParams }) => {
             setSeeking(true);
             onSeekRequested(video.state.time + seekDuration);
         }
-    }, [video.state.time, onSeekRequested], !menusOpen);
+    }, [video.state.time, onSeekRequested], !menusOpen && tvNavMode !== 'buttons');
 
     onShortcut('seekBackward', (combo) => {
         if (video.state.time !== null) {
@@ -657,23 +677,11 @@ const Player = ({ urlParams, queryParams }) => {
             setSeeking(true);
             onSeekRequested(video.state.time - seekDuration);
         }
-    }, [video.state.time, onSeekRequested], !menusOpen);
+    }, [video.state.time, onSeekRequested], !menusOpen && tvNavMode !== 'buttons');
 
     onShortcut('mute', () => {
         video.state.muted === true ? onUnmuteRequested() : onMuteRequested();
     }, [video.state.muted], !menusOpen);
-
-    onShortcut('volumeUp', () => {
-        if (video.state.volume !== null) {
-            onVolumeChangeRequested(Math.min(video.state.volume + 5, 200));
-        }
-    }, [video.state.volume], !menusOpen);
-
-    onShortcut('volumeDown', () => {
-        if (video.state.volume !== null) {
-            onVolumeChangeRequested(Math.min(video.state.volume - 5, 200));
-        }
-    }, [video.state.volume], !menusOpen);
 
     onShortcut('subtitlesDelay', (combo) => {
         combo === 1 ? onIncreaseSubtitlesDelay() : onDecreaseSubtitlesDelay();
@@ -698,10 +706,12 @@ const Player = ({ urlParams, queryParams }) => {
 
     onShortcut('subtitlesMenu', () => {
         closeMenus();
-        if (video.state?.subtitlesTracks?.length > 0 || video.state?.extraSubtitlesTracks?.length > 0) {
-            toggleSubtitlesMenu();
-        }
-    }, [video.state.subtitlesTracks, video.state.extraSubtitlesTracks, toggleSubtitlesMenu]);
+        // Apriamo sempre il menu, anche senza tracks: il SubtitlesMenu mostra
+        // "PLAYER_SUBTITLES_DISABLED". Aprire condizionalmente lasciava
+        // l'utente senza feedback (su TV, premere ↑ e vedere "niente" dava
+        // l'impressione che il tasto fosse rotto).
+        toggleSubtitlesMenu();
+    }, [toggleSubtitlesMenu]);
 
     onShortcut('audioMenu', () => {
         closeMenus();
@@ -754,9 +764,23 @@ const Player = ({ urlParams, queryParams }) => {
     }, []);
 
     onShortcut('exit', () => {
-        closeMenus();
+        // Esc gerarchico: dismiss del piu' interno prima di tornare indietro.
+        // 1) Un menu aperto -> chiudi solo il menu.
+        // 2) TV nav (seekbar/buttons) -> esci dalla nav (back al video).
+        // 3) Puro video -> history.back() (torna alla lista torrent).
+        if (menusOpen) {
+            closeMenus();
+            return;
+        }
+        if (tvNavMode !== null) {
+            setTvNavMode(null);
+            if (document.activeElement instanceof HTMLElement) {
+                document.activeElement.blur();
+            }
+            return;
+        }
         !settings.escExitFullscreen && window.history.back();
-    }, [settings.escExitFullscreen]);
+    }, [settings.escExitFullscreen, tvNavMode, menusOpen, closeMenus]);
 
     React.useLayoutEffect(() => {
         if (menusOpen) {
@@ -765,9 +789,89 @@ const Player = ({ urlParams, queryParams }) => {
             longPress.current = false;
         }
 
+        const focusableButtons = () => {
+            const root = controlBarRef.current;
+            if (!root) return [];
+            return [...root.querySelectorAll('[data-tv-button]')]
+                .filter((b) => !b.classList.contains('disabled'));
+        };
+
+        // === TV nav (capture phase) ===
+        // La spatial-navigation-polyfill di Stremio (App.js:3) intercetta
+        // ↑↓←→ su window e sposta il focus al primo focusable nella
+        // direzione. Senza capture+stopImmediatePropagation, premere ↓ dal
+        // video metteva focus su play/pause (polyfill) E settava
+        // tvNavMode='seekbar' (mio handler) -> doppio outline visibile.
+        const onTvNavKeyDownCapture = (e) => {
+            if (menusOpen) return; // delego al menu nav
+
+            const mode = tvNavModeRef.current;
+            if (e.code === 'ArrowDown') {
+                if (mode === null) {
+                    setTvNavMode('seekbar');
+                } else if (mode === 'seekbar') {
+                    setTvNavMode('buttons');
+                    requestAnimationFrame(() => requestAnimationFrame(() => {
+                        const btns = focusableButtons();
+                        if (btns.length > 0) btns[0].focus();
+                    }));
+                }
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                return;
+            }
+            if (e.code === 'ArrowUp') {
+                if (mode === 'buttons') {
+                    setTvNavMode('seekbar');
+                    if (document.activeElement instanceof HTMLElement) {
+                        document.activeElement.blur();
+                    }
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    return;
+                }
+                if (mode === 'seekbar') {
+                    setTvNavMode(null);
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                }
+                return;
+            }
+            if ((e.code === 'ArrowLeft' || e.code === 'ArrowRight') && mode === 'buttons') {
+                const btns = focusableButtons();
+                if (btns.length === 0) return;
+                const idx = btns.indexOf(document.activeElement);
+                // Focus perso (es. menu chiuso): riporta sul primo bottone.
+                const next = idx < 0
+                    ? 0
+                    : e.code === 'ArrowRight'
+                        ? Math.min(btns.length - 1, idx + 1)
+                        : Math.max(0, idx - 1);
+                btns[next].focus();
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                return;
+            }
+        };
+
         const onKeyDown = (e) => {
-            if (e.code !== 'Space' || e.repeat) return;
             if (menusOpen) return;
+
+            // Enter = play/pause toggle, ma solo se NON sono su un bottone:
+            // li' Button.tsx gestisce nativamente Enter -> click().
+            if (e.code === 'Enter' && !e.repeat && tvNavModeRef.current !== 'buttons' && video.state.paused !== null) {
+                if (video.state.paused) {
+                    onPlayRequested();
+                    setSeeking(false);
+                } else {
+                    onPauseRequested();
+                }
+                e.preventDefault();
+                return;
+            }
+
+            // Space long-press = playback 2x.
+            if (e.code !== 'Space' || e.repeat) return;
 
             longPress.current = false;
 
@@ -846,7 +950,22 @@ const Player = ({ urlParams, queryParams }) => {
             setSeeking(false);
         };
 
+        // CAPTURE phase: intercetta Esc PRIMA del service KeyboardShortcuts
+        // globale (services/KeyboardShortcuts/KeyboardShortcuts.js) che, se
+        // non vede una `.modals-container` aperta, fa history.back(). I
+        // menu del Player (SubtitlesMenu, AudioMenu, ...) sono layer custom
+        // — non sono modal-container — quindi senza questo flag Esc su
+        // menu aperto torna alla lista torrent invece di chiudere il menu.
+        const onKeyDownCapture = (e) => {
+            if (e.key !== 'Escape') return;
+            if (menusOpen || tvNavModeRef.current !== null) {
+                e.keyboardShortcutPrevented = true;
+            }
+        };
+
         if (routeFocused) {
+            window.addEventListener('keydown', onTvNavKeyDownCapture, true);
+            window.addEventListener('keydown', onKeyDownCapture, true);
             window.addEventListener('keyup', onKeyUp);
             window.addEventListener('keydown', onKeyDown);
             window.addEventListener('wheel', onWheel);
@@ -855,6 +974,8 @@ const Player = ({ urlParams, queryParams }) => {
             window.addEventListener('blur', onBlur);
         }
         return () => {
+            window.removeEventListener('keydown', onTvNavKeyDownCapture, true);
+            window.removeEventListener('keydown', onKeyDownCapture, true);
             window.removeEventListener('keyup', onKeyUp);
             window.removeEventListener('keydown', onKeyDown);
             window.removeEventListener('wheel', onWheel);
@@ -974,33 +1095,24 @@ const Player = ({ urlParams, queryParams }) => {
             }
             <ControlBar
                 ref={controlBarRef}
+                tvNavMode={tvNavMode}
                 className={classnames(styles['layer'], styles['control-bar-layer'])}
                 paused={video.state.paused}
                 time={video.state.time}
                 duration={video.state.duration}
                 buffered={video.state.buffered}
-                volume={video.state.volume}
-                muted={video.state.muted}
-                playbackSpeed={video.state.playbackSpeed}
                 subtitlesTracks={video.state.subtitlesTracks.concat(video.state.extraSubtitlesTracks)}
                 audioTracks={video.state.audioTracks}
-                metaItem={player.metaItem}
                 nextVideo={player.nextVideo}
                 stream={player.selected !== null ? player.selected.stream : null}
                 statistics={statistics}
                 onPlayRequested={onPlayRequested}
                 onPauseRequested={onPauseRequested}
                 onNextVideoRequested={onNextVideoRequested}
-                onMuteRequested={onMuteRequested}
-                onUnmuteRequested={onUnmuteRequested}
-                onVolumeChangeRequested={onVolumeChangeRequested}
                 onSeekRequested={onSeekRequested}
-                onToggleOptionsMenu={toggleOptionsMenu}
                 onToggleSubtitlesMenu={toggleSubtitlesMenu}
                 onToggleAudioMenu={toggleAudioMenu}
-                onToggleSpeedMenu={toggleSpeedMenu}
                 onToggleStatisticsMenu={toggleStatisticsMenu}
-                onToggleSideDrawer={toggleSideDrawer}
                 onMouseMove={onBarMouseMove}
                 onMouseOver={onBarMouseMove}
                 onTouchEnd={onContainerMouseLeave}
