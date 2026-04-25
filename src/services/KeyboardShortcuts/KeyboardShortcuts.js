@@ -8,7 +8,17 @@ function KeyboardShortcuts() {
     const events = new EventEmitter();
 
     function onKeyDown(event) {
-        if (event.keyboardShortcutPrevented || event.target.tagName === 'INPUT' || event.ctrlKey || event.altKey || event.shiftKey || event.metaKey) {
+        if (event.keyboardShortcutPrevented || event.ctrlKey || event.altKey || event.shiftKey || event.metaKey) {
+            return;
+        }
+
+        // Su INPUT/TEXTAREA skippiamo i tasti che interferirebbero col
+        // typing (Digit0-6 navigazione, Backspace back). Esc invece DEVE
+        // funzionare anche con focus su input — caso tipico: campo
+        // ricerca, l'utente preme Back/Esc per uscire dalla pagina, non
+        // per annullare l'input.
+        const isInput = event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA';
+        if (isInput && event.code !== 'Escape') {
             return;
         }
 
