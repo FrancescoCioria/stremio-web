@@ -116,7 +116,9 @@
         .videos-list, .streams-list {
             grid-area: videos;
             align-self: start;
-            width: 100%;
+            /* Margine laterale per non far arrivare la lista edge-to-edge
+             * (sopra la sidebar a sx e oltre il bordo dx). */
+            margin: 0 4rem;
             border-radius: var(--border-radius);
             background-color: rgba(0, 0, 0, 0.4);
             backdrop-filter: blur(15px);

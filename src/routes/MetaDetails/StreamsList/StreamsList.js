@@ -28,18 +28,6 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
     const showInstallAddonsButton = React.useMemo(() => {
         return !profile || profile.auth === null || profile.auth?.user?.isNewUser === true && !video?.upcoming;
     }, [profile, video]);
-    const backButtonOnClick = React.useCallback(() => {
-        if (video.deepLinks && typeof video.deepLinks.metaDetailsVideos === 'string') {
-            window.location.replace(video.deepLinks.metaDetailsVideos + (
-                typeof video.season === 'number' ?
-                    `?${new URLSearchParams({ 'season': video.season })}`
-                    :
-                    null
-            ));
-        } else {
-            window.history.back();
-        }
-    }, [video]);
     const countLoadingAddons = React.useMemo(() => {
         return props.streams.filter((stream) => stream.content.type === 'Loading').length;
     }, [props.streams]);
@@ -98,6 +86,46 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
         onEpisodeSearch(season, episode);
     }, [onEpisodeSearch]);
 
+    // TV: navigazione orizzontale frecce dentro la lista stream. La spatial
+    // nav di default si basa sulla visibilita' viewport-clipped quindi
+    // arrivati all'ultima card visibile, premere → non passava alla
+    // successiva (off-screen). Qui forziamo il next/prev sibling +
+    // scrollIntoView in modo deterministico, indipendente dal layout.
+    const onStreamsKeyDown = React.useCallback((event) => {
+        if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+        const target = event.target;
+        // Solo se il focus e' su una card stream (figlio diretto del
+        // container scrollabile o suo discendente). Lascia stare gli
+        // input/textarea o altri elementi che gestiscono le frecce.
+        const tag = target.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+        const container = streamsContainerRef.current;
+        if (!container) return;
+        // Trova la card "stream" antenata diretta del container.
+        let card = target;
+        while (card && card.parentElement !== container) card = card.parentElement;
+        if (!card) return;
+        const sibling = event.key === 'ArrowRight'
+            ? card.nextElementSibling
+            : card.previousElementSibling;
+        if (!sibling) return;
+        // Cerca il primo elemento focusable dentro la card sibling.
+        const focusable = sibling.matches('a,button,[tabindex]')
+            ? sibling
+            : sibling.querySelector('a,button,[tabindex]');
+        if (!focusable) return;
+        event.preventDefault();
+        event.stopPropagation();
+        focusable.focus({ preventScroll: false });
+        // Su key-repeat continuo (telecomando) lo smooth scroll accumula
+        // animazioni e fa sentire la nav pesante: instant durante repeat.
+        sibling.scrollIntoView({
+            behavior: event.repeat ? 'auto' : 'smooth',
+            block: 'nearest',
+            inline: 'center',
+        });
+    }, []);
+
     // Default focus: al primo load della lista stream, porta il focus sulla
     // prima card. Evita all'utente da telecomando di dover scrollare per
     // "trovare" il punto di partenza. Ma se l'utente sta gia' scorrendo
@@ -118,22 +146,6 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
     return (
         <div className={classnames(className, styles['streams-list-container'])}>
             <div className={styles['select-choices-wrapper']}>
-                {
-                    video ?
-                        <React.Fragment>
-                            <Button className={classnames(styles['button-container'], styles['back-button-container'])} onClick={backButtonOnClick}>
-                                <Icon className={styles['icon']} name={'chevron-back'} />
-                                <div className={styles['label']}>Back</div>
-                            </Button>
-                            <div className={styles['episode-title']}>
-                                {typeof video.season === 'number' && typeof video.episode === 'number'
-                                    ? `S${video.season}E${video.episode}${video.title ? ` ${video.title}` : ''}`
-                                    : (video.title ?? '')}
-                            </div>
-                        </React.Fragment>
-                        :
-                        null
-                }
                 {
                     /* TV: mostra le pills sempre che ci sia almeno un
                      * addon — coerenza col pattern Android TV (stesse
@@ -199,7 +211,7 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
                             </div>
                             :
                             <React.Fragment>
-                                <div className={styles['streams-container']} ref={streamsContainerRef}>
+                                <div className={styles['streams-container']} ref={streamsContainerRef} onKeyDown={onStreamsKeyDown}>
                                     {filteredStreams.map((stream, index) => (
                                         <Stream
                                             key={index}

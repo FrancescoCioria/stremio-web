@@ -123,7 +123,8 @@
         }
 
         .episode-title {
-            min-width: 45%;
+            flex: 0 1 auto;
+            max-width: 30%;
             color: var(--primary-foreground-color);
             white-space: nowrap;
             overflow: hidden;
@@ -225,6 +226,12 @@
         overflow-x: auto;
         overflow-y: hidden;
         scroll-snap-type: x proximity;
+        /* scroll-snap-align:start sui figli ignora il padding del
+         * container e li allinea al bordo dello scrollport. Senza
+         * scroll-padding la prima card si appiccicava al bordo sx
+         * lasciando 0 margine. */
+        scroll-padding-left: 2rem;
+        scroll-padding-right: 2rem;
 
         &>* {
             flex: none;
