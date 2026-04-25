@@ -66,20 +66,35 @@
         flex-direction: column;
         gap: 1rem;
 
+        /* Slot fisso: dimensioni indipendenti dal contenuto (img loading,
+         * img caricata, div fallback). Senza container il <img> con src
+         * non ancora caricato collassa a 0x0 in alcuni browser, anche con
+         * width/height esplicito, facendo shifare verso l'alto la
+         * subline/description. Lo slot fisso 10rem evita lo shift. */
+        .hero-logo-slot {
+            width: 28rem;
+            height: 10rem;
+            display: flex;
+            align-items: flex-end;
+            flex: none;
+        }
+
         .hero-logo {
-            max-width: 28rem;
-            max-height: 10rem;
+            max-width: 100%;
+            max-height: 100%;
             object-fit: contain;
-            object-position: left center;
+            object-position: left bottom;
             filter: drop-shadow(0 0 1rem rgba(0,0,0,0.5));
         }
 
         .hero-title {
+            width: 100%;
             font-size: 4rem;
             font-weight: 800;
             color: var(--primary-foreground-color);
             line-height: 1.05;
             letter-spacing: -0.02em;
+            overflow: hidden;
         }
 
         .hero-subline {
