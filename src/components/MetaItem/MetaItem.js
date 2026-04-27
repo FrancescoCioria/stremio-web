@@ -10,10 +10,11 @@ const { default: Button } = require('stremio/components/Button');
 const { default: Image } = require('stremio/components/Image');
 const Multiselect = require('stremio/components/Multiselect');
 const useBinaryState = require('stremio/common/useBinaryState');
+const useMovieAvailability = require('stremio/common/useMovieAvailability');
 const { ICON_FOR_TYPE } = require('stremio/common/CONSTANTS');
 const styles = require('./styles');
 
-const MetaItem = React.memo(({ className, type, name, poster, posterShape, posterChangeCursor, progress, newVideos, options, deepLinks, dataset, optionOnSelect, onDismissClick, onPlayClick, watched, ...props }) => {
+const MetaItem = React.memo(({ className, type, id, name, poster, posterShape, posterChangeCursor, progress, newVideos, options, deepLinks, dataset, optionOnSelect, onDismissClick, onPlayClick, watched, ...props }) => {
     const { t } = useTranslation();
     const [menuOpen, onMenuOpen, onMenuClose] = useBinaryState(false);
     const href = React.useMemo(() => {
@@ -52,6 +53,7 @@ const MetaItem = React.memo(({ className, type, name, poster, posterShape, poste
             });
         }
     }, [dataset, optionOnSelect]);
+    const inCinema = useMovieAvailability(type, id);
     const renderPosterFallback = React.useCallback(() => (
         <Icon
             className={styles['placeholder-icon']}
@@ -123,6 +125,12 @@ const MetaItem = React.memo(({ className, type, name, poster, posterShape, poste
                         :
                         null
                 }
+                {
+                    inCinema ?
+                        <div className={styles['in-cinema-pill']}>Al Cinema</div>
+                        :
+                        null
+                }
             </div>
             {
                 (typeof name === 'string' && name.length > 0) || (Array.isArray(options) && options.length > 0) ?
@@ -158,6 +166,7 @@ MetaItem.displayName = 'MetaItem';
 MetaItem.propTypes = {
     className: PropTypes.string,
     type: PropTypes.string,
+    id: PropTypes.string,
     name: PropTypes.string,
     poster: PropTypes.string,
     posterShape: PropTypes.oneOf(['poster', 'landscape', 'square']),
