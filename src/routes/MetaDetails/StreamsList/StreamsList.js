@@ -14,13 +14,12 @@ const { default: SeasonEpisodePicker } = require('../EpisodePicker');
 
 const ALL_ADDONS_KEY = 'ALL';
 
-// Codec audio/video che Brave/Chromium NON decodifica in HTML5 video (no
-// licenza Dolby, no decoder ProRes/HEVC senza VideoToolbox). Il player
-// resta in loading silenzioso senza error toast (Stremio bug 2081-style).
-// Filtriamo a monte: la lista mostra solo stream realmente riproducibili.
-// Tag matching su name+title+description (gli addon mettono i tag almeno
-// in uno dei tre).
-const INCOMPATIBLE_CODEC_RE = /\b(?:DDP|DD\+|EAC[-_ .]?3|E-?AC-?3|TrueHD|Atmos|DTS(?:[-_ .]?(?:HD|MA|X))?|HEVC|H[-_ .]?265|x265)\b/i;
+// Codec AUDIO che Brave/Chromium NON decodifica in HTML5 video — Dolby
+// licensing, no decoder nel binary. Player resta in loading silenzioso
+// (Stremio bug 2081-style). Filtriamo a monte.
+// Video HEVC/H.265 NON e' qui: Chromium su Linux con VAAPI (Radeon 680M)
+// ha decoder hardware HEVC, le release x265 si riproducono.
+const INCOMPATIBLE_CODEC_RE = /\b(?:DDP|DD\+|EAC[-_ .]?3|E-?AC-?3|TrueHD|Atmos|DTS(?:[-_ .]?(?:HD|MA|X))?)\b/i;
 const isCompatibleStream = (stream) => {
     const text = [stream.name, stream.title, stream.description].filter(Boolean).join(' ');
     return !INCOMPATIBLE_CODEC_RE.test(text);
