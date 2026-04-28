@@ -14,6 +14,18 @@ const { default: SeasonEpisodePicker } = require('../EpisodePicker');
 
 const ALL_ADDONS_KEY = 'ALL';
 
+// Codec audio/video che Brave/Chromium NON decodifica in HTML5 video (no
+// licenza Dolby, no decoder ProRes/HEVC senza VideoToolbox). Il player
+// resta in loading silenzioso senza error toast (Stremio bug 2081-style).
+// Filtriamo a monte: la lista mostra solo stream realmente riproducibili.
+// Tag matching su name+title+description (gli addon mettono i tag almeno
+// in uno dei tre).
+const INCOMPATIBLE_CODEC_RE = /\b(?:DDP|DD\+|EAC[-_ .]?3|E-?AC-?3|TrueHD|Atmos|DTS(?:[-_ .]?(?:HD|MA|X))?|HEVC|H[-_ .]?265|x265)\b/i;
+const isCompatibleStream = (stream) => {
+    const text = [stream.name, stream.title, stream.description].filter(Boolean).join(' ');
+    return !INCOMPATIBLE_CODEC_RE.test(text);
+};
+
 const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
     const { t } = useTranslation();
     const { core } = useServices();
@@ -35,9 +47,9 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
         return props.streams
             .filter((streams) => streams.content.type === 'Ready')
             .reduce((streamsByAddon, streams) => {
-                streamsByAddon[streams.addon.transportUrl] = {
-                    addon: streams.addon,
-                    streams: streams.content.content.map((stream) => ({
+                const compatible = streams.content.content
+                    .filter(isCompatibleStream)
+                    .map((stream) => ({
                         ...stream,
                         onClick: () => {
                             core.transport.analytics({
@@ -48,7 +60,13 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
                             });
                         },
                         addonName: streams.addon.manifest.name
-                    }))
+                    }));
+                // Skip addon che non lascia nessuno stream compatibile:
+                // niente pill vuota nella selettiva.
+                if (compatible.length === 0) return streamsByAddon;
+                streamsByAddon[streams.addon.transportUrl] = {
+                    addon: streams.addon,
+                    streams: compatible
                 };
 
                 return streamsByAddon;
