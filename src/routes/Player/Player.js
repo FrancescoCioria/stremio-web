@@ -83,7 +83,7 @@ const Player = ({ urlParams, queryParams }) => {
     const [subtitlesMenuOpen, , closeSubtitlesMenu, toggleSubtitlesMenu] = useBinaryState(false);
     const [audioMenuOpen, , closeAudioMenu, toggleAudioMenu] = useBinaryState(false);
     const [speedMenuOpen, , closeSpeedMenu, toggleSpeedMenu] = useBinaryState(false);
-    const [statisticsMenuOpen, , closeStatisticsMenu, toggleStatisticsMenu] = useBinaryState(false);
+    const [statisticsMenuOpen, openStatisticsMenu, closeStatisticsMenu, toggleStatisticsMenu] = useBinaryState(false);
     const [nextVideoPopupOpen, openNextVideoPopup, closeNextVideoPopup] = useBinaryState(false);
     const [sideDrawerOpen, , closeSideDrawer, toggleSideDrawer] = useBinaryState(false);
 
@@ -753,6 +753,24 @@ const Player = ({ urlParams, queryParams }) => {
             toggleStatisticsMenu();
         }
     }, [player.selected, streamingServer.statistics, toggleStatisticsMenu]);
+
+    // Auto-apri il popup statistics 5s dopo lo start dello stream. L'utente
+    // lo aprirebbe manualmente per monitorare peers/speed durante il loading;
+    // ce lo facciamo da soli. Riarmato a ogni cambio stream
+    // (infoHash+fileIdx); idempotente se gia' aperto.
+    const streamingStatsRef = React.useRef(streamingServer.statistics);
+    React.useEffect(() => { streamingStatsRef.current = streamingServer.statistics; }, [streamingServer.statistics]);
+    const stream = player.selected?.stream;
+    const streamInfoHash = typeof stream?.infoHash === 'string' ? stream.infoHash : null;
+    const streamFileIdx = typeof stream?.fileIdx === 'number' ? stream.fileIdx : null;
+    React.useEffect(() => {
+        if (streamInfoHash === null || streamFileIdx === null) return;
+        const tid = setTimeout(() => {
+            if (streamingStatsRef.current?.type === 'Err') return;
+            openStatisticsMenu();
+        }, 5000);
+        return () => clearTimeout(tid);
+    }, [streamInfoHash, streamFileIdx, openStatisticsMenu]);
 
     onShortcut('playNext', () => {
         closeMenus();

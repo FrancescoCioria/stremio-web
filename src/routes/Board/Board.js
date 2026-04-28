@@ -61,6 +61,14 @@ const Board = () => {
         return () => root.removeEventListener('casa-meta-focus', handler);
     }, []);
 
+    // TV: memoria last-col per riga. Se passo da row A card 5 a row B e
+    // torno su, voglio focus su A card 5 (non card 0). Senza memoria, il
+    // rail di A restava scrollato a card 5 ma il focus tornava su card 0
+    // off-screen → "non vedo niente di selezionato" finche' non premevo
+    // ancora una freccia. WeakMap key=row element: se la riga remonta
+    // (catalog reload async), la entry decade automaticamente.
+    const lastCardByRowRef = React.useRef(new WeakMap());
+
     // TV: nav row-a-row su Up/Down + tile-a-tile su Left/Right. Lo scroll
     // nativo del browser per le frecce su elemento focus-ato fa passettini
     // quantizzati (~40px) invece di muovere il focus — pessimo da divano.
@@ -81,15 +89,28 @@ const Board = () => {
             if (!target) return;
             e.preventDefault();
             e.stopPropagation();
+            const remembered = lastCardByRowRef.current.get(target);
+            const rememberedAlive = remembered && target.contains(remembered) ? remembered : null;
             const firstCardEl = target.querySelector('[class*="meta-item-container"]');
-            const firstCard = firstCardEl ||
+            const fallback = firstCardEl ||
                 target.querySelector('a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])');
-            if (firstCard) firstCard.focus({ preventScroll: true });
+            const focusTarget = rememberedAlive || fallback;
+            if (focusTarget) focusTarget.focus({ preventScroll: true });
             // block:'start' allinea la TOP della riga (titolo) con il top
             // del scroller (meno lo scroll-margin-top). 'nearest' invece
             // non scrollava quando la riga era gia' parzialmente in view,
             // lasciando il titolo cropped sopra il viewport.
             target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            // Centra orizzontalmente la card focusata nel suo rail. Senza
+            // questo, se la card ricordata e' off-screen (rail scrollato a
+            // posizione vecchia) il focus resta invisibile.
+            const rowScroll = target.querySelector('[class*="meta-items-container"]');
+            if (rowScroll && focusTarget) {
+                const cardRect = focusTarget.getBoundingClientRect();
+                const rowRect = rowScroll.getBoundingClientRect();
+                const delta = cardRect.left + cardRect.width / 2 - (rowRect.left + rowRect.width / 2);
+                rowScroll.scrollTo({ left: rowScroll.scrollLeft + delta, behavior: 'smooth' });
+            }
             return;
         }
 
@@ -123,6 +144,7 @@ const Board = () => {
         // figli focusabili (il menu 3-pallini Multiselect ha tabindex=-1
         // ma veniva matchato comunque da querySelector('[tabindex]')).
         targetCard.focus({ preventScroll: true });
+        lastCardByRowRef.current.set(currentRow, targetCard);
         // Scroll SOLO orizzontale nel container della riga (no scrollIntoView
         // generico che involverebbe anche il board-content e farebbe uscire
         // il titolo della riga dalla vista).
