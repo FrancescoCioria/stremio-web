@@ -652,6 +652,12 @@ const Player = ({ urlParams, queryParams }) => {
         }
     }, [player.metaItem, player.selected]);
 
+    // Ref a video.state.time per i mediaSession handler: il time aggiorna
+    // ad alta frequenza durante il playback, ribindare i setActionHandler
+    // ad ogni tick sarebbe spreco puro.
+    const videoTimeRef = React.useRef(video.state.time);
+    React.useEffect(() => { videoTimeRef.current = video.state.time; }, [video.state.time]);
+
     // Media Session Actions
     React.useEffect(() => {
         if (!navigator.mediaSession) return;
@@ -659,9 +665,27 @@ const Player = ({ urlParams, queryParams }) => {
         navigator.mediaSession.setActionHandler('play', onPlayRequested);
         navigator.mediaSession.setActionHandler('pause', onPauseRequested);
 
-        const nexVideoCallback = player.nextVideo ? onNextVideoRequested : null;
-        navigator.mediaSession.setActionHandler('nexttrack', nexVideoCallback);
-    }, [player.nextVideo, onPlayRequested, onPauseRequested, onNextVideoRequested]);
+        // Tasti Prev/Next del telecomando arrivano qui via MPRIS->mediaSession.
+        // L'utente li vuole come seek ±N (UX TV), NON come prev/next episodio:
+        // mappare a onNextVideoRequested faceva uscire alla streams list al
+        // primo "fast-forward". Il salto-episodio resta su Shift+N + bottone.
+        const seekForward = () => {
+            if (videoTimeRef.current === null) return;
+            setSeeking(true);
+            onSeekRequested(videoTimeRef.current + settings.seekTimeDuration);
+        };
+        const seekBackward = () => {
+            if (videoTimeRef.current === null) return;
+            setSeeking(true);
+            onSeekRequested(videoTimeRef.current - settings.seekTimeDuration);
+        };
+        navigator.mediaSession.setActionHandler('nexttrack', seekForward);
+        navigator.mediaSession.setActionHandler('previoustrack', seekBackward);
+        // Bonus: alcuni layer (futuri) potrebbero mandare direttamente
+        // seekforward/seekbackward. Stesso comportamento.
+        navigator.mediaSession.setActionHandler('seekforward', seekForward);
+        navigator.mediaSession.setActionHandler('seekbackward', seekBackward);
+    }, [onPlayRequested, onPauseRequested, onSeekRequested, settings.seekTimeDuration]);
 
     onShortcut('seekForward', (combo) => {
         if (video.state.time !== null) {
