@@ -14,6 +14,15 @@ const { default: StreamingServerWarning } = require('./StreamingServerWarning');
 
 const THRESHOLD = 5;
 
+// TV: nascondi le righe "Featured" del Board — ridondanti rispetto a Popular
+// e Rotten Tomatoes Certified Fresh (stessi top-tier titoli). Filtriamo per
+// nome del catalog (case-insensitive, prefisso "Featured" — tipicamente
+// "Featured Movies" / "Featured Series").
+const isFeaturedCatalog = (catalog) => {
+    const name = catalog?.name ?? '';
+    return /^featured\b/i.test(name);
+};
+
 const Board = () => {
     const t = useTranslate();
     const streamingServer = useStreamingServer();
@@ -23,6 +32,15 @@ const Board = () => {
     const profile = useProfile();
     const boardCatalogsOffset = continueWatchingPreview.items.length > 0 ? 1 : 0;
     const scrollContainerRef = React.useRef();
+    // Catalog renderizzati = board.catalogs meno Featured. `originalIdx` ci
+    // serve per tradurre la visibile-range (DOM children) in indici core
+    // quando chiamiamo loadBoardRows (core ha la lista non filtrata).
+    const visibleCatalogs = React.useMemo(() => {
+        return board.catalogs.reduce((acc, catalog, originalIdx) => {
+            if (!isFeaturedCatalog(catalog)) acc.push({ catalog, originalIdx });
+            return acc;
+        }, []);
+    }, [board.catalogs]);
     const showStreamingServerWarning = React.useMemo(() => {
         return streamingServer.settings !== null && streamingServer.settings.type === 'Err' && (
             isNaN(profile.settings.streamingServerWarningDismissed.getTime()) ||
@@ -40,8 +58,16 @@ const Board = () => {
             return;
         }
 
-        loadBoardRows({ start, end });
-    }, [boardCatalogsOffset]);
+        // start/end qui sono indici nella lista FILTRATA (visibleCatalogs).
+        // Core lavora sulla lista originale → traduci via originalIdx.
+        if (visibleCatalogs.length === 0) {
+            loadBoardRows({ start, end });
+            return;
+        }
+        const origStart = visibleCatalogs[Math.min(start, visibleCatalogs.length - 1)].originalIdx;
+        const origEnd = visibleCatalogs[Math.min(end, visibleCatalogs.length - 1)].originalIdx;
+        loadBoardRows({ start: origStart, end: origEnd });
+    }, [boardCatalogsOffset, visibleCatalogs]);
     const onScroll = React.useCallback(debounce(onVisibleRangeChange, 250), [onVisibleRangeChange]);
     React.useLayoutEffect(() => {
         onVisibleRangeChange();
@@ -216,7 +242,7 @@ const Board = () => {
                             :
                             null
                     }
-                    {board.catalogs.map((catalog, index) => {
+                    {visibleCatalogs.map(({ catalog }, index) => {
                         switch (catalog.content?.type) {
                             case 'Ready': {
                                 return (
