@@ -14,13 +14,17 @@ const { default: SeasonEpisodePicker } = require('../EpisodePicker');
 
 const ALL_ADDONS_KEY = 'ALL';
 
-// Codec AUDIO che Brave/Chromium NON decodifica in HTML5 video — Dolby
-// licensing, no decoder nel binary. Player resta in loading silenzioso
-// (Stremio bug 2081-style). Filtriamo a monte.
-// Video HEVC/H.265 NON e' qui: Chromium su Linux con VAAPI (Radeon 680M)
-// ha decoder hardware HEVC, le release x265 si riproducono.
+// Filtro codec audio Dolby/DTS/TrueHD per setup dove Stremio Server NON
+// transcodifica (es. sandbox flatpak su Bazzite: ffmpeg dynamic-linked
+// rompe il linking di libva/libdrm nel runtime → HW profiler vuoto → niente
+// transcoding e niente software fallback → Brave resta in loading silenzioso).
+// Su CachyOS nativo (Stremio Server installato come node + server.js dal CDN)
+// ffmpeg di sistema vede VAAPI Radeon 680M → transcoding HW attivo → flag off.
+// Riattivare se si torna a un'installazione sandboxed.
+const FILTER_INCOMPATIBLE_CODECS = false;
 const INCOMPATIBLE_CODEC_RE = /\b(?:DDP|DD\+|EAC[-_ .]?3|E-?AC-?3|TrueHD|Atmos|DTS(?:[-_ .]?(?:HD|MA|X))?)\b/i;
 const isCompatibleStream = (stream) => {
+    if (!FILTER_INCOMPATIBLE_CODECS) return true;
     const text = [stream.name, stream.title, stream.description].filter(Boolean).join(' ');
     return !INCOMPATIBLE_CODEC_RE.test(text);
 };
