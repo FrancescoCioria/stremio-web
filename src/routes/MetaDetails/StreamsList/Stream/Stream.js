@@ -12,6 +12,17 @@ const { useRouteFocused } = require('stremio-router');
 const StreamPlaceholder = require('./StreamPlaceholder');
 const styles = require('./styles');
 
+// Icona "floppy" per indicare il file size (semanticamente piu' chiara di
+// memory chip / hard drive). Inlined cosi' non serve pipeline asset.
+const SaveIcon = ({ className }) => (
+    <svg className={className} viewBox="0 0 488.446 488.446" fill="currentColor" aria-hidden="true">
+        <path d="M153.029 90.223h182.404c5.427 0 9.873-4.43 9.873-9.869V0H143.137v80.354c0 5.439 4.434 9.869 9.892 9.869z" />
+        <path d="M480.817 122.864 377.88 19.494v60.859c0 23.404-19.043 42.447-42.447 42.447H153.029c-23.409 0-42.447-19.043-42.447-42.447V0H44.823C20.068 0 .002 20.07.002 44.808v398.831c0 24.736 20.066 44.808 44.821 44.808h398.813c24.74 0 44.808-20.068 44.808-44.808V141.325c0-6.933-2.746-13.567-7.627-18.461zM412.461 385.666c0 14.434-11.703 26.154-26.168 26.154H102.137c-14.451 0-26.153-11.722-26.153-26.154V249.303c0-14.43 11.702-26.148 26.153-26.148h284.156c14.465 0 26.168 11.72 26.168 26.148v136.363z" />
+        <path d="M356.497 265.131H131.949c-9.008 0-16.294 7.273-16.294 16.28s7.286 16.28 16.294 16.28h224.549c8.988 0 16.277-7.273 16.277-16.28s-7.288-16.28-16.278-16.28z" />
+        <path d="M323.936 330.264H164.508c-8.994 0-16.28 7.273-16.28 16.28 0 8.989 7.286 16.28 16.28 16.28h159.427c8.994 0 16.281-7.291 16.281-16.28 0-9.007-7.287-16.28-16.281-16.28z" />
+    </svg>
+);
+
 const Stream = ({ className, videoId, videoReleased, addonName, name, description, thumbnail, progress, deepLinks, ...props }) => {
     const profile = useProfile();
     const toast = useToast();
@@ -202,12 +213,37 @@ const Stream = ({ className, videoId, videoReleased, addonName, name, descriptio
     // 👤 / 💾. Li estraiamo per mostrarli come meta-badge sotto il badge
     // addon nella colonna sinistra, e li togliamo dalla description al
     // centro (che resta col filename pulito).
-    const { seed, size, cleanDescription } = React.useMemo(() => {
+    // Source: parsata dal filename (es. AMZN, NF, DSNP, WEB-DL, BluRay...).
+    // Priorita' streamer (label brand-aware) -> formato release.
+    const { seed, size, source, cleanDescription } = React.useMemo(() => {
         if (typeof description !== 'string') {
-            return { seed: null, size: null, cleanDescription: description };
+            return { seed: null, size: null, source: null, cleanDescription: description };
         }
         const seedMatch = description.match(/👤\s*([\d.,]+)/);
         const sizeMatch = description.match(/💾\s*([\d.,]+\s*(?:GB|MB|TB|KB))/i);
+        const haystack = `${typeof name === 'string' ? name : ''} ${description}`;
+        const STREAMERS = [
+            ['AMZN', 'Amazon'], ['NFLX', 'Netflix'], ['NF', 'Netflix'],
+            ['DSNP', 'Disney+'], ['DSNY', 'Disney+'],
+            ['HMAX', 'HBO Max'], ['MAX', 'Max'], ['HBO', 'HBO'],
+            ['ATVP', 'Apple TV+'], ['APTV', 'Apple TV+'],
+            ['HULU', 'Hulu'], ['PCOK', 'Peacock'], ['PMTP', 'Paramount+'],
+            ['STAN', 'Stan'], ['CR', 'Crunchyroll'], ['CRAV', 'Crave'],
+            ['iT', 'iTunes'], ['RED', 'YT Red'],
+        ];
+        let src = null;
+        for (const [code, label] of STREAMERS) {
+            const re = new RegExp(`(?:^|[\\s.\\-_\\[(])${code}(?=[\\s.\\-_\\])])`, 'i');
+            if (re.test(haystack)) { src = label; break; }
+        }
+        if (!src) {
+            const formatMatch = haystack.match(/\b(WEB[-.]?DL|WEB[-.]?Rip|WEBRip|BluRay|BDRip|BRRip|HDTV|DVDRip|HDRip|CAM|TS|TC|REMUX)\b/i);
+            if (formatMatch) {
+                const f = formatMatch[1].toUpperCase().replace(/[.\-]/g, '');
+                const FMT_LABEL = { WEBDL: 'WEB-DL', WEBRIP: 'WEBRip', BLURAY: 'BluRay', BDRIP: 'BDRip', BRRIP: 'BRRip', HDTV: 'HDTV', DVDRIP: 'DVDRip', HDRIP: 'HDRip', CAM: 'CAM', TS: 'TS', TC: 'TC', REMUX: 'REMUX' };
+                src = FMT_LABEL[f] || formatMatch[1];
+            }
+        }
         const clean = description
             .split('\n')
             .map((line) => line.replace(/👤\s*[\d.,]+/g, '').replace(/💾\s*[\d.,]+\s*(?:GB|MB|TB|KB)/gi, '').trim())
@@ -216,9 +252,10 @@ const Stream = ({ className, videoId, videoReleased, addonName, name, descriptio
         return {
             seed: seedMatch ? seedMatch[1] : null,
             size: sizeMatch ? sizeMatch[1] : null,
+            source: src,
             cleanDescription: clean,
         };
-    }, [description]);
+    }, [description, name]);
 
     const renderLabel = React.useMemo(() => function renderLabel({ className, children, ...props }) {
         return (
@@ -240,10 +277,11 @@ const Stream = ({ className, videoId, videoReleased, addonName, name, descriptio
                             </div>
                     }
                     {
-                        (size || seed) ?
+                        (size || seed || source) ?
                             <div className={styles['meta-stack']}>
-                                {size ? <div className={styles['meta-item']}>{size}</div> : null}
-                                {seed ? <div className={styles['meta-item']}>{seed} seed</div> : null}
+                                {seed ? <div className={styles['meta-item']}><Icon className={styles['meta-icon']} name={'person'} /><span>{seed}</span></div> : null}
+                                {size ? <div className={styles['meta-item']}><SaveIcon className={classnames(styles['meta-icon'], styles['meta-icon-save'])} /><span>{size}</span></div> : null}
+                                {source ? <div className={styles['meta-item']}>{source}</div> : null}
                             </div>
                             :
                             null
@@ -263,7 +301,7 @@ const Stream = ({ className, videoId, videoReleased, addonName, name, descriptio
                 {children}
             </Button>
         );
-    }, [thumbnail, progress, addonName, name, cleanDescription, seed, size, href, target, download, onClick]);
+    }, [thumbnail, progress, addonName, name, cleanDescription, seed, size, source, href, target, download, onClick]);
 
     const renderMenu = React.useMemo(() => function renderMenu() {
         return (
