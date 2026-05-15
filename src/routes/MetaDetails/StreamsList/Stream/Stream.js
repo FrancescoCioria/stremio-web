@@ -198,6 +198,28 @@ const Stream = ({ className, videoId, videoReleased, addonName, name, descriptio
         <Icon className={styles['placeholder-icon']} name={'ic_broken_link'} />
     ), []);
 
+    // Torrentio (e simili) mettono seed/size nella description con emoji
+    // 👤 / 💾. Li estraiamo per mostrarli come meta-badge sotto il badge
+    // addon nella colonna sinistra, e li togliamo dalla description al
+    // centro (che resta col filename pulito).
+    const { seed, size, cleanDescription } = React.useMemo(() => {
+        if (typeof description !== 'string') {
+            return { seed: null, size: null, cleanDescription: description };
+        }
+        const seedMatch = description.match(/👤\s*([\d.,]+)/);
+        const sizeMatch = description.match(/💾\s*([\d.,]+\s*(?:GB|MB|TB|KB))/i);
+        const clean = description
+            .split('\n')
+            .map((line) => line.replace(/👤\s*[\d.,]+/g, '').replace(/💾\s*[\d.,]+\s*(?:GB|MB|TB|KB)/gi, '').trim())
+            .filter((line) => line.length > 0)
+            .join('\n');
+        return {
+            seed: seedMatch ? seedMatch[1] : null,
+            size: sizeMatch ? sizeMatch[1] : null,
+            cleanDescription: clean,
+        };
+    }, [description]);
+
     const renderLabel = React.useMemo(() => function renderLabel({ className, children, ...props }) {
         return (
             <Button className={classnames(className, styles['stream-container'])} title={addonName} href={href} target={target} download={download} onClick={onClick} {...props}>
@@ -218,6 +240,15 @@ const Stream = ({ className, videoId, videoReleased, addonName, name, descriptio
                             </div>
                     }
                     {
+                        (size || seed) ?
+                            <div className={styles['meta-stack']}>
+                                {size ? <div className={styles['meta-item']}>{size}</div> : null}
+                                {seed ? <div className={styles['meta-item']}>{seed} seed</div> : null}
+                            </div>
+                            :
+                            null
+                    }
+                    {
                         progress !== null && !isNaN(progress) && progress > 0 ?
                             <div className={styles['progress-bar-container']}>
                                 <div className={styles['progress-bar']} style={{ width: `${progress}%` }} />
@@ -227,12 +258,12 @@ const Stream = ({ className, videoId, videoReleased, addonName, name, descriptio
                             null
                     }
                 </div>
-                <div className={styles['description-container']} title={description}>{description}</div>
+                <div className={styles['description-container']} title={cleanDescription}>{cleanDescription}</div>
                 <Icon className={styles['icon']} name={'play'} />
                 {children}
             </Button>
         );
-    }, [thumbnail, progress, addonName, name, description, href, target, download, onClick]);
+    }, [thumbnail, progress, addonName, name, cleanDescription, seed, size, href, target, download, onClick]);
 
     const renderMenu = React.useMemo(() => function renderMenu() {
         return (

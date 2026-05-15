@@ -121,13 +121,55 @@ const LibItem = ({ _id, removable, notifications, watched, ...props }) => {
 
     const onPlayClick = React.useMemo(() => {
         if (props.deepLinks && typeof props.deepLinks.player === 'string') {
+            const dl = props.deepLinks;
             return (event) => {
                 event.preventDefault();
-                window.location = props.deepLinks.player;
+                // Series: seed history con episodi + streams cosi' back dal
+                // player torna a streams -> episodi -> home invece di saltare
+                // dritto a home.
+                if (typeof dl.metaDetailsVideos === 'string' && typeof dl.metaDetailsStreams === 'string' &&
+                    dl.metaDetailsVideos !== dl.metaDetailsStreams) {
+                    window.history.pushState(null, '', dl.metaDetailsVideos);
+                    window.history.pushState(null, '', dl.metaDetailsStreams);
+                }
+                window.location = dl.player;
             };
         }
         return null;
     }, [props.deepLinks]);
+
+    // Continue Watching: UX Netflix-like -> click sulla tile parte direttamente
+    // il video (deepLinks.player). Seed history con episodi + streams cosi'
+    // back: player -> streams -> episodi -> board. Fallback alla pagina
+    // streams se player deepLink manca (nuovo episodio mai aperto).
+    const onTileClick = React.useCallback((event) => {
+        if (typeof props.onClick === 'function') {
+            props.onClick(event);
+        }
+        if (event.defaultPrevented || event.nativeEvent.optionSelectPrevented) {
+            return;
+        }
+        const dl = props.deepLinks;
+        if (!dl) return;
+        const hasSeries = typeof dl.metaDetailsVideos === 'string' && typeof dl.metaDetailsStreams === 'string' &&
+            dl.metaDetailsVideos !== dl.metaDetailsStreams;
+        if (typeof dl.player === 'string') {
+            event.preventDefault();
+            if (hasSeries) {
+                window.history.pushState(null, '', dl.metaDetailsVideos);
+                window.history.pushState(null, '', dl.metaDetailsStreams);
+            } else if (typeof dl.metaDetailsStreams === 'string') {
+                window.history.pushState(null, '', dl.metaDetailsStreams);
+            }
+            window.location = dl.player;
+            return;
+        }
+        if (hasSeries) {
+            event.preventDefault();
+            window.history.pushState(null, '', dl.metaDetailsVideos);
+            window.location = dl.metaDetailsStreams;
+        }
+    }, [props.onClick, props.deepLinks]);
 
     return (
         <MetaItem
@@ -137,6 +179,7 @@ const LibItem = ({ _id, removable, notifications, watched, ...props }) => {
             options={options}
             optionOnSelect={optionOnSelect}
             onPlayClick={onPlayClick}
+            onClick={onTileClick}
         />
     );
 };

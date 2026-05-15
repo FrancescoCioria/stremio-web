@@ -92,7 +92,9 @@ const VideosList = ({ className, metaItem, libraryItem, season, seasonOnSelect, 
         e.stopPropagation();
         const focusable = target.querySelector('[tabindex], a, button') || target;
         focusable.focus({ preventScroll: true });
-        target.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        // Wrapper ha display: contents (no box) -> scrollIntoView e' no-op.
+        // Scrolla l'elemento focusable, che ha box layout vero.
+        focusable.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
     }, []);
 
     const showNotificationsToggle = React.useMemo(() => {
@@ -168,7 +170,17 @@ const VideosList = ({ className, metaItem, libraryItem, season, seasonOnSelect, 
             return;
         }
         initialFocusDoneRef.current = selectedSeason;
+        // Priorita': l'episodio "corrente" e' quello dove l'utente sta
+        // riprendendo, NON il prossimo da vedere. Ordine:
+        //   1. selectedVideoId (libraryItem.state.video_id = ultimo che l'utente ha aperto)
+        //   2. episodio con progress > 0 (in corso)
+        //   3. ultimo watched in ordine episodio
+        //   4. primo non visto
+        //   5. primo episodio
         const target =
+            (selectedVideoId && videosForSeason.find((v) => v.id === selectedVideoId)) ||
+            videosForSeason.find((v) => typeof v.progress === 'number' && v.progress > 0 && !v.watched) ||
+            [...videosForSeason].reverse().find((v) => v.watched) ||
             videosForSeason.find((v) => !v.watched) ||
             videosForSeason[0];
         if (!target) return;
@@ -178,7 +190,8 @@ const VideosList = ({ className, metaItem, libraryItem, season, seasonOnSelect, 
             if (!card) return;
             const el = card.querySelector('[tabindex], a, button') || card;
             el.focus();
-            card.scrollIntoView({ behavior: 'instant', inline: 'center', block: 'nearest' });
+            // card e' il wrapper display:contents (no box) -> scrolla el.
+            el.scrollIntoView({ behavior: 'instant', inline: 'center', block: 'nearest' });
         }, 0);
         return () => clearTimeout(tid);
     }, [videosForSeason, selectedSeason]);
