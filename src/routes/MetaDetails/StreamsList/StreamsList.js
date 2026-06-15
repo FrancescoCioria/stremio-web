@@ -14,15 +14,18 @@ const { default: SeasonEpisodePicker } = require('../EpisodePicker');
 
 const ALL_ADDONS_KEY = 'ALL';
 
-// Filtro codec audio Dolby/DTS/TrueHD per setup dove Stremio Server NON
-// transcodifica (es. sandbox flatpak su Bazzite: ffmpeg dynamic-linked
-// rompe il linking di libva/libdrm nel runtime → HW profiler vuoto → niente
-// transcoding e niente software fallback → Brave resta in loading silenzioso).
-// Su CachyOS nativo (Stremio Server installato come node + server.js dal CDN)
-// ffmpeg di sistema vede VAAPI Radeon 680M → transcoding HW attivo → flag off.
-// Riattivare se si torna a un'installazione sandboxed.
-const FILTER_INCOMPATIBLE_CODECS = false;
-const INCOMPATIBLE_CODEC_RE = /\b(?:DDP|DD\+|EAC[-_ .]?3|E-?AC-?3|TrueHD|Atmos|DTS(?:[-_ .]?(?:HD|MA|X))?)\b/i;
+// Filtro codec VIDEO incompatibili (HEVC/x265/10-bit).
+// Su CachyOS lo Stremio Server transcodifica solo l'AUDIO (eac3/DDP/DTS -> AAC,
+// verificato: ffmpeg `-c:a aac`), ma il VIDEO lo passa grezzo (`-c:v copy`).
+// Brave su Linux non ha HW decode HEVC affidabile (Wayland/VAAPI 680M cade in
+// software) -> HEVC Main10 1080p in software decode non regge il realtime ->
+// freeze continui + loop di re-seek lato server. Quindi NON filtriamo i codec
+// audio (l'audio viene convertito bene), ma nascondiamo gli stream HEVC/10-bit
+// cosi' l'utente sceglie una versione h264 (che la 680M decodifica in HW).
+// Incidente 2026-06-15: "Omaha 2025 1080p WEBRip 10Bit DDP x265" -> ffprobe
+// hevc Main10 yuv420p10le -> blocchi continui. Vedi project_stremio_codec_filter.
+const FILTER_INCOMPATIBLE_CODECS = true;
+const INCOMPATIBLE_CODEC_RE = /\b(?:x[\s._-]?265|h[\s._-]?265|HEVC|10[\s._-]?bit)\b/i;
 const isCompatibleStream = (stream) => {
     if (!FILTER_INCOMPATIBLE_CODECS) return true;
     const text = [stream.name, stream.title, stream.description].filter(Boolean).join(' ');
