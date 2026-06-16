@@ -85,7 +85,11 @@
         padding: 1.5rem 1rem;
         overflow-x: auto;
         overflow-y: hidden;
-        scroll-snap-type: x proximity;
+        /* NIENTE scroll-snap: lo scroll del rail e' guidato via JS
+         * (revealCardInRail in Board.js). Con scroll-snap-type il browser
+         * ri-agganciava allo snap point al focus/scale della card, dando un
+         * micro-balzo (~15px) della riga avanti/indietro a ogni freccia. */
+        overflow-anchor: none;
 
         &::-webkit-scrollbar {
             display: none;
@@ -93,7 +97,6 @@
 
         .meta-item {
             flex: none;
-            scroll-snap-align: start;
 
             /* 55" 4K a 2m: bump ~20% rispetto al default web */
             &.poster-shape-poster {

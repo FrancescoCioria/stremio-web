@@ -23,6 +23,33 @@ const isFeaturedCatalog = (catalog) => {
     return /^featured\b/i.test(name);
 };
 
+// TV: porta una card in vista nel suo rail orizzontale SENZA ri-centrarla
+// sempre. Il re-center continuo (scrollTo del centro a ogni freccia) faceva
+// "balzare" l'intera riga avanti/indietro: passando 1a->2a card il rail
+// scrollava di ~15px per centrare, e tornando indietro ri-scrollava a 0.
+// Qui: prima card -> scrollLeft 0; ultima -> fondo; in mezzo scrolla SOLO
+// se la card sta entrando/uscendo da un bordo (margine RAIL_REVEAL_PAD).
+// Card gia' visibile = nessuno scroll = nessun balzo.
+const RAIL_REVEAL_PAD = 32;
+const revealCardInRail = (rowScroll, card) => {
+    if (!rowScroll || !card) return;
+    if (!card.previousElementSibling) {
+        rowScroll.scrollTo({ left: 0, behavior: 'smooth' });
+        return;
+    }
+    if (!card.nextElementSibling) {
+        rowScroll.scrollTo({ left: rowScroll.scrollWidth, behavior: 'smooth' });
+        return;
+    }
+    const railRect = rowScroll.getBoundingClientRect();
+    const cardRect = card.getBoundingClientRect();
+    if (cardRect.left < railRect.left + RAIL_REVEAL_PAD) {
+        rowScroll.scrollBy({ left: cardRect.left - railRect.left - RAIL_REVEAL_PAD, behavior: 'smooth' });
+    } else if (cardRect.right > railRect.right - RAIL_REVEAL_PAD) {
+        rowScroll.scrollBy({ left: cardRect.right - railRect.right + RAIL_REVEAL_PAD, behavior: 'smooth' });
+    }
+};
+
 const Board = () => {
     const t = useTranslate();
     const streamingServer = useStreamingServer();
@@ -32,6 +59,7 @@ const Board = () => {
     const profile = useProfile();
     const boardCatalogsOffset = continueWatchingPreview.items.length > 0 ? 1 : 0;
     const scrollContainerRef = React.useRef();
+    const containerRef = React.useRef();
     // Catalog renderizzati = board.catalogs meno Featured. `originalIdx` ci
     // serve per tradurre la visibile-range (DOM children) in indici core
     // quando chiamiamo loadBoardRows (core ha la lista non filtrata).
@@ -102,6 +130,16 @@ const Board = () => {
         const isVertical = e.key === 'ArrowUp' || e.key === 'ArrowDown';
         const isHorizontal = e.key === 'ArrowLeft' || e.key === 'ArrowRight';
         if (!isVertical && !isHorizontal) return;
+        // Il board POSSIEDE la nav verticale: Up/Down non escono MAI verso la
+        // sidebar (solo ArrowLeft lo fa). Consuma SEMPRE i verticali — prima
+        // di qualunque return anticipato (root/row non trovati, bordo lista) —
+        // cosi' lo spatial-navigation-polyfill (keydown bubble su window, che
+        // si attiva solo se !e.defaultPrevented) non porta il focus sui tab del
+        // menu. Sintomo prima del fix: ArrowUp dalla prima riga -> tab Library.
+        if (isVertical) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
         const current = e.target;
         const root = scrollContainerRef.current;
         if (!root) return;
@@ -113,8 +151,6 @@ const Board = () => {
             const idx = allRows.indexOf(currentRow);
             const target = e.key === 'ArrowDown' ? allRows[idx + 1] : allRows[idx - 1];
             if (!target) return;
-            e.preventDefault();
-            e.stopPropagation();
             const remembered = lastCardByRowRef.current.get(target);
             const rememberedAlive = remembered && target.contains(remembered) ? remembered : null;
             const firstCardEl = target.querySelector('[class*="meta-item-container"]');
@@ -127,16 +163,8 @@ const Board = () => {
             // non scrollava quando la riga era gia' parzialmente in view,
             // lasciando il titolo cropped sopra il viewport.
             target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            // Centra orizzontalmente la card focusata nel suo rail. Senza
-            // questo, se la card ricordata e' off-screen (rail scrollato a
-            // posizione vecchia) il focus resta invisibile.
-            const rowScroll = target.querySelector('[class*="meta-items-container"]');
-            if (rowScroll && focusTarget) {
-                const cardRect = focusTarget.getBoundingClientRect();
-                const rowRect = rowScroll.getBoundingClientRect();
-                const delta = cardRect.left + cardRect.width / 2 - (rowRect.left + rowRect.width / 2);
-                rowScroll.scrollTo({ left: rowScroll.scrollLeft + delta, behavior: 'smooth' });
-            }
+            // Porta la card in vista nel rail (reveal-if-needed, no re-center).
+            revealCardInRail(target.querySelector('[class*="meta-items-container"]'), focusTarget);
             return;
         }
 
@@ -171,16 +199,9 @@ const Board = () => {
         // ma veniva matchato comunque da querySelector('[tabindex]')).
         targetCard.focus({ preventScroll: true });
         lastCardByRowRef.current.set(currentRow, targetCard);
-        // Scroll SOLO orizzontale nel container della riga (no scrollIntoView
-        // generico che involverebbe anche il board-content e farebbe uscire
-        // il titolo della riga dalla vista).
-        const rowScroll = currentRow.querySelector('[class*="meta-items-container"]');
-        if (rowScroll) {
-            const cardRect = targetCard.getBoundingClientRect();
-            const rowRect = rowScroll.getBoundingClientRect();
-            const delta = cardRect.left + cardRect.width / 2 - (rowRect.left + rowRect.width / 2);
-            rowScroll.scrollTo({ left: rowScroll.scrollLeft + delta, behavior: 'smooth' });
-        }
+        // Scroll SOLO orizzontale, reveal-if-needed (no re-center continuo
+        // che faceva balzare la riga avanti/indietro a ogni freccia).
+        revealCardInRail(currentRow.querySelector('[class*="meta-items-container"]'), targetCard);
     }, []);
 
     // TV: default focus sulla prima card, ma solo DOPO che l'array catalogs
@@ -223,8 +244,37 @@ const Board = () => {
         }, 500);
         return () => clearTimeout(tid);
     }, [catalogsStateKey]);
+    // TV: rientrando in Home da un'altra route (Settings/Library/...) il
+    // Board NON si rimonta — il router gli mette solo display:none su un
+    // antenato (route-container) e lo ri-mostra. Quindi initialFocusDoneRef
+    // resta true e la prima card NON viene ri-focussata: il focus e' sul
+    // BODY/tab e la prima freccia la gestisce lo spatial-navigation-polyfill
+    // con un focus() SENZA preventScroll = autoscroll verticale che spezza la
+    // riga (titolo "Continue Watching" fuori vista). Fix: un Intersection
+    // Observer rifocussa la prima card ogni volta che il board ridiventa
+    // visibile, se il focus non e' gia' su una card della lista.
+    React.useEffect(() => {
+        const el = containerRef.current;
+        if (!el) return undefined;
+        const io = new IntersectionObserver((entries) => {
+            for (const en of entries) {
+                if (!en.isIntersecting) continue;
+                const root = scrollContainerRef.current;
+                if (!root) continue;
+                const ae = document.activeElement;
+                const focusInList = ae && root.contains(ae) && ae.closest('[class*="meta-item-container"]');
+                if (focusInList) continue;
+                const firstCard = root.querySelector('[class*="meta-item-container"]');
+                if (!firstCard) continue;
+                root.scrollTop = 0;
+                firstCard.focus({ preventScroll: true });
+            }
+        }, { threshold: 0 });
+        io.observe(el);
+        return () => io.disconnect();
+    }, []);
     return (
-        <div className={styles['board-container']}>
+        <div ref={containerRef} className={styles['board-container']}>
             <EventModal />
             <MainNavBars className={styles['board-content-container']} route={'board'}>
                 <div className={styles['board-vstack']}>
