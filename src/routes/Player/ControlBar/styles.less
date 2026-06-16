@@ -16,9 +16,13 @@
          * Outline visibile per dare feedback all'utente che ←/→ ora
          * controllano il seek e ↓ entra nella row dei bottoni. */
         &.seekbar-focused {
-            outline: 0.2rem solid var(--primary-foreground-color);
-            outline-offset: 0.4rem;
-            border-radius: 0.4rem;
+            outline: none;
+            border-radius: 0.8rem;
+            /* Ring nel colore accent (come la barra di progresso) + glow
+             * morbido: piu' elegante dell'outline bianco squadrato. */
+            box-shadow:
+                0 0 0 0.2rem var(--primary-accent-color),
+                0 0 1.4rem 0.1rem var(--primary-accent-color);
         }
     }
 
@@ -34,6 +38,16 @@
             display: flex;
             justify-content: center;
             align-items: center;
+            border-radius: 1rem;
+            transition: background-color 120ms ease-out, transform 120ms ease-out;
+
+            /* TV focus: pillola arrotondata + leggero scale, niente outline
+             * squadrato (override di Button.less .button-container:focus). */
+            &:focus, &:focus-visible {
+                outline: none;
+                background-color: rgba(255, 255, 255, 0.16);
+                transform: scale(1.08);
+            }
 
             &:global(.disabled) {
                 .icon {

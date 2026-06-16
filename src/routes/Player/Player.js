@@ -20,7 +20,6 @@ const OptionsMenu = require('./OptionsMenu');
 const SubtitlesMenu = require('./SubtitlesMenu');
 const { default: AudioMenu } = require('./AudioMenu');
 const SpeedMenu = require('./SpeedMenu');
-const { default: SideDrawerButton } = require('./SideDrawerButton');
 const { default: SideDrawer } = require('./SideDrawer');
 const usePlayer = require('./usePlayer');
 const useStatistics = require('./useStatistics');
@@ -1122,19 +1121,17 @@ const Player = ({ urlParams, queryParams }) => {
                 className={classnames(styles['layer'], styles['nav-bar-layer'])}
                 title={player.title !== null ? player.title : ''}
                 backButton={true}
-                fullscreenButton={true}
+                // TV: niente fullscreen button — il kiosk e' gia' sempre
+                // fullscreen, il bottone e' un'azione inutile (e in pausa
+                // restava visibile in alto a destra).
+                fullscreenButton={false}
                 onMouseMove={onBarMouseMove}
                 onMouseOver={onBarMouseMove}
             />
-            {
-                player.metaItem?.type === 'Ready' ?
-                    <SideDrawerButton
-                        className={classnames(styles['layer'], styles['side-drawer-button-layer'])}
-                        onClick={toggleSideDrawer}
-                    />
-                    :
-                    null
-            }
+            {/* TV: SideDrawerButton (grossa freccia a destra che apriva il
+                drawer episodi/stream) rimosso — azione non usata da divano,
+                disturbava in pausa. Il drawer resta nel codice ma non e' piu'
+                raggiungibile da qui. */}
             <ControlBar
                 ref={controlBarRef}
                 tvNavMode={tvNavMode}
@@ -1176,10 +1173,15 @@ const Player = ({ urlParams, queryParams }) => {
                     :
                     null
             }
-            <Transition when={statisticsMenuOpen} name={'fade'}>
+            {/* TV: stats visibili anche a video fermo (paused) — senza usare
+                openStatisticsMenu (che entrerebbe in menusOpen e bloccherebbe
+                il seek ←/→). Cosi' in pausa vedi peers/speed/buffer ma puoi
+                ancora cercare. */}
+            <Transition when={statisticsMenuOpen || video.state.paused === true} name={'fade'}>
                 <StatisticsMenu
                     className={classnames(styles['layer'], styles['menu-layer'])}
                     {...statistics}
+                    buffer={statistics && typeof statistics.completed === 'number' && video.state.duration !== null ? (statistics.completed / 100) * video.state.duration : null}
                 />
             </Transition>
             <Transition when={sideDrawerOpen} name={'slide-left'}>

@@ -227,7 +227,12 @@ module.exports = (env, argv) => ({
             new WorkboxPlugin.GenerateSW({
                 maximumFileSizeToCacheInBytes: 20000000,
                 clientsClaim: true,
-                skipWaiting: true
+                skipWaiting: true,
+                // Rimuove i precache di build precedenti: senza, dopo un
+                // deploy che cambia l'hash-dir dei bundle il SW vecchio puo'
+                // servire un index stale che punta a un bundle gia' rimosso
+                // da `rsync --delete` -> schermo bianco. Vedi CLAUDE.md.
+                cleanupOutdatedCaches: true
             }),
         new CopyWebpackPlugin({
             patterns: [
