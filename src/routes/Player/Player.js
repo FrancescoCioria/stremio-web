@@ -737,8 +737,13 @@ const Player = () => {
             }
             return;
         }
-        !settings.escExitFullscreen && window.history.back();
-    }, [settings.escExitFullscreen, tvNavMode, menusOpen, closeMenus]);
+        // TV kiosk: B torna SEMPRE indietro. Niente guard escExitFullscreen
+        // (default Stremio = true): siamo sempre WM-fullscreen, l'exit
+        // dell'API Fullscreen e' irrilevante e bloccava il back. Prima del
+        // merge questo lo faceva il vecchio service KeyboardShortcuts (Esc ->
+        // history.back senza guard), ora cancellato da upstream.
+        window.history.back();
+    }, [tvNavMode, menusOpen, closeMenus]);
 
     React.useLayoutEffect(() => {
         if (menusOpen) {
