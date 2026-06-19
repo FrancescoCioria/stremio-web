@@ -37,11 +37,21 @@ const MetaItem = React.memo(({ className, type, id, name, poster, posterShape, p
     const metaItemOnClick = React.useCallback((event) => {
         if (event.nativeEvent.selectPrevented) {
             event.preventDefault();
-        } else if (typeof href === 'string') {
+            return;
+        }
+        // TV fork: props.onClick (es. LibItem.onTileClick: direct-play +
+        // seeding history episodi/streams) ha la PRECEDENZA su href. Se gestisce
+        // la navigazione fa preventDefault e ci fermiamo; altrimenti fallback al
+        // navigateWithOrigin di upstream (MetaItem normali di Board/Search).
+        if (typeof props.onClick === 'function') {
+            props.onClick(event);
+            if (event.defaultPrevented) {
+                return;
+            }
+        }
+        if (typeof href === 'string') {
             event.preventDefault();
             navigateWithOrigin(href);
-        } else if (typeof props.onClick === 'function') {
-            props.onClick(event);
         }
     }, [href, navigateWithOrigin, props.onClick]);
     const menuOnClick = React.useCallback((event) => {
