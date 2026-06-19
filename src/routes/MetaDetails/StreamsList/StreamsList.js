@@ -14,23 +14,33 @@ const { default: SeasonEpisodePicker } = require('../EpisodePicker');
 
 const ALL_ADDONS_KEY = 'ALL';
 
-// Filtro codec VIDEO incompatibili (HEVC/x265/10-bit).
+// Codec VIDEO incompatibili (HEVC/x265/10-bit).
 // Su CachyOS lo Stremio Server transcodifica solo l'AUDIO (eac3/DDP/DTS -> AAC,
 // verificato: ffmpeg `-c:a aac`), ma il VIDEO lo passa grezzo (`-c:v copy`).
 // Brave su Linux non ha HW decode HEVC affidabile (Wayland/VAAPI 680M cade in
 // software) -> HEVC Main10 1080p in software decode non regge il realtime ->
-// freeze continui + loop di re-seek lato server. Quindi NON filtriamo i codec
-// audio (l'audio viene convertito bene), ma nascondiamo gli stream HEVC/10-bit
-// cosi' l'utente sceglie una versione h264 (che la 680M decodifica in HW).
+// freeze continui + loop di re-seek lato server.
 // Incidente 2026-06-15: "Omaha 2025 1080p WEBRip 10Bit DDP x265" -> ffprobe
 // hevc Main10 yuv420p10le -> blocchi continui. Vedi project_stremio_codec_filter.
+//
+// NON nascondiamo piu' questi stream (prima li filtravamo via): se un film ha
+// SOLO release HEVC/10bit, l'utente restava senza nulla anche se quei torrent
+// girano bene sulla Fire TV (HW decode HEVC nativo). Ora li teniamo, marcati
+// `incompatible`: vengono mostrati DISABILITATI, IN FONDO alla lista, con un
+// badge "Fire TV" che invita a guardarli da li'. Cosi' il fallback resta
+// visibile invece di sparire silenziosamente.
 const FILTER_INCOMPATIBLE_CODECS = true;
 const INCOMPATIBLE_CODEC_RE = /\b(?:x[\s._-]?265|h[\s._-]?265|HEVC|10[\s._-]?bit)\b/i;
-const isCompatibleStream = (stream) => {
-    if (!FILTER_INCOMPATIBLE_CODECS) return true;
+const isIncompatibleStream = (stream) => {
+    if (!FILTER_INCOMPATIBLE_CODECS) return false;
     const text = [stream.name, stream.title, stream.description].filter(Boolean).join(' ');
-    return !INCOMPATIBLE_CODEC_RE.test(text);
+    return INCOMPATIBLE_CODEC_RE.test(text);
 };
+
+// Ordina i compatibili PRIMA degli incompatibili (Fire TV-only in fondo),
+// preservando l'ordine relativo all'interno dei due gruppi (sort stabile su V8).
+const compatibleFirst = (streams) =>
+    streams.slice().sort((a, b) => (a.incompatible ? 1 : 0) - (b.incompatible ? 1 : 0));
 
 const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
     const { t } = useTranslation();
@@ -53,10 +63,11 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
         return props.streams
             .filter((streams) => streams.content.type === 'Ready')
             .reduce((streamsByAddon, streams) => {
-                const compatible = streams.content.content
-                    .filter(isCompatibleStream)
+                const mapped = streams.content.content
                     .map((stream) => ({
                         ...stream,
+                        // Stream HEVC/10bit: non riproducibile qui, solo Fire TV.
+                        incompatible: isIncompatibleStream(stream),
                         onClick: () => {
                             core.transport.analytics({
                                 event: 'StreamClicked',
@@ -67,25 +78,27 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
                         },
                         addonName: streams.addon.manifest.name
                     }));
-                // Skip addon che non lascia nessuno stream compatibile:
-                // niente pill vuota nella selettiva.
-                if (compatible.length === 0) return streamsByAddon;
+                if (mapped.length === 0) return streamsByAddon;
                 streamsByAddon[streams.addon.transportUrl] = {
                     addon: streams.addon,
-                    streams: compatible
+                    streams: compatibleFirst(mapped)
                 };
 
                 return streamsByAddon;
             }, {});
     }, [props.streams]);
     const filteredStreams = React.useMemo(() => {
-        return selectedAddon === ALL_ADDONS_KEY ?
-            Object.values(streamsByAddon).map(({ streams }) => streams).flat(1)
+        const list = selectedAddon === ALL_ADDONS_KEY ?
+            // Flatten di piu' addon: ogni gruppo e' gia' compatibile-first, ma
+            // la concatenazione interleava -> ri-ordina cosi' TUTTI gli
+            // incompatibili (Fire TV) finiscono in fondo alla lista unica.
+            compatibleFirst(Object.values(streamsByAddon).map(({ streams }) => streams).flat(1))
             :
             streamsByAddon[selectedAddon] ?
                 streamsByAddon[selectedAddon].streams
                 :
                 [];
+        return list;
     }, [streamsByAddon, selectedAddon]);
     const selectableOptions = React.useMemo(() => {
         return {
@@ -247,6 +260,7 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
                                             thumbnail={stream.thumbnail}
                                             progress={stream.progress}
                                             deepLinks={stream.deepLinks}
+                                            incompatible={stream.incompatible}
                                             onClick={stream.onClick}
                                         />
                                     ))}

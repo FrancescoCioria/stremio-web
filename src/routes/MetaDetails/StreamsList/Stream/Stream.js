@@ -23,7 +23,7 @@ const SaveIcon = ({ className }) => (
     </svg>
 );
 
-const Stream = ({ className, videoId, videoReleased, addonName, name, description, thumbnail, progress, deepLinks, ...props }) => {
+const Stream = ({ className, videoId, videoReleased, addonName, name, description, thumbnail, progress, deepLinks, incompatible, ...props }) => {
     const profile = useProfile();
     const toast = useToast();
     const platform = usePlatform();
@@ -63,7 +63,12 @@ const Stream = ({ className, videoId, videoReleased, addonName, name, descriptio
         event.nativeEvent.buttonClickPrevented = true;
     }, []);
 
+    // Stream incompatibile (HEVC/10bit): non riproducibile su questo box
+    // (Brave/Linux niente HW decode HEVC). Lo mostriamo disabilitato, in fondo
+    // alla lista, con badge "Fire TV". Niente href -> nessuna navigazione al
+    // player; il click mostra un toast che rimanda alla Fire TV.
     const href = React.useMemo(() => {
+        if (incompatible) return null;
         return deepLinks ?
             deepLinks.externalPlayer ?
                 deepLinks.externalPlayer.web ?
@@ -80,7 +85,7 @@ const Stream = ({ className, videoId, videoReleased, addonName, name, descriptio
                 deepLinks.player
             :
             null;
-    }, [deepLinks]);
+    }, [deepLinks, incompatible]);
 
     const download = React.useMemo(() => {
         return href === deepLinks?.externalPlayer?.playlist ?
@@ -125,6 +130,17 @@ const Stream = ({ className, videoId, videoReleased, addonName, name, descriptio
             return;
         }
 
+        // Incompatibile: niente play. Spiega all'utente di usare la Fire TV.
+        if (incompatible) {
+            event.preventDefault();
+            toast.show({
+                type: 'info',
+                title: 'Formato HEVC/10bit non supportato qui — guardalo dalla Fire TV',
+                timeout: 5000
+            });
+            return;
+        }
+
         if (profile.settings.playerType !== null) {
             markVideoAsWatched();
             toast.show({
@@ -137,7 +153,7 @@ const Stream = ({ className, videoId, videoReleased, addonName, name, descriptio
         if (typeof props.onClick === 'function') {
             props.onClick(event);
         }
-    }, [props.onClick, profile.settings, markVideoAsWatched]);
+    }, [props.onClick, profile.settings, markVideoAsWatched, incompatible]);
 
     const copyMagnetLink = React.useCallback((event) => {
         event.preventDefault();
@@ -259,7 +275,7 @@ const Stream = ({ className, videoId, videoReleased, addonName, name, descriptio
 
     const renderLabel = React.useMemo(() => function renderLabel({ className, children, ...props }) {
         return (
-            <Button className={classnames(className, styles['stream-container'])} title={addonName} href={href} target={target} download={download} onClick={onClick} {...props}>
+            <Button className={classnames(className, styles['stream-container'], { [styles['incompatible']]: incompatible })} title={incompatible ? 'Solo Fire TV (HEVC/10bit)' : addonName} href={href} target={target} download={download} onClick={onClick} {...props}>
                 <div className={styles['info-container']}>
                     {
                         typeof thumbnail === 'string' && thumbnail.length > 0 ?
@@ -297,11 +313,19 @@ const Stream = ({ className, videoId, videoReleased, addonName, name, descriptio
                     }
                 </div>
                 <div className={styles['description-container']} title={cleanDescription}>{cleanDescription}</div>
-                <Icon className={styles['icon']} name={'play'} />
+                {
+                    incompatible ?
+                        <div className={styles['firetv-badge']} title={'Guardalo dalla Fire TV'}>
+                            <Icon className={styles['firetv-icon']} name={'tv-outline'} />
+                            <span className={styles['firetv-label']}>{'Fire TV'}</span>
+                        </div>
+                        :
+                        <Icon className={styles['icon']} name={'play'} />
+                }
                 {children}
             </Button>
         );
-    }, [thumbnail, progress, addonName, name, cleanDescription, seed, size, source, href, target, download, onClick]);
+    }, [thumbnail, progress, addonName, name, cleanDescription, seed, size, source, href, target, download, onClick, incompatible]);
 
     const renderMenu = React.useMemo(() => function renderMenu() {
         return (
@@ -369,6 +393,7 @@ Stream.propTypes = {
     description: PropTypes.string,
     thumbnail: PropTypes.string,
     progress: PropTypes.number,
+    incompatible: PropTypes.bool,
     deepLinks: PropTypes.shape({
         player: PropTypes.string,
         externalPlayer: PropTypes.shape({
