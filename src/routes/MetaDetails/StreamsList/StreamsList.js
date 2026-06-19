@@ -31,8 +31,12 @@ const ALL_ADDONS_KEY = 'ALL';
 // visibile invece di sparire silenziosamente.
 const FILTER_INCOMPATIBLE_CODECS = true;
 const INCOMPATIBLE_CODEC_RE = /\b(?:x[\s._-]?265|h[\s._-]?265|HEVC|10[\s._-]?bit)\b/i;
+// Firefox (Gecko) su Linux HW-decoda HEVC/10bit via VAAPI -> NON filtrare.
+// Brave/Chromium cade in software decode -> filtra. Stesso build, due browser.
+const IS_FIREFOX = typeof navigator !== 'undefined' && /firefox/i.test(navigator.userAgent);
+
 const isIncompatibleStream = (stream) => {
-    if (!FILTER_INCOMPATIBLE_CODECS) return false;
+    if (!FILTER_INCOMPATIBLE_CODECS || IS_FIREFOX) return false;
     // I token codec (x265/10bit) spesso NON sono in name/title/description (che
     // l'addon mostra "puliti", es. YTS: "2160p" e basta) ma nel filename reale.
     // Verificato 2026-06-20: "Wake.Up.Dead.Man...2160p.4K.WEB.x265.10bit...mkv"
