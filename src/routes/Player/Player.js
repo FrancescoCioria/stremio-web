@@ -721,7 +721,11 @@ const Player = () => {
         // Esc gerarchico: dismiss del piu' interno prima di tornare indietro.
         // 1) Un menu aperto -> chiudi solo il menu.
         // 2) TV nav (seekbar/buttons) -> esci dalla nav (back al video).
-        // 3) Puro video -> navigate(-1) (torna alla lista torrent).
+        // 3) Puro video -> window.history.back() (torna alla lista torrent).
+        //    back() raw (non navigate(-1)) perche' l'ingresso via Continue
+        //    Watching semina la history con window.history.pushState: back()
+        //    opera sul browser-history reale, navigate(-1) sull'indice interno
+        //    di react-router che non vede i pushState raw.
         if (menusOpen) {
             closeMenus();
             return;
@@ -733,8 +737,8 @@ const Player = () => {
             }
             return;
         }
-        !settings.escExitFullscreen && navigate(-1);
-    }, [settings.escExitFullscreen, tvNavMode, menusOpen, closeMenus, navigate]);
+        !settings.escExitFullscreen && window.history.back();
+    }, [settings.escExitFullscreen, tvNavMode, menusOpen, closeMenus]);
 
     React.useLayoutEffect(() => {
         if (menusOpen) {

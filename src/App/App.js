@@ -3,7 +3,7 @@
 require('spatial-navigation-polyfill');
 const React = require('react');
 const { useTranslation } = require('react-i18next');
-const { useNavigate } = require('react-router');
+const { useNavigate, useLocation } = require('react-router');
 const { useCore } = require('stremio/core');
 const { Routes } = require('stremio-router');
 const { Chromecast, ServicesProvider, GamepadProvider } = require('stremio/services');
@@ -25,6 +25,14 @@ const App = () => {
     const { i18n } = useTranslation();
     const { shell } = usePlatform();
     const navigate = useNavigate();
+    // Ref alla location di react-router (NON window.location.hash): l'handler
+    // 'exit' del Player gira PRIMA del nostro e fa window.history.back(), che
+    // muta window.location sincronicamente. Leggere l'hash live ci farebbe
+    // vedere la route gia' cambiata -> doppio back. La location di react-router
+    // invece e' ancora quella pre-evento (si aggiorna al re-render).
+    const location = useLocation();
+    const locationRef = React.useRef(location);
+    locationRef.current = location;
     const [gamepadSupportEnabled, setGamepadSupportEnabled] = React.useState(false);
     const services = React.useMemo(() => {
         return {
@@ -60,7 +68,7 @@ const App = () => {
                 // menu / esce dalla TV-nav / torna alla lista): non navighiamo
                 // qui per non fare doppio back. Idem se c'e' una modale aperta
                 // (si chiude da sola). Altrimenti Escape = history.back().
-                if (window.location.hash.startsWith('#/player')) break;
+                if (locationRef.current.pathname.startsWith('/player')) break;
                 const modalsContainer = document.querySelector('.modals-container');
                 // childElementCount === 1 e' solo il lock-div di focus-trap
                 // sempre presente; > 1 = modale attiva.
