@@ -139,6 +139,13 @@ html:not(.active-slider-within) {
             overflow: auto;
         }
 
+        // Stats box in basso a SINISTRA (combinata con .menu-layer: riusa box/
+        // blur/ombra, ribalta solo il lato). Le altre menu restano a destra.
+        &.statistics-layer {
+            left: 4rem;
+            right: initial;
+        }
+
         &.side-drawer-layer {
             bottom: 0;
             right: 0;

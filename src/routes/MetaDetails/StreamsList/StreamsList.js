@@ -43,10 +43,29 @@ const isIncompatibleStream = (stream) => {
     return INCOMPATIBLE_CODEC_RE.test(text);
 };
 
-// Ordina i compatibili PRIMA degli incompatibili (Fire TV-only in fondo),
-// preservando l'ordine relativo all'interno dei due gruppi (sort stabile su V8).
-const compatibleFirst = (streams) =>
-    streams.slice().sort((a, b) => (a.incompatible ? 1 : 0) - (b.incompatible ? 1 : 0));
+// Risoluzione dal testo (name/title/filename/bingeGroup): max "NNNp" trovato,
+// oppure 2160 per 4k/uhd. 0 = sconosciuta (NON penalizzata).
+const RES_RE = /(\d{3,4})\s*p\b/gi;
+const streamHeight = (stream) => {
+    const bh = stream.behaviorHints || {};
+    const text = [stream.name, stream.title, stream.description, bh.filename, bh.bingeGroup].filter(Boolean).join(' ');
+    let h = 0, m;
+    RES_RE.lastIndex = 0;
+    while ((m = RES_RE.exec(text)) !== null) { const v = +m[1]; if (v > h) h = v; }
+    if (h === 0 && /\b(?:4k|uhd|2160)\b/i.test(text)) h = 2160;
+    return h;
+};
+// "Bassa risoluzione" = 720p e sotto (ma >0: la sconosciuta resta in alto).
+const isLowRes = (stream) => { const h = streamHeight(stream); return h > 0 && h <= 720; };
+
+// Ordine a 3 livelli (sort stabile su V8 -> preserva l'ordine addon/peers
+// dentro ogni gruppo):
+//   0 = compatibile hi-res (>=1080p o sconosciuta)
+//   1 = compatibile bassa risoluzione (<=720p)  -> deprioritizzata anche con tante peers
+//   2 = incompatibile (HEVC/10bit, Fire TV-only) -> in fondo, disabilitata
+const streamPriority = (s) => s.incompatible ? 2 : (s.lowRes ? 1 : 0);
+const byPriority = (streams) =>
+    streams.slice().sort((a, b) => streamPriority(a) - streamPriority(b));
 
 const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
     const { t } = useTranslation();
@@ -74,6 +93,8 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
                         ...stream,
                         // Stream HEVC/10bit: non riproducibile qui, solo Fire TV.
                         incompatible: isIncompatibleStream(stream),
+                        // 720p e sotto: deprioritizzato nel sort (anche con tante peers).
+                        lowRes: isLowRes(stream),
                         onClick: () => {
                             core.transport.analytics({
                                 event: 'StreamClicked',
@@ -87,7 +108,7 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
                 if (mapped.length === 0) return streamsByAddon;
                 streamsByAddon[streams.addon.transportUrl] = {
                     addon: streams.addon,
-                    streams: compatibleFirst(mapped)
+                    streams: byPriority(mapped)
                 };
 
                 return streamsByAddon;
@@ -95,10 +116,10 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
     }, [props.streams]);
     const filteredStreams = React.useMemo(() => {
         const list = selectedAddon === ALL_ADDONS_KEY ?
-            // Flatten di piu' addon: ogni gruppo e' gia' compatibile-first, ma
-            // la concatenazione interleava -> ri-ordina cosi' TUTTI gli
-            // incompatibili (Fire TV) finiscono in fondo alla lista unica.
-            compatibleFirst(Object.values(streamsByAddon).map(({ streams }) => streams).flat(1))
+            // Flatten di piu' addon: ogni gruppo e' gia' ordinato, ma la
+            // concatenazione interleava -> ri-ordina cosi' su TUTTA la lista
+            // unica valgono i 3 livelli (hi-res -> <=720p -> HEVC in fondo).
+            byPriority(Object.values(streamsByAddon).map(({ streams }) => streams).flat(1))
             :
             streamsByAddon[selectedAddon] ?
                 streamsByAddon[selectedAddon].streams

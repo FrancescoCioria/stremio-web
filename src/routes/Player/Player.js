@@ -1096,7 +1096,7 @@ const Player = () => {
                 ancora cercare. */}
             <Transition when={statisticsMenuOpen || video.state.paused === true} name={'fade'}>
                 <StatisticsMenu
-                    className={classnames(styles['layer'], styles['menu-layer'])}
+                    className={classnames(styles['layer'], styles['menu-layer'], styles['statistics-layer'])}
                     {...statistics}
                     buffer={statistics && typeof statistics.completed === 'number' && video.state.duration !== null ? (statistics.completed / 100) * video.state.duration : null}
                 />
