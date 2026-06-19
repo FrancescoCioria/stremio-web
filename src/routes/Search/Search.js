@@ -1,7 +1,6 @@
 // Copyright (C) 2017-2023 Smart code 203358507
 
 const React = require('react');
-const PropTypes = require('prop-types');
 const classnames = require('classnames');
 const debounce = require('lodash.debounce');
 const useTranslate = require('stremio/common/useTranslate');
@@ -14,10 +13,12 @@ const BoardHero = require('../Board/BoardHero');
 // local-search). Ora vive inline in cima a Search (la HBar e' stata rimossa).
 const SearchBar = require('stremio/components/NavBar/HorizontalNavBar/SearchBar');
 const styles = require('./styles');
+const { useSearchParams } = require('react-router-dom');
 
 const THRESHOLD = 100;
 
-const Search = ({ queryParams }) => {
+const Search = () => {
+    const [queryParams] = useSearchParams();
     const t = useTranslate();
     const [search, loadSearchRows] = useSearch(queryParams);
     const query = React.useMemo(() => {
@@ -148,94 +149,89 @@ const Search = ({ queryParams }) => {
                 </div>
                 {query !== null ? <BoardHero meta={focusedMeta} /> : null}
                 <div ref={scrollContainerRef} className={styles['search-content']} onScroll={onScroll} onKeyDown={onSearchKeyDown}>
-                {
-                    query === null ?
-                        <div className={classnames(styles['search-hints-wrapper'])}>
-                            <div className={classnames(styles['search-hints-title-container'], 'animation-fade-in')}>
-                                <div className={styles['search-hints-title']}>{t.string('SEARCH_ANYTHING')}</div>
-                            </div>
-                            <div className={classnames(styles['search-hints-container'], 'animation-fade-in')}>
-                                <div className={styles['search-hint-container']}>
-                                    <Icon className={styles['icon']} name={'trailer'} />
-                                    <div className={styles['label']}>{t.string('SEARCH_CATEGORIES')}</div>
+                    {
+                        query === null ?
+                            <div className={classnames(styles['search-hints-wrapper'])}>
+                                <div className={classnames(styles['search-hints-title-container'], 'animation-fade-in')}>
+                                    <div className={styles['search-hints-title']}>{t.string('SEARCH_ANYTHING')}</div>
                                 </div>
-                                <div className={styles['search-hint-container']}>
-                                    <Icon className={styles['icon']} name={'actors'} />
-                                    <div className={styles['label']}>{t.string('SEARCH_PERSONS')}</div>
+                                <div className={classnames(styles['search-hints-container'], 'animation-fade-in')}>
+                                    <div className={styles['search-hint-container']}>
+                                        <Icon className={styles['icon']} name={'trailer'} />
+                                        <div className={styles['label']}>{t.string('SEARCH_CATEGORIES')}</div>
+                                    </div>
+                                    <div className={styles['search-hint-container']}>
+                                        <Icon className={styles['icon']} name={'actors'} />
+                                        <div className={styles['label']}>{t.string('SEARCH_PERSONS')}</div>
+                                    </div>
+                                    <div className={styles['search-hint-container']}>
+                                        <Icon className={styles['icon']} name={'link'} />
+                                        <div className={styles['label']}>{t.string('SEARCH_PROTOCOLS')}</div>
+                                    </div>
+                                    <div className={styles['search-hint-container']}>
+                                        <Icon className={styles['icon']} name={'imdb-outline'} />
+                                        <div className={styles['label']}>{t.string('SEARCH_TYPES')}</div>
+                                    </div>
                                 </div>
-                                <div className={styles['search-hint-container']}>
-                                    <Icon className={styles['icon']} name={'link'} />
-                                    <div className={styles['label']}>{t.string('SEARCH_PROTOCOLS')}</div>
-                                </div>
-                                <div className={styles['search-hint-container']}>
-                                    <Icon className={styles['icon']} name={'imdb-outline'} />
-                                    <div className={styles['label']}>{t.string('SEARCH_TYPES')}</div>
-                                </div>
-                            </div>
-                        </div>
-                        :
-                        search.catalogs.length === 0 ?
-                            <div className={styles['message-container']}>
-                                <Image
-                                    className={styles['image']}
-                                    src={require('/assets/images/empty.png')}
-                                    alt={' '}
-                                />
-                                <div className={styles['message-label']}>{ t.string('STREMIO_TV_SEARCH_NO_ADDONS') }</div>
                             </div>
                             :
-                            search.catalogs.map((catalog, index) => {
-                                switch (catalog.content?.type) {
-                                    case 'Ready': {
-                                        return (
-                                            <MetaRow
-                                                key={index}
-                                                className={classnames(styles['search-row'], styles[`search-row-${catalog.content.content[0].posterShape}`], 'animation-fade-in')}
-                                                catalog={catalog}
-                                                itemComponent={MetaItem}
-                                            />
-                                        );
-                                    }
-                                    case 'Err': {
-                                        if (catalog.content.content !== 'EmptyContent') {
+                            search.catalogs.length === 0 ?
+                                <div className={styles['message-container']}>
+                                    <Image
+                                        className={styles['image']}
+                                        src={require('/assets/images/empty.png')}
+                                        alt={' '}
+                                    />
+                                    <div className={styles['message-label']}>{ t.string('STREMIO_TV_SEARCH_NO_ADDONS') }</div>
+                                </div>
+                                :
+                                search.catalogs.map((catalog, index) => {
+                                    switch (catalog.content?.type) {
+                                        case 'Ready': {
                                             return (
                                                 <MetaRow
                                                     key={index}
-                                                    className={classnames(styles['search-row'], 'animation-fade-in')}
+                                                    className={classnames(styles['search-row'], styles[`search-row-${catalog.content.content[0].posterShape}`], 'animation-fade-in')}
                                                     catalog={catalog}
-                                                    message={catalog.content.content}
+                                                    itemComponent={MetaItem}
                                                 />
                                             );
                                         }
-                                        return null;
+                                        case 'Err': {
+                                            if (catalog.content.content !== 'EmptyContent') {
+                                                return (
+                                                    <MetaRow
+                                                        key={index}
+                                                        className={classnames(styles['search-row'], 'animation-fade-in')}
+                                                        catalog={catalog}
+                                                        message={catalog.content.content}
+                                                    />
+                                                );
+                                            }
+                                            return null;
+                                        }
+                                        default: {
+                                            return (
+                                                <MetaRow.Placeholder
+                                                    key={index}
+                                                    className={classnames(styles['search-row'], styles['search-row-poster'], 'animation-fade-in')}
+                                                    catalog={catalog}
+                                                    title={t.catalogTitle(catalog)}
+                                                />
+                                            );
+                                        }
                                     }
-                                    default: {
-                                        return (
-                                            <MetaRow.Placeholder
-                                                key={index}
-                                                className={classnames(styles['search-row'], styles['search-row-poster'], 'animation-fade-in')}
-                                                catalog={catalog}
-                                                title={t.catalogTitle(catalog)}
-                                            />
-                                        );
-                                    }
-                                }
-                            })
-                }
+                                })
+                    }
                 </div>
             </div>
         </MainNavBars>
     );
 };
 
-Search.propTypes = {
-    queryParams: PropTypes.instanceOf(URLSearchParams)
+const SearchFallback = () => {
+    const [queryParams] = useSearchParams();
+    return <MainNavBars className={styles['search-container']} route={'search'} query={queryParams.get('search') ?? queryParams.get('query')} />;
 };
-
-const SearchFallback = ({ queryParams }) => (
-    <MainNavBars className={styles['search-container']} route={'search'} query={queryParams.get('search') ?? queryParams.get('query')} />
-);
-
-SearchFallback.propTypes = Search.propTypes;
 
 module.exports = withCoreSuspender(Search, SearchFallback);

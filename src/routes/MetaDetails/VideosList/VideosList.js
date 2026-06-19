@@ -4,15 +4,19 @@ const React = require('react');
 const PropTypes = require('prop-types');
 const classnames = require('classnames');
 const { t } = require('i18next');
-const { useServices } = require('stremio/services');
+const { useCore } = require('stremio/core');
 const { useProfile } = require('stremio/common');
 const { Image, SearchBar, Toggle, Video } = require('stremio/components');
 const SeasonsBar = require('./SeasonsBar');
 const { default: EpisodePicker } = require('../EpisodePicker');
 const styles = require('./styles');
 
+// Scroll position della lista episodi, preservata tra un click su un episodio
+// e il ritorno alla lista (bugfix upstream: keep scroll position).
+let savedScrollTop = 0;
+
 const VideosList = ({ className, metaItem, libraryItem, season, seasonOnSelect, selectedVideoId, toggleNotifications, onFocusedVideoChange }) => {
-    const { core } = useServices();
+    const core = useCore();
     const profile = useProfile();
 
     // Track quale episodio ha il focus adesso (non clicked, solo focused) cosi'
@@ -59,6 +63,21 @@ const VideosList = ({ className, metaItem, libraryItem, season, seasonOnSelect, 
     }, []);
 
     const initialFocusDoneRef = React.useRef(null);
+    const isMountedRef = React.useRef(false);
+
+    // Salva la scroll position quando l'utente apre un episodio, cosi' al
+    // ritorno alla lista riprende da dove era (bugfix upstream).
+    const saveScrollPosition = React.useCallback(() => {
+        savedScrollTop = videosContainerRef.current?.scrollTop ?? 0;
+    }, []);
+
+    // Ripristina lo scroll al mount (prima del paint), consumandolo subito.
+    React.useLayoutEffect(() => {
+        if (savedScrollTop > 0 && videosContainerRef.current) {
+            videosContainerRef.current.scrollTop = savedScrollTop;
+            savedScrollTop = 0;
+        }
+    }, []);
 
     // Arrow nav interna: ArrowLeft/Right saltano IMMEDIATAMENTE alla card
     // sibling (senza passare per lo scroll nativo di Chrome che scorre di
@@ -200,7 +219,23 @@ const VideosList = ({ className, metaItem, libraryItem, season, seasonOnSelect, 
         return videosForSeason.every((video) => video.watched);
     }, [videosForSeason]);
 
-    // TV: niente SearchBar locale — la filtraggio via tastiera da divano e'
+    // Scroll in cima al cambio stagione (skip al primo mount per rispettare
+    // lo scroll ripristinato). Bugfix upstream: integrato perche' non
+    // interferisce con la nav TV (l'auto-focus episodio gestisce il focus,
+    // questo gestisce solo lo scroll del container quando non c'e' un
+    // episodio selezionato nella nuova stagione).
+    React.useEffect(() => {
+        if (!isMountedRef.current) {
+            isMountedRef.current = true;
+            return;
+        }
+        const hasSelectedVideo = videosForSeason.some((v) => v.id === selectedVideoId);
+        if (!hasSelectedVideo && videosContainerRef.current) {
+            videosContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    }, [selectedSeason]);
+
+    // TV: niente SearchBar locale — il filtraggio via tastiera da divano e'
     // assurdo. Manteniamo lo state per compat con il rendering esistente ma
     // con stringa vuota fissa (mostra tutti).
     const search = '';
@@ -311,6 +346,7 @@ const VideosList = ({ className, metaItem, libraryItem, season, seasonOnSelect, 
                                                     scheduled={video.scheduled}
                                                     seasonWatched={seasonWatched}
                                                     selected={video.id === selectedVideoId}
+                                                    onSelect={saveScrollPosition}
                                                     onMarkVideoAsWatched={onMarkVideoAsWatched}
                                                     onMarkSeasonAsWatched={onMarkSeasonAsWatched}
                                                 />

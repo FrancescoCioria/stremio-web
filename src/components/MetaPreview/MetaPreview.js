@@ -172,43 +172,43 @@ const MetaPreview = React.forwardRef(({ className, compact, name, logo, backgrou
                             }
                         </div>
                         :
-                    (typeof releaseInfo === 'string' && releaseInfo.length > 0) || (released instanceof Date && !isNaN(released.getTime())) || (typeof runtime === 'string' && runtime.length > 0) || linksGroups.has(CONSTANTS.IMDB_LINK_CATEGORY) ?
-                        <div className={styles['runtime-release-info-container']}>
-                            {
-                                typeof runtime === 'string' && runtime.length > 0 ?
-                                    <div className={styles['runtime-label']}>{runtime}</div>
-                                    :
-                                    null
-                            }
-                            {
-                                typeof releaseInfo === 'string' && releaseInfo.length > 0 ?
-                                    <div className={styles['release-info-label']}>{releaseInfo}</div>
-                                    :
-                                    released instanceof Date && !isNaN(released.getTime()) ?
-                                        <div className={styles['release-info-label']}>{released.getFullYear()}</div>
+                        (typeof releaseInfo === 'string' && releaseInfo.length > 0) || (released instanceof Date && !isNaN(released.getTime())) || (typeof runtime === 'string' && runtime.length > 0) || linksGroups.has(CONSTANTS.IMDB_LINK_CATEGORY) ?
+                            <div className={styles['runtime-release-info-container']}>
+                                {
+                                    typeof runtime === 'string' && runtime.length > 0 ?
+                                        <div className={styles['runtime-label']}>{runtime}</div>
                                         :
                                         null
-                            }
-                            {
+                                }
+                                {
+                                    typeof releaseInfo === 'string' && releaseInfo.length > 0 ?
+                                        <div className={styles['release-info-label']}>{releaseInfo}</div>
+                                        :
+                                        released instanceof Date && !isNaN(released.getTime()) ?
+                                            <div className={styles['release-info-label']}>{released.getFullYear()}</div>
+                                            :
+                                            null
+                                }
+                                {
                                 /* TV: rating IMDb resta visibile come info,
                                  * ma non entra nella spatial nav (tabIndex=-1). */
-                                linksGroups.has(CONSTANTS.IMDB_LINK_CATEGORY) ?
-                                    <Button
-                                        className={styles['imdb-button-container']}
-                                        title={linksGroups.get(CONSTANTS.IMDB_LINK_CATEGORY).label}
-                                        href={linksGroups.get(CONSTANTS.IMDB_LINK_CATEGORY).href}
-                                        target={'_blank'}
-                                        tabIndex={-1}
-                                    >
-                                        <div className={styles['label']}>{linksGroups.get(CONSTANTS.IMDB_LINK_CATEGORY).label}</div>
-                                        <Icon className={styles['icon']} name={'imdb'} />
-                                    </Button>
-                                    :
-                                    null
-                            }
-                        </div>
-                        :
-                        null
+                                    linksGroups.has(CONSTANTS.IMDB_LINK_CATEGORY) ?
+                                        <Button
+                                            className={styles['imdb-button-container']}
+                                            title={linksGroups.get(CONSTANTS.IMDB_LINK_CATEGORY).label}
+                                            href={linksGroups.get(CONSTANTS.IMDB_LINK_CATEGORY).href}
+                                            target={'_blank'}
+                                            tabIndex={-1}
+                                        >
+                                            <div className={styles['label']}>{linksGroups.get(CONSTANTS.IMDB_LINK_CATEGORY).label}</div>
+                                            <Icon className={styles['icon']} name={'imdb'} />
+                                        </Button>
+                                        :
+                                        null
+                                }
+                            </div>
+                            :
+                            null
                 }
                 {
                     compact && typeof description === 'string' && description.length > 0 ?
@@ -244,7 +244,7 @@ const MetaPreview = React.forwardRef(({ className, compact, name, logo, backgrou
                             className={styles['action-button']}
                             icon={'trailer'}
                             label={t('TRAILER')}
-                            tabIndex={compact ? -1 : 0}
+                            tabIndex={0}
                             href={trailerHref}
                             tooltip={compact}
                         />
@@ -272,7 +272,7 @@ const MetaPreview = React.forwardRef(({ className, compact, name, logo, backgrou
                             className={classnames(styles['action-button'], styles['show-button'])}
                             icon={'play'}
                             label={t('SHOW')}
-                            tabIndex={compact ? -1 : 0}
+                            tabIndex={0}
                             href={showHref}
                         />
                         :

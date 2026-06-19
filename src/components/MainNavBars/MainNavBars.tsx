@@ -3,6 +3,7 @@
 import React, { memo } from 'react';
 import classnames from 'classnames';
 import { VerticalNavBar } from 'stremio/components/NavBar';
+import { useContentGamepadNavigation, useVerticalNavGamepadNavigation } from 'stremio/services/GamepadNavigation';
 // @ts-ignore – NavMenu e' JS
 import NavMenu from 'stremio/components/NavBar/HorizontalNavBar/NavMenu';
 // @ts-ignore
@@ -15,10 +16,10 @@ import styles from './MainNavBars.less';
 // Home/Library/Settings). Profile (NavMenu popup) ancorato in fondo.
 // Nessuna horizontal nav bar in alto.
 const TABS = [
-    { id: 'search', label: 'Search', icon: 'search', href: '#/search' },
-    { id: 'board', label: 'Board', icon: 'home', href: '#/' },
-    { id: 'library', label: 'Library', icon: 'library', href: '#/library' },
-    { id: 'settings', label: 'SETTINGS', icon: 'settings', href: '#/settings' },
+    { id: 'search', label: 'Search', icon: 'search', href: '/search' },
+    { id: 'board', label: 'Board', icon: 'home', href: '/' },
+    { id: 'library', label: 'Library', icon: 'library', href: '/library' },
+    { id: 'settings', label: 'SETTINGS', icon: 'settings', href: '/settings' },
 ];
 
 type RenderLabelProps = {
@@ -36,6 +37,13 @@ type Props = {
 };
 
 const MainNavBars = memo(({ className, route, children }: Props) => {
+    const navRef = React.useRef<HTMLDivElement>(null);
+    const contentRef = React.useRef<HTMLDivElement>(null);
+
+    const navRoute = route === 'continue_watching' ? 'library' : (route ?? '');
+    useContentGamepadNavigation(contentRef, navRoute);
+    useVerticalNavGamepadNavigation(navRef, navRoute);
+
     const renderProfileLabel = React.useCallback(
         ({ ref, className: popupCls, onClick, children: popupChildren }: RenderLabelProps) => (
             // @ts-ignore – Button accetta ref
@@ -46,15 +54,17 @@ const MainNavBars = memo(({ className, route, children }: Props) => {
         ),
         []
     );
+
     return (
         <div className={classnames(className, styles['main-nav-bars-container'])}>
             <VerticalNavBar
+                ref={navRef}
                 className={styles['vertical-nav-bar']}
                 selected={route}
                 tabs={TABS}
                 bottomSlot={<NavMenu renderLabel={renderProfileLabel} direction={'top-right'} />}
             />
-            <div className={styles['nav-content-container']}>{children}</div>
+            <div ref={contentRef} className={styles['nav-content-container']}>{children}</div>
         </div>
     );
 });

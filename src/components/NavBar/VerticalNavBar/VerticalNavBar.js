@@ -7,9 +7,18 @@ const { useTranslation } = require('react-i18next');
 const NavTabButton = require('./NavTabButton');
 const styles = require('./styles');
 
-const VerticalNavBar = React.memo(({ className, selected, tabs, bottomSlot }) => {
+const VerticalNavBar = React.memo(React.forwardRef(({ className, selected, tabs, bottomSlot }, ref) => {
     const { t } = useTranslation();
     const navRef = React.useRef(null);
+
+    // Forward del ref upstream (gamepad spatial nav in MainNavBars) tenendo il
+    // nostro navRef interno (nav TV con telecomando). Callback ref: popola
+    // entrambi sullo stesso nodo <nav>.
+    const setNavRef = React.useCallback((node) => {
+        navRef.current = node;
+        if (typeof ref === 'function') ref(node);
+        else if (ref) ref.current = node;
+    }, [ref]);
 
     // TV: navigazione tra i tab con ArrowUp/Down + ritorno al contenuto
     // con ArrowRight. I NavTabButton hanno tabIndex=-1 quindi li focussiamo
@@ -105,7 +114,7 @@ const VerticalNavBar = React.memo(({ className, selected, tabs, bottomSlot }) =>
     }, []);
 
     return (
-        <nav ref={navRef} className={classnames(className, styles['vertical-nav-bar-container'])} onKeyDown={onKeyDown}>
+        <nav ref={setNavRef} className={classnames(className, styles['vertical-nav-bar-container'])} onKeyDown={onKeyDown}>
             {
                 Array.isArray(tabs) ?
                     tabs.map((tab, index) => (
@@ -131,7 +140,7 @@ const VerticalNavBar = React.memo(({ className, selected, tabs, bottomSlot }) =>
             }
         </nav>
     );
-});
+}));
 
 VerticalNavBar.displayName = 'VerticalNavBar';
 

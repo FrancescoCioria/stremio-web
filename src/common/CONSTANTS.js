@@ -46,6 +46,7 @@ const ICON_FOR_TYPE = new Map([
 const MIME_SIGNATURES = {
     'application/x-subrip': ['310D0A', '310A'],
     'text/vtt': ['574542565454'],
+    'application/x-bittorrent': ['64'],
 };
 
 const SUPPORTED_LOCAL_SUBTITLES = [

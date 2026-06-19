@@ -280,55 +280,55 @@ const Board = () => {
                 <div className={styles['board-vstack']}>
                     <BoardHero meta={focusedMeta} />
                     <div ref={scrollContainerRef} className={styles['board-content']} onScroll={onScroll} onKeyDown={onBoardKeyDown}>
-                    {
-                        continueWatchingPreview.items.length > 0 ?
-                            <MetaRow
-                                className={classnames(styles['board-row'], styles['continue-watching-row'], 'animation-fade-in')}
-                                title={t.string('BOARD_CONTINUE_WATCHING')}
-                                catalog={continueWatchingPreview}
-                                itemComponent={ContinueWatchingItem}
-                                notifications={notifications}
-                            />
-                            :
-                            null
-                    }
-                    {visibleCatalogs.map(({ catalog }, index) => {
-                        switch (catalog.content?.type) {
-                            case 'Ready': {
-                                return (
-                                    <MetaRow
-                                        key={index}
-                                        className={classnames(styles['board-row'], styles[`board-row-${catalog.content.content[0].posterShape}`], 'animation-fade-in')}
-                                        catalog={catalog}
-                                        itemComponent={MetaItem}
-                                    />
-                                );
-                            }
-                            case 'Err': {
-                                if (catalog.content.content !== 'EmptyContent') {
+                        {
+                            continueWatchingPreview.items.length > 0 ?
+                                <MetaRow
+                                    className={classnames(styles['board-row'], styles['continue-watching-row'], 'animation-fade-in')}
+                                    title={t.string('BOARD_CONTINUE_WATCHING')}
+                                    catalog={continueWatchingPreview}
+                                    itemComponent={ContinueWatchingItem}
+                                    notifications={notifications}
+                                />
+                                :
+                                null
+                        }
+                        {visibleCatalogs.map(({ catalog }, index) => {
+                            switch (catalog.content?.type) {
+                                case 'Ready': {
                                     return (
                                         <MetaRow
                                             key={index}
-                                            className={classnames(styles['board-row'], 'animation-fade-in')}
+                                            className={classnames(styles['board-row'], styles[`board-row-${catalog.content.content[0].posterShape}`], 'animation-fade-in')}
                                             catalog={catalog}
-                                            message={catalog.content.content}
+                                            itemComponent={MetaItem}
                                         />
                                     );
                                 }
-                                return null;
+                                case 'Err': {
+                                    if (catalog.content.content !== 'EmptyContent') {
+                                        return (
+                                            <MetaRow
+                                                key={index}
+                                                className={classnames(styles['board-row'], 'animation-fade-in')}
+                                                catalog={catalog}
+                                                message={catalog.content.content}
+                                            />
+                                        );
+                                    }
+                                    return null;
+                                }
+                                default: {
+                                    return (
+                                        <MetaRow.Placeholder
+                                            key={index}
+                                            className={classnames(styles['board-row'], styles['board-row-poster'], 'animation-fade-in')}
+                                            catalog={catalog}
+                                            title={t.catalogTitle(catalog)}
+                                        />
+                                    );
+                                }
                             }
-                            default: {
-                                return (
-                                    <MetaRow.Placeholder
-                                        key={index}
-                                        className={classnames(styles['board-row'], styles['board-row-poster'], 'animation-fade-in')}
-                                        catalog={catalog}
-                                        title={t.catalogTitle(catalog)}
-                                    />
-                                );
-                            }
-                        }
-                    })}
+                        })}
                     </div>
                 </div>
             </MainNavBars>

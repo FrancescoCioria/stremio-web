@@ -5,8 +5,8 @@ const PropTypes = require('prop-types');
 const classnames = require('classnames');
 const { useTranslation } = require('react-i18next');
 const { default: Icon } = require('@stremio/stremio-icons/react');
-const { Button, Image, MultiselectMenu } = require('stremio/components');
-const { useServices } = require('stremio/services');
+const { Button, Image } = require('stremio/components');
+const { useCore } = require('stremio/core');
 const Stream = require('./Stream');
 const styles = require('./styles');
 const { usePlatform, useProfile } = require('stremio/common');
@@ -44,7 +44,7 @@ const compatibleFirst = (streams) =>
 
 const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
     const { t } = useTranslation();
-    const { core } = useServices();
+    const core = useCore();
     const platform = usePlatform();
     const profile = useProfile();
     const streamsContainerRef = React.useRef(null);
