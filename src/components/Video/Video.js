@@ -11,7 +11,6 @@ const { default: Icon } = require('@stremio/stremio-icons/react');
 const { Button, Image, Popup } = require('stremio/components');
 const useBinaryState = require('stremio/common/useBinaryState');
 const useProfile = require('stremio/common/useProfile');
-const { usePlatform } = require('stremio/common/Platform');
 const VideoPlaceholder = require('./VideoPlaceholder');
 const styles = require('./styles');
 
@@ -19,7 +18,6 @@ const Video = ({ className, id, title, thumbnail, season, episode, released, upc
     const routeFocused = useRouteFocused();
     const profile = useProfile();
     const navigate = useNavigate();
-    const platform = usePlatform();
     const { t } = useTranslation();
 
     const [menuOpen, , closeMenu, toggleMenu] = useBinaryState(false);
@@ -75,7 +73,11 @@ const Video = ({ className, id, title, thumbnail, season, episode, released, upc
             if (typeof deepLinks.player === 'string') {
                 navigate(toPath(deepLinks.player));
             } else if (typeof deepLinks.metaDetailsStreams === 'string') {
-                navigate(toPath(deepLinks.metaDetailsStreams), { replace: !platform.isMobile });
+                // TV fork: PUSH (non replace). Upstream rimpiazza la pagina
+                // episodi con gli stream su desktop -> il back saltava gli
+                // episodi e tornava alla home. Su TV vogliamo la catena
+                // stream -> episodi -> home, quindi impiliamo l'entry.
+                navigate(toPath(deepLinks.metaDetailsStreams));
             }
         }
     }, [deepLinks, onSelect]);
