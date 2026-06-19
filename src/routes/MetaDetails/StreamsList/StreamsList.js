@@ -33,7 +33,13 @@ const FILTER_INCOMPATIBLE_CODECS = true;
 const INCOMPATIBLE_CODEC_RE = /\b(?:x[\s._-]?265|h[\s._-]?265|HEVC|10[\s._-]?bit)\b/i;
 const isIncompatibleStream = (stream) => {
     if (!FILTER_INCOMPATIBLE_CODECS) return false;
-    const text = [stream.name, stream.title, stream.description].filter(Boolean).join(' ');
+    // I token codec (x265/10bit) spesso NON sono in name/title/description (che
+    // l'addon mostra "puliti", es. YTS: "2160p" e basta) ma nel filename reale.
+    // Verificato 2026-06-20: "Wake.Up.Dead.Man...2160p.4K.WEB.x265.10bit...mkv"
+    // (HEVC Main10, ffprobe) sgusciava il filtro perche' guardavamo solo il
+    // titolo. behaviorHints.filename/bingeGroup portano il nome vero del file.
+    const bh = stream.behaviorHints || {};
+    const text = [stream.name, stream.title, stream.description, bh.filename, bh.bingeGroup].filter(Boolean).join(' ');
     return INCOMPATIBLE_CODEC_RE.test(text);
 };
 
