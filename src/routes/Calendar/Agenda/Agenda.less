@@ -1,0 +1,127 @@
+// Copyright (C) 2017-2024 Smart code 203358507
+
+@import (reference) '~stremio/common/screen-sizes.less';
+
+.agenda {
+    flex: auto;
+    align-self: center;
+    width: 100%;
+    max-width: 52rem;
+    height: 100%;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    padding: 0 1rem 2rem 1rem;
+
+    @supports (scroll-padding-block-start: 1rem) {
+        scroll-padding-block-start: 1rem;
+    }
+
+    .day-group {
+        flex: none;
+        display: flex;
+        flex-direction: column;
+        gap: 0.6rem;
+
+        .day-header {
+            flex: none;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            padding: 0.6rem 0.25rem;
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: var(--primary-foreground-color);
+            text-transform: capitalize;
+            background-color: var(--modal-background-color);
+
+            &.today {
+                color: var(--primary-accent-color);
+            }
+
+            &.placeholder {
+                width: 12rem;
+                height: 1.5rem;
+                border-radius: 0.3rem;
+                background-color: var(--overlay-color);
+            }
+        }
+
+        .cards {
+            flex: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+
+            .card {
+                flex: none;
+                display: flex;
+                flex-direction: row;
+                align-items: center;
+                gap: 1rem;
+                padding: 0.6rem;
+                border-radius: 0.8rem;
+                background-color: var(--overlay-color);
+                border: 0.2rem solid transparent;
+                transition: border-color 0.1s ease-out, background-color 0.1s ease-out, transform 0.1s ease-out;
+                cursor: pointer;
+
+                .poster {
+                    flex: none;
+                    width: 3.6rem;
+                    height: 5.4rem;
+                    border-radius: 0.4rem;
+                    object-fit: cover;
+                    background-color: var(--overlay-color);
+                }
+
+                .meta {
+                    flex: auto;
+                    min-width: 0;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 0.3rem;
+
+                    .name {
+                        font-size: 1.3rem;
+                        font-weight: 600;
+                        color: var(--primary-foreground-color);
+                        white-space: nowrap;
+                        text-overflow: ellipsis;
+                        overflow: hidden;
+                    }
+
+                    .sub {
+                        font-size: 1.05rem;
+                        font-weight: 500;
+                        color: var(--primary-foreground-color);
+                        opacity: 0.6;
+                    }
+                }
+
+                &:hover, &:focus, &:focus-visible {
+                    outline: none;
+                    border-color: var(--primary-accent-color);
+                    background-color: var(--overlay-color);
+                    transform: scale(1.01);
+                }
+
+                &.placeholder {
+                    height: 6.6rem;
+                    pointer-events: none;
+                    opacity: 0.5;
+                }
+            }
+        }
+    }
+
+    .empty {
+        margin: auto;
+        font-size: 1.4rem;
+        font-weight: 500;
+        color: var(--primary-foreground-color);
+        opacity: 0.6;
+        text-align: center;
+    }
+}
