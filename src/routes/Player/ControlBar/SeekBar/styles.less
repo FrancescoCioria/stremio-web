@@ -3,7 +3,6 @@
 @import (reference) '~@stremio/stremio-colors/less/stremio-colors.less';
 
 :import('~stremio/components/Slider/styles.less') {
-    slider-track-after: track-after;
     slider-thumb: thumb;
 }
 
@@ -30,25 +29,10 @@
         align-self: stretch;
         margin: 0 var(--thumb-size);
 
-        .slider-track-after {
-            background-color: var(--primary-accent-color);
-        }
-
+        /* Colore (bianco/viola) gestito dal focus in ControlBar/styles.less:
+         * qui solo transizione + hover. Default = bianco (base Slider). */
         .slider-thumb {
-            background-color: var(--primary-accent-color);
             transition: transform 150ms ease;
-
-            &:after {
-                content: "";
-                position: absolute;
-                top: 0;
-                bottom: 0;
-                left: 0;
-                right: 0;
-                border-radius: 100%;
-                box-shadow: 0 0 0 0.25rem var(--primary-accent-color) inset;
-                filter: brightness(130%);
-            }
         }
 
         &:hover .slider-thumb {

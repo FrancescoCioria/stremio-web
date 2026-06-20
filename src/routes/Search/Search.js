@@ -116,6 +116,40 @@ const Search = () => {
         }
     }, []);
 
+    // Arrow nav DALLA search bar (input + bottone X/cerca). La SearchBar non
+    // partecipa alla nav manuale dei risultati (e' fuori da .search-content):
+    // senza questo handler, se il focus finisce sul bottone X resta intrappolato
+    // (nessuno sposta il focus -> "game over" col telecomando). Garantiamo
+    // sempre un'uscita: ↓ -> primi risultati, ← -> sidebar.
+    const onSearchBarKeyDown = React.useCallback((e) => {
+        // Dentro il dropdown storia/suggerimenti la nav e' sua: non rubargliela.
+        if (e.target.closest('[class*="menu-container"]')) return;
+        if (e.key === 'ArrowDown') {
+            const root = scrollContainerRef.current;
+            const firstCard = root && root.querySelector('[class*="meta-item-container"]');
+            if (firstCard) {
+                e.preventDefault();
+                e.stopPropagation();
+                firstCard.focus({ preventScroll: true });
+                const firstRow = firstCard.closest('[class*="meta-row-container"]');
+                if (firstRow) firstRow.scrollIntoView({ block: 'start' });
+            }
+            return;
+        }
+        if (e.key === 'ArrowLeft') {
+            const navBar = document.querySelector('[class*="vertical-nav-bar-container"]');
+            const selectedTab = navBar && (
+                navBar.querySelector('[class*="nav-tab-button-container"].selected')
+                || navBar.querySelector('[class*="nav-tab-button-container"]')
+            );
+            if (selectedTab) {
+                e.preventDefault();
+                e.stopPropagation();
+                selectedTab.focus({ preventScroll: true });
+            }
+        }
+    }, []);
+
     // Default focus sulla prima card risultato dopo 500ms di stabilita'.
     const catalogsStateKey = React.useMemo(() => {
         return (query || '') + ':' + search.catalogs.map((c) => c.content?.type || 'pending').join(',');
@@ -144,7 +178,7 @@ const Search = () => {
     return (
         <MainNavBars className={styles['search-container']} route={'search'} query={query}>
             <div className={styles['search-vstack']}>
-                <div className={styles['search-bar-wrapper']}>
+                <div className={styles['search-bar-wrapper']} onKeyDown={onSearchBarKeyDown}>
                     <SearchBar className={styles['search-bar']} query={query} active={true} />
                 </div>
                 {query !== null ? <BoardHero meta={focusedMeta} /> : null}

@@ -3,6 +3,11 @@
 @import (reference) '~@stremio/stremio-colors/less/stremio-colors.less';
 @import (reference) '~stremio/common/screen-sizes.less';
 
+:import('~stremio/components/Slider/styles.less') {
+    slider-track-after: track-after;
+    slider-thumb: thumb;
+}
+
 .control-bar-container {
     padding: 0 2rem;
 
@@ -13,16 +18,19 @@
         height: 2.5rem;
 
         /* TV nav: ↓ dal video porta il focus sulla seek bar (timeline).
-         * Outline visibile per dare feedback all'utente che ←/→ ora
-         * controllano il seek e ↓ entra nella row dei bottoni. */
+         * Feedback di focus = COLORE della barra, non un bordo/box-shadow
+         * squadrato: bianca quando NON in focus, viola (accent) quando in
+         * focus. ←/→ controllano il seek, ↓ entra nella row dei bottoni. */
         &.seekbar-focused {
             outline: none;
-            border-radius: 0.8rem;
-            /* Ring nel colore accent (come la barra di progresso) + glow
-             * morbido: piu' elegante dell'outline bianco squadrato. */
-            box-shadow:
-                0 0 0 0.2rem var(--primary-accent-color),
-                0 0 1.4rem 0.1rem var(--primary-accent-color);
+
+            .slider-track-after {
+                background-color: var(--primary-accent-color);
+            }
+
+            .slider-thumb {
+                background-color: var(--primary-accent-color);
+            }
         }
     }
 

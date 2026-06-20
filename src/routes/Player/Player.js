@@ -699,14 +699,35 @@ const Player = () => {
     const selectedStream = player.selected?.stream;
     const streamInfoHash = typeof selectedStream?.infoHash === 'string' ? selectedStream.infoHash : null;
     const streamFileIdx = typeof selectedStream?.fileIdx === 'number' ? selectedStream.fileIdx : null;
+    // Una volta sola per stream: appena la riproduzione PARTE davvero
+    // (buffer completo: paused===false && buffering===false) chiudiamo le
+    // stats auto-aperte, senza costringere l'utente al tasto indietro.
+    // Il flag evita anche che il timer dei 5s le riapra se lo start e' rapido,
+    // e che una ri-bufferizzazione a meta' film le faccia ricomparire.
+    const autoStatsHandledRef = React.useRef(false);
+    React.useEffect(() => {
+        autoStatsHandledRef.current = false;
+    }, [streamInfoHash, streamFileIdx]);
     React.useEffect(() => {
         if (streamInfoHash === null || streamFileIdx === null) return;
         const tid = setTimeout(() => {
             if (streamingStatsRef.current?.type === 'Err') return;
+            if (autoStatsHandledRef.current) return;
             openStatisticsMenu();
         }, 5000);
         return () => clearTimeout(tid);
     }, [streamInfoHash, streamFileIdx, openStatisticsMenu]);
+    React.useEffect(() => {
+        if (autoStatsHandledRef.current) return;
+        if (streamInfoHash === null || streamFileIdx === null) return;
+        // paused===false (sta riproducendo) + !buffering (buffer pieno; copre
+        // sia false che il null "non sto bufferizzando" emesso da alcune
+        // implementazioni video).
+        if (video.state.paused === false && !video.state.buffering) {
+            autoStatsHandledRef.current = true;
+            closeStatisticsMenu();
+        }
+    }, [video.state.paused, video.state.buffering, streamInfoHash, streamFileIdx, closeStatisticsMenu]);
 
     onShortcut('playNext', () => {
         closeMenus();
