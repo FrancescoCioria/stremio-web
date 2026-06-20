@@ -27,6 +27,7 @@ const SpeedMenu = require('./SpeedMenu');
 const { default: SideDrawer } = require('./SideDrawer');
 const usePlayer = require('./usePlayer');
 const useStatistics = require('./useStatistics');
+const usePlayerDebugLog = require('./usePlayerDebugLog');
 const useVideo = require('./useVideo');
 const { default: useSubtitles } = require('./useSubtitles');
 const styles = require('./styles');
@@ -64,6 +65,7 @@ const Player = () => {
     const streamingServer = useStreamingServer();
     const statistics = useStatistics(player, streamingServer);
     const video = useVideo();
+    usePlayerDebugLog(video, streamingServer, statistics); // DEBUG: log pause/buffering + stato torrent al backend
     const routeFocused = useRouteFocused();
     const platform = usePlatform();
     const toast = useToast();
