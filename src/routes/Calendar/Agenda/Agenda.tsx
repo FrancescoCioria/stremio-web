@@ -14,6 +14,43 @@ type Props = {
     profile: Profile,
 };
 
+// Id della serie dall'id episodio ("tt123:5:1" -> "tt123").
+const seriesId = (ep: CalendarContentItem): string => (ep.id || '').split(':')[0] || ep.id;
+
+type DayCard = {
+    key: string,
+    name: string,
+    poster?: string,
+    season?: number,
+    episodes: number[],   // episodi dello stesso giorno per quella serie+stagione
+    deepLink: string,
+};
+
+// Raggruppa gli episodi dello stesso giorno per serie+stagione: uno show che
+// rilascia tutta la stagione in un colpo (es. The Bear) diventa UNA card.
+const collapseDay = (items: CalendarContentItem[]): DayCard[] => {
+    const byKey = new Map<string, DayCard>();
+    const order: DayCard[] = [];
+    for (const ep of items) {
+        const key = `${seriesId(ep)}:${ep.season ?? ''}`;
+        let card = byKey.get(key);
+        if (!card) {
+            card = {
+                key,
+                name: ep.name,
+                poster: ep.poster,
+                season: ep.season,
+                episodes: [],
+                deepLink: ep.deepLinks.metaDetailsStreams,
+            };
+            byKey.set(key, card);
+            order.push(card);
+        }
+        if (typeof ep.episode === 'number') card.episodes.push(ep.episode);
+    }
+    return order;
+};
+
 const Agenda = ({ items, profile }: Props) => {
     const { t } = useTranslation();
     const { navigateWithOrigin } = useNavigateWithOrigin();
@@ -75,27 +112,30 @@ const Agenda = ({ items, profile }: Props) => {
                             </div>
                             <div className={styles['cards']}>
                                 {
-                                    day.items.map((ep) => (
-                                        <Button
-                                            key={ep.id}
-                                            className={styles['card']}
-                                            href={ep.deepLinks.metaDetailsStreams}
-                                            onClick={(event: React.MouseEvent) => onCardClick(event, ep.deepLinks.metaDetailsStreams)}
-                                        >
-                                            <Image className={styles['poster']} src={ep.poster} alt={' '} />
-                                            <div className={styles['meta']}>
-                                                <div className={styles['name']}>{ep.name}</div>
-                                                {
-                                                    typeof ep.season === 'number' && typeof ep.episode === 'number' ?
-                                                        <div className={styles['sub']}>
-                                                            {t('SERIES_SEASON', { defaultValue: 'Season' })} {ep.season} · {t('SERIES_EPISODE', { defaultValue: 'Episode' })} {ep.episode}
-                                                        </div>
-                                                        :
-                                                        null
-                                                }
-                                            </div>
-                                        </Button>
-                                    ))
+                                    collapseDay(day.items).map((card) => {
+                                        const eps = card.episodes.slice().sort((a, b) => a - b);
+                                        const hasSeason = typeof card.season === 'number';
+                                        let sub: string | null = null;
+                                        if (hasSeason && eps.length > 1) {
+                                            sub = `${t('SERIES_SEASON', { defaultValue: 'Season' })} ${card.season} · ${eps.length} ${t('EPISODES', { defaultValue: 'episodes' })}`;
+                                        } else if (hasSeason && eps.length === 1) {
+                                            sub = `${t('SERIES_SEASON', { defaultValue: 'Season' })} ${card.season} · ${t('SERIES_EPISODE', { defaultValue: 'Episode' })} ${eps[0]}`;
+                                        }
+                                        return (
+                                            <Button
+                                                key={card.key}
+                                                className={styles['card']}
+                                                href={card.deepLink}
+                                                onClick={(event: React.MouseEvent) => onCardClick(event, card.deepLink)}
+                                            >
+                                                <Image className={styles['poster']} src={card.poster} alt={' '} />
+                                                <div className={styles['meta']}>
+                                                    <div className={styles['name']}>{card.name}</div>
+                                                    {sub ? <div className={styles['sub']}>{sub}</div> : null}
+                                                </div>
+                                            </Button>
+                                        );
+                                    })
                                 }
                             </div>
                         </div>
