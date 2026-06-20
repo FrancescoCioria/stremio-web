@@ -13,12 +13,13 @@ import Icon from '@stremio/stremio-icons/react';
 import styles from './MainNavBars.less';
 
 // TV layout: tutti i tab sulla sidebar sinistra (Search in cima, poi
-// Home/Library/Settings). Profile (NavMenu popup) ancorato in fondo.
+// Home/Library/Calendar/Settings). Profile (NavMenu popup) ancorato in fondo.
 // Nessuna horizontal nav bar in alto.
 const TABS = [
     { id: 'search', label: 'Search', icon: 'search', href: '/search' },
     { id: 'board', label: 'Board', icon: 'home', href: '/' },
     { id: 'library', label: 'Library', icon: 'library', href: '/library' },
+    { id: 'calendar', label: 'Calendar', icon: 'calendar', href: '/calendar' },
     { id: 'settings', label: 'SETTINGS', icon: 'settings', href: '/settings' },
 ];
 
