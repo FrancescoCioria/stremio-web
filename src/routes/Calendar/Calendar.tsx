@@ -5,7 +5,6 @@ import { useParams } from 'react-router';
 import { useProfile, withCoreSuspender } from 'stremio/common';
 import { MainNavBars, BottomSheet } from 'stremio/components';
 import Selector from './Selector';
-import Table from './Table';
 import List from './List';
 import Details from './Details';
 import Placeholder from './Placeholder';
@@ -38,19 +37,14 @@ const Calendar = () => {
             {
                 profile.auth !== null ?
                     <div className={classNames(styles['content'], 'animation-fade-in')}>
-                        <div className={styles['main']}>
-                            <Selector
-                                selected={calendar.selected}
-                                selectable={calendar.selectable}
-                                profile={profile}
-                            />
-                            <Table
-                                items={calendar.items}
-                                selected={selected}
-                                monthInfo={calendar.monthInfo}
-                                onChange={setSelected}
-                            />
-                        </div>
+                        {/* Casa TV: solo agenda (lista episodi in uscita), niente
+                            grid calendario mensile. Lo scopo e' vedere quando
+                            escono nuovi episodi/stagioni delle serie seguite. */}
+                        <Selector
+                            selected={calendar.selected}
+                            selectable={calendar.selectable}
+                            profile={profile}
+                        />
                         <List
                             items={calendar.items}
                             selected={selected}
