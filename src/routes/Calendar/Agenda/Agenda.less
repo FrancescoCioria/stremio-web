@@ -12,11 +12,7 @@
     display: flex;
     flex-direction: column;
     gap: 2rem;
-    padding: 0 1rem 2rem 1rem;
-
-    @supports (scroll-padding-block-start: 1rem) {
-        scroll-padding-block-start: 1rem;
-    }
+    padding: 0.3rem 1rem 2rem 1rem;
 
     .day-group {
         flex: none;
@@ -48,13 +44,13 @@
             }
         }
 
-        .cards {
+        .day-cards {
             flex: none;
             display: flex;
             flex-direction: column;
             gap: 0.5rem;
 
-            .card {
+            .episode-card {
                 flex: none;
                 display: flex;
                 flex-direction: row;
@@ -64,8 +60,12 @@
                 border-radius: 0.8rem;
                 background-color: var(--overlay-color);
                 border: 0.2rem solid transparent;
-                transition: border-color 0.1s ease-out, background-color 0.1s ease-out, transform 0.1s ease-out;
+                transition: border-color 0.1s ease-out, background-color 0.1s ease-out;
                 cursor: pointer;
+                // tiene la card focusata sotto l'header sticky quando ci si
+                // scrolla con scrollIntoView/native.
+                scroll-margin-top: 4rem;
+                scroll-margin-bottom: 1.5rem;
 
                 .poster {
                     flex: none;
@@ -100,11 +100,15 @@
                     }
                 }
 
-                &:hover, &:focus, &:focus-visible {
+                &:hover {
+                    background-color: var(--overlay-color);
+                    border-color: var(--overlay-color);
+                }
+
+                &:focus, &:focus-visible {
                     outline: none;
                     border-color: var(--primary-accent-color);
                     background-color: var(--overlay-color);
-                    transform: scale(1.01);
                 }
 
                 &.placeholder {

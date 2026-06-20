@@ -1,6 +1,6 @@
 // Copyright (C) 2017-2024 Smart code 203358507
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef } from 'react';
 import classNames from 'classnames';
 import { useNavigateWithOrigin } from 'stremio-router';
 // @ts-ignore – components e' JS
@@ -51,10 +51,14 @@ const collapseDay = (items: CalendarContentItem[]): DayCard[] => {
     return order;
 };
 
+const CARD_SELECTOR = '[class*="episode-card"]';
+
 const Agenda = ({ items, profile }: Props) => {
     const { t } = useTranslation();
     const { navigateWithOrigin } = useNavigateWithOrigin();
     const lang = profile?.settings?.interfaceLanguage || 'en-US';
+    const rootRef = useRef<HTMLDivElement>(null);
+    const initialFocusRef = useRef(false);
 
     const today = useMemo(() => {
         const d = new Date();
@@ -74,15 +78,94 @@ const Agenda = ({ items, profile }: Props) => {
         navigateWithOrigin(target);
     };
 
+    // Scroll manuale che tiene la card sotto l'header-data sticky (non coperta).
+    const revealCard = (card: HTMLElement) => {
+        const root = rootRef.current;
+        if (!root) return;
+        const headerH = card.closest('[class*="day-group"]')
+            ?.querySelector<HTMLElement>('[class*="day-header"]')?.offsetHeight ?? 48;
+        const r = card.getBoundingClientRect();
+        const rootR = root.getBoundingClientRect();
+        const topLimit = rootR.top + headerH;
+        if (r.top < topLimit) {
+            root.scrollBy({ top: r.top - topLimit - 8, behavior: 'smooth' });
+        } else if (r.bottom > rootR.bottom) {
+            root.scrollBy({ top: r.bottom - rootR.bottom + 12, behavior: 'smooth' });
+        }
+    };
+
+    const focusSidebar = (): boolean => {
+        const navBar = document.querySelector('[class*="vertical-nav-bar-container"]');
+        const tab = navBar?.querySelector<HTMLElement>('[class*="nav-tab-button-container"].selected')
+            || navBar?.querySelector<HTMLElement>('[class*="nav-tab-button-container"]');
+        if (tab) {
+            tab.focus({ preventScroll: true });
+            return true;
+        }
+        return false;
+    };
+
+    // Nav col telecomando (frecce = keydown). L'agenda POSSIEDE la nav
+    // verticale: Up/Down consumati SEMPRE (preventDefault+stopPropagation) cosi'
+    // lo spatial-navigation-polyfill non ruba il focus alla sidebar. Left =
+    // torna al menu (single column, sempre). Pattern preso da Board.js.
+    const onKeyDown = (e: React.KeyboardEvent) => {
+        const isVertical = e.key === 'ArrowUp' || e.key === 'ArrowDown';
+        const isHorizontal = e.key === 'ArrowLeft' || e.key === 'ArrowRight';
+        if (!isVertical && !isHorizontal) return;
+        if (isVertical) { e.preventDefault(); e.stopPropagation(); }
+
+        const root = rootRef.current;
+        if (!root) return;
+
+        if (e.key === 'ArrowLeft') {
+            if (focusSidebar()) { e.preventDefault(); e.stopPropagation(); }
+            return;
+        }
+        if (e.key === 'ArrowRight') {
+            // single column: niente a destra, consuma per non far vagare il polyfill
+            e.preventDefault(); e.stopPropagation();
+            return;
+        }
+
+        const cards = Array.from(root.querySelectorAll<HTMLElement>(CARD_SELECTOR));
+        if (cards.length === 0) return;
+        const current = (e.target as HTMLElement).closest<HTMLElement>(CARD_SELECTOR);
+        const idx = current ? cards.indexOf(current) : -1;
+        const target = e.key === 'ArrowDown' ? cards[idx + 1] : cards[idx - 1];
+        if (!target) return;
+        target.focus({ preventScroll: true });
+        revealCard(target);
+    };
+
+    // Focus iniziale sulla prima card quando i dati arrivano (cosi' le frecce
+    // funzionano subito). Non sovrascrive se l'utente ha gia' un focus dentro.
+    React.useEffect(() => {
+        if (initialFocusRef.current) return;
+        if (!items || items.length === 0) return;
+        const root = rootRef.current;
+        if (!root) return;
+        const ae = document.activeElement as HTMLElement | null;
+        if (ae && root.contains(ae) && ae.closest(CARD_SELECTOR)) {
+            initialFocusRef.current = true;
+            return;
+        }
+        const first = root.querySelector<HTMLElement>(CARD_SELECTOR);
+        if (first) {
+            initialFocusRef.current = true;
+            first.focus({ preventScroll: true });
+        }
+    }, [items]);
+
     if (items === null) {
         return (
             <div className={styles['agenda']}>
                 {[0, 1, 2].map((i) => (
                     <div className={styles['day-group']} key={i}>
                         <div className={classNames(styles['day-header'], styles['placeholder'])} />
-                        <div className={styles['cards']}>
-                            <div className={classNames(styles['card'], styles['placeholder'])} />
-                            <div className={classNames(styles['card'], styles['placeholder'])} />
+                        <div className={styles['day-cards']}>
+                            <div className={classNames(styles['episode-card'], styles['placeholder'])} />
+                            <div className={classNames(styles['episode-card'], styles['placeholder'])} />
                         </div>
                     </div>
                 ))}
@@ -101,7 +184,7 @@ const Agenda = ({ items, profile }: Props) => {
     }
 
     return (
-        <div className={styles['agenda']}>
+        <div ref={rootRef} className={styles['agenda']} onKeyDown={onKeyDown}>
             {
                 items.map((day) => {
                     const isToday = day.date.day === today.day && day.date.month === today.month && day.date.year === today.year;
@@ -110,7 +193,7 @@ const Agenda = ({ items, profile }: Props) => {
                             <div className={classNames(styles['day-header'], { [styles['today']]: isToday })}>
                                 {formatDate(day.date)}
                             </div>
-                            <div className={styles['cards']}>
+                            <div className={styles['day-cards']}>
                                 {
                                     collapseDay(day.items).map((card) => {
                                         const eps = card.episodes.slice().sort((a, b) => a - b);
@@ -124,7 +207,7 @@ const Agenda = ({ items, profile }: Props) => {
                                         return (
                                             <Button
                                                 key={card.key}
-                                                className={styles['card']}
+                                                className={styles['episode-card']}
                                                 href={card.deepLink}
                                                 onClick={(event: React.MouseEvent) => onCardClick(event, card.deepLink)}
                                             >
