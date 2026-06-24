@@ -147,6 +147,27 @@
             }
         }
 
+        /* Badge salute torrent (indice di qualita'): MORTO = swarm spento,
+         * RACCOLTA = pack multi-film. Colore d'allarme, sotto i meta-badge. */
+        .health-badge {
+            align-self: flex-start;
+            font-size: 0.8rem;
+            font-weight: 700;
+            line-height: 1;
+            letter-spacing: 0.03em;
+            padding: 0.35rem 0.6rem;
+            border-radius: 0.5rem;
+            color: #fff;
+
+            &.health-dead {
+                background-color: rgba(220, 53, 69, 0.85);
+            }
+
+            &.health-pack {
+                background-color: rgba(255, 153, 0, 0.85);
+            }
+        }
+
         .progress-bar-container {
             flex: none;
             position: relative;

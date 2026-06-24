@@ -68,7 +68,21 @@ const isLowRes = (stream) => { const h = streamHeight(stream); return h > 0 && h
 //   0 = compatibile hi-res (>=1080p o sconosciuta)
 //   1 = compatibile bassa risoluzione (<=720p)  -> deprioritizzata anche con tante peers
 //   2 = incompatibile (HEVC/10bit, Fire TV-only) -> in fondo, disabilitata
-const streamPriority = (s) => s.incompatible ? 2 : (s.lowRes ? 1 : 0);
+// --- Indice di qualita' stream (sidecar stremio-health, porta 11480) ---
+// Sonda i torrent SENZA scaricarli: recupera solo i metadata (aria2) e
+// classifica dead (swarm spento, niente metadata) / pack (raccolta multi-film:
+// il file scelto e' una fetta minuscola del torrent, ratio<0.9) / clean.
+// I dead/pack finiscono in fondo con un badge. Fail-open TOTALE: sidecar giu'
+// o errore -> healthMap vuota -> nessuna penalita', nessun blocco play.
+// Perche': per film vecchi lo stream "piu' seedato" e' spesso una raccolta da
+// 100GB morta; la UI mostra la size del FILE (es. 1.79GB) non del torrent ->
+// impossibile distinguerlo a occhio. Vedi project_stremio_slow_dl_dead_packs.
+const STREAM_HEALTH_ENABLED = true;
+const HEALTH_URL = 'http://127.0.0.1:11480/health';
+const HEALTH_MAX = 30; // cap infohash sondati per lista
+// dead/pack penalizzati nel sort: clean(0-2) -> pack(10-12) -> dead(20-22).
+const healthPenalty = (s) => s.health === 'dead' ? 20 : s.health === 'pack' ? 10 : 0;
+const streamPriority = (s) => (s.incompatible ? 2 : (s.lowRes ? 1 : 0)) + healthPenalty(s);
 const byPriority = (streams) =>
     streams.slice().sort((a, b) => streamPriority(a) - streamPriority(b));
 
@@ -79,6 +93,9 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
     const profile = useProfile();
     const streamsContainerRef = React.useRef(null);
     const [selectedAddon, setSelectedAddon] = React.useState(ALL_ADDONS_KEY);
+    // infoHash(lower) -> 'clean'|'pack'|'dead' dal sidecar di salute.
+    const [healthMap, setHealthMap] = React.useState({});
+    const healthRequestedRef = React.useRef(new Set());
     const onAddonSelected = React.useCallback((value) => {
         streamsContainerRef.current.scrollTo({ top: 0, left: 0, behavior: platform.name === 'ios' ? 'smooth' : 'instant' });
         setSelectedAddon(value);
@@ -100,6 +117,8 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
                         incompatible: isIncompatibleStream(stream),
                         // 720p e sotto: deprioritizzato nel sort (anche con tante peers).
                         lowRes: isLowRes(stream),
+                        // Salute torrent dal sidecar (dead/pack -> in fondo + badge).
+                        health: typeof stream.infoHash === 'string' ? healthMap[stream.infoHash.toLowerCase()] : undefined,
                         onClick: () => {
                             core.transport.analytics({
                                 event: 'StreamClicked',
@@ -118,7 +137,7 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
 
                 return streamsByAddon;
             }, {});
-    }, [props.streams]);
+    }, [props.streams, healthMap]);
     const filteredStreams = React.useMemo(() => {
         const list = selectedAddon === ALL_ADDONS_KEY ?
             // Flatten di piu' addon: ogni gruppo e' gia' ordinato, ma la
@@ -132,6 +151,42 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
                 [];
         return list;
     }, [streamsByAddon, selectedAddon]);
+    // Indice di qualita': raccogli gli infohash unici degli stream Ready e
+    // sondali via sidecar stremio-health (solo metadata, niente download).
+    // requestedRef evita ri-sonde; fail-open su qualsiasi errore.
+    React.useEffect(() => {
+        if (!STREAM_HEALTH_ENABLED) return;
+        const items = [];
+        const seen = new Set();
+        for (const streams of props.streams) {
+            if (streams.content.type !== 'Ready') continue;
+            for (const s of streams.content.content) {
+                const ih = typeof s.infoHash === 'string' ? s.infoHash.toLowerCase() : null;
+                if (!ih || seen.has(ih)) continue;
+                seen.add(ih);
+                if (healthRequestedRef.current.has(ih)) continue;
+                items.push({ infoHash: ih, fileIdx: s.fileIdx != null ? s.fileIdx : null });
+                if (items.length >= HEALTH_MAX) break;
+            }
+            if (items.length >= HEALTH_MAX) break;
+        }
+        if (items.length === 0) return;
+        items.forEach((it) => healthRequestedRef.current.add(it.infoHash));
+        let cancelled = false;
+        fetch(HEALTH_URL, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ items }) })
+            .then((r) => r.ok ? r.json() : [])
+            .then((results) => {
+                if (cancelled || !Array.isArray(results)) return;
+                setHealthMap((prev) => {
+                    const next = { ...prev };
+                    for (const r of results) { if (r && typeof r.infoHash === 'string') next[r.infoHash.toLowerCase()] = r.status; }
+                    return next;
+                });
+            })
+            .catch(() => {});
+        return () => { cancelled = true; };
+    }, [props.streams]);
+
     const selectableOptions = React.useMemo(() => {
         return {
             options: [
@@ -339,6 +394,7 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
                                             progress={stream.progress}
                                             deepLinks={stream.deepLinks}
                                             incompatible={stream.incompatible}
+                                            health={stream.health}
                                             onClick={stream.onClick}
                                         />
                                     ))}

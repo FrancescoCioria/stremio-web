@@ -23,7 +23,7 @@ const SaveIcon = ({ className }) => (
     </svg>
 );
 
-const Stream = ({ className, videoId, videoReleased, addonName, name, description, thumbnail, progress, deepLinks, incompatible, ...props }) => {
+const Stream = ({ className, videoId, videoReleased, addonName, name, description, thumbnail, progress, deepLinks, incompatible, health, ...props }) => {
     const profile = useProfile();
     const toast = useToast();
     const platform = usePlatform();
@@ -303,6 +303,21 @@ const Stream = ({ className, videoId, videoReleased, addonName, name, descriptio
                             null
                     }
                     {
+                        /* Badge salute torrent (indice di qualita'): MORTO = swarm
+                         * spento (niente seeder), RACCOLTA = pack multi-film (il
+                         * file e' una fetta minuscola del torrent). Anche spinti
+                         * in fondo via streamPriority. */
+                        (health === 'dead' || health === 'pack') ?
+                            <div
+                                className={classnames(styles['health-badge'], health === 'dead' ? styles['health-dead'] : styles['health-pack'])}
+                                title={health === 'dead' ? 'Nessun seeder attivo: non scarica' : 'Raccolta multi-film: il file scelto e una fetta minuscola del torrent'}
+                            >
+                                {health === 'dead' ? 'MORTO' : 'RACCOLTA'}
+                            </div>
+                            :
+                            null
+                    }
+                    {
                         progress !== null && !isNaN(progress) && progress > 0 ?
                             <div className={styles['progress-bar-container']}>
                                 <div className={styles['progress-bar']} style={{ width: `${progress}%` }} />
@@ -325,7 +340,7 @@ const Stream = ({ className, videoId, videoReleased, addonName, name, descriptio
                 {children}
             </Button>
         );
-    }, [thumbnail, progress, addonName, name, cleanDescription, seed, size, source, href, target, download, onClick, incompatible]);
+    }, [thumbnail, progress, addonName, name, cleanDescription, seed, size, source, href, target, download, onClick, incompatible, health]);
 
     const renderMenu = React.useMemo(() => function renderMenu() {
         return (
@@ -394,6 +409,7 @@ Stream.propTypes = {
     thumbnail: PropTypes.string,
     progress: PropTypes.number,
     incompatible: PropTypes.bool,
+    health: PropTypes.string,
     deepLinks: PropTypes.shape({
         player: PropTypes.string,
         externalPlayer: PropTypes.shape({
