@@ -78,6 +78,30 @@ const Settings = () => {
         updateSelectedSectionId();
     }, 50), []);
 
+    // TV — 2o passo della cascata ←: dal MENU SEZIONI (colonna sinistra) esci
+    // alla sidebar app. La spatial-nav globale (polyfill) porta gia' i controlli
+    // di destra al menu sezioni (1o passo), ma da li' non puo' proseguire: i tab
+    // della sidebar app sono tabIndex=-1, quindi il polyfill non li raggiunge e
+    // ArrowLeft resta bloccato su "General". Board/Library/Search hanno lo stesso
+    // bridge esplicito; Settings ne era privo. Agiamo SOLO quando il focus e' nel
+    // menu sezioni (fuori da sections-container): sui controlli di destra NON
+    // tocchiamo nulla, cosi' il polyfill fa il suo 1o passo indisturbato.
+    const onContentKeyDown = useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
+        if (event.key !== 'ArrowLeft') return;
+        const target = event.target as HTMLElement;
+        if (target.closest('[class*="sections-container"]')) return;
+        const navBar = document.querySelector('[class*="vertical-nav-bar-container"]');
+        const selectedTab = navBar && (
+            navBar.querySelector('[class*="nav-tab-button-container"].selected')
+            || navBar.querySelector('[class*="nav-tab-button-container"]')
+        );
+        if (selectedTab) {
+            event.preventDefault();
+            event.stopPropagation();
+            (selectedTab as HTMLElement).focus({ preventScroll: true });
+        }
+    }, []);
+
     useLayoutEffect(() => {
         if (routeFocused) {
             updateSelectedSectionId();
@@ -86,7 +110,7 @@ const Settings = () => {
 
     return (
         <MainNavBars className={styles['settings-container']} route={'settings'}>
-            <div className={classnames(styles['settings-content'], 'animation-fade-in')}>
+            <div className={classnames(styles['settings-content'], 'animation-fade-in')} onKeyDown={onContentKeyDown}>
                 <Menu
                     selected={selectedSectionId}
                     streamingServer={streamingServer}
