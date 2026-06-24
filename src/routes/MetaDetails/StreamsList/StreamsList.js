@@ -96,6 +96,8 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
     // infoHash(lower) -> 'clean'|'pack'|'dead' dal sidecar di salute.
     const [healthMap, setHealthMap] = React.useState({});
     const healthRequestedRef = React.useRef(new Set());
+    const healthMountedRef = React.useRef(true);
+    React.useEffect(() => () => { healthMountedRef.current = false; }, []);
     const onAddonSelected = React.useCallback((value) => {
         streamsContainerRef.current.scrollTo({ top: 0, left: 0, behavior: platform.name === 'ios' ? 'smooth' : 'instant' });
         setSelectedAddon(value);
@@ -172,11 +174,15 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
         }
         if (items.length === 0) return;
         items.forEach((it) => healthRequestedRef.current.add(it.infoHash));
-        let cancelled = false;
+        // NB: NIENTE cancellazione per-run. props.streams cambia mentre gli addon
+        // caricano -> l'effetto rifa' run; se scartassimo i risultati al cleanup,
+        // gli infohash gia' segnati in requestedRef non verrebbero ri-sondati e la
+        // loro salute andrebbe persa (il pack restava in cima senza badge). Si
+        // accumula SEMPRE; si guarda solo l'unmount.
         fetch(HEALTH_URL, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ items }) })
             .then((r) => r.ok ? r.json() : [])
             .then((results) => {
-                if (cancelled || !Array.isArray(results)) return;
+                if (!healthMountedRef.current || !Array.isArray(results)) return;
                 setHealthMap((prev) => {
                     const next = { ...prev };
                     for (const r of results) { if (r && typeof r.infoHash === 'string') next[r.infoHash.toLowerCase()] = r.status; }
@@ -184,7 +190,6 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
                 });
             })
             .catch(() => {});
-        return () => { cancelled = true; };
     }, [props.streams]);
 
     const selectableOptions = React.useMemo(() => {
