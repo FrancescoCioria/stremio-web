@@ -34,6 +34,7 @@ const styles = require('./styles');
 const Video = require('./Video');
 const { default: Indicator } = require('./Indicator/Indicator');
 const { default: useMediaSession } = require('./useMediaSession');
+const { rememberStream } = require('stremio/common/lastStream');
 
 const findTrackByLang = (tracks, lang) => tracks.find((track) => track.lang === lang || langs.where('1', track.lang)?.[2] === lang);
 const findTrackById = (tracks, id) => tracks.find((track) => track.id === id);
@@ -701,6 +702,11 @@ const Player = () => {
     const selectedStream = player.selected?.stream;
     const streamInfoHash = typeof selectedStream?.infoHash === 'string' ? selectedStream.infoHash : null;
     const streamFileIdx = typeof selectedStream?.fileIdx === 'number' ? selectedStream.fileIdx : null;
+    // Ricorda quale stream stai guardando per questo video: al ritorno nella
+    // lista torrent StreamsList ci preseleziona la card corrispondente.
+    React.useEffect(() => {
+        rememberStream(videoId, selectedStream);
+    }, [videoId, streamInfoHash, streamFileIdx, selectedStream?.url, selectedStream?.ytId]);
     // Una volta sola per stream: appena la riproduzione PARTE davvero
     // (buffer completo: paused===false && buffering===false) chiudiamo le
     // stats auto-aperte, senza costringere l'utente al tasto indietro.

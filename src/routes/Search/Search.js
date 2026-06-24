@@ -124,6 +124,24 @@ const Search = () => {
     const onSearchBarKeyDown = React.useCallback((e) => {
         // Dentro il dropdown storia/suggerimenti la nav e' sua: non rubargliela.
         if (e.target.closest('[class*="menu-container"]')) return;
+        const wrapper = e.currentTarget;
+        const input = wrapper.querySelector('input, textarea');
+        const clearBtn = wrapper.querySelector('[class*="submit-button-container"]');
+        const onClearBtn = clearBtn && clearBtn.contains(e.target);
+        const onInput = input && e.target === input;
+        // ArrowRight dall'input (cursore a fine testo) -> bottone X/cerca.
+        // Senza, il bottone X non era raggiungibile col telecomando.
+        if (e.key === 'ArrowRight') {
+            if (onInput && clearBtn) {
+                const atEnd = input.selectionStart === null || input.selectionStart >= input.value.length;
+                if (atEnd) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    clearBtn.focus();
+                }
+            }
+            return;
+        }
         if (e.key === 'ArrowDown') {
             const root = scrollContainerRef.current;
             const firstCard = root && root.querySelector('[class*="meta-item-container"]');
@@ -137,6 +155,15 @@ const Search = () => {
             return;
         }
         if (e.key === 'ArrowLeft') {
+            // Dal bottone X torna PRIMA all'input (altrimenti il focus saltava
+            // direttamente alla sidebar scavalcando l'input = non si poteva piu'
+            // rientrare a scrivere). Dall'input invece esci alla sidebar.
+            if (onClearBtn && input) {
+                e.preventDefault();
+                e.stopPropagation();
+                input.focus();
+                return;
+            }
             const navBar = document.querySelector('[class*="vertical-nav-bar-container"]');
             const selectedTab = navBar && (
                 navBar.querySelector('[class*="nav-tab-button-container"].selected')

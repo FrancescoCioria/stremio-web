@@ -10,6 +10,7 @@ const { useCore } = require('stremio/core');
 const Stream = require('./Stream');
 const styles = require('./styles');
 const { usePlatform, useProfile } = require('stremio/common');
+const { streamKey, recallStreamKey } = require('stremio/common/lastStream');
 const { default: SeasonEpisodePicker } = require('../EpisodePicker');
 
 const ALL_ADDONS_KEY = 'ALL';
@@ -194,22 +195,68 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
         });
     }, []);
 
+    // Chiave dell'ultimo stream riprodotto per QUESTO video (se si rientra qui
+    // tornando indietro dal player): serve a preselezionare la card corrente.
+    const wantStreamKeyRef = React.useRef(null);
+    React.useEffect(() => {
+        wantStreamKeyRef.current = recallStreamKey(video?.id);
+    }, [video?.id]);
+
+    // Trova l'elemento focusable della card stream all'indice idx (le card sono
+    // figli diretti del container, nello stesso ordine di filteredStreams).
+    const focusableAt = React.useCallback((container, idx) => {
+        const card = idx >= 0 ? container.children[idx] : null;
+        if (!card) return null;
+        return card.matches('a,button,[tabindex]') ? card : card.querySelector('a,button,[tabindex]');
+    }, []);
+
     // Default focus: al primo load della lista stream, porta il focus sulla
-    // prima card. Evita all'utente da telecomando di dover scrollare per
-    // "trovare" il punto di partenza. Ma se l'utente sta gia' scorrendo
-    // le addon-pills (filtraggio live al focus) NON rubare il focus.
+    // card del torrent che stavi guardando (preselezione al ritorno dal
+    // player), altrimenti sulla prima card. Evita all'utente da telecomando di
+    // dover scrollare per "trovare" il punto di partenza. Ma se l'utente sta
+    // gia' scorrendo le addon-pills (filtraggio live al focus) NON rubare il
+    // focus.
     const initialFocusDoneRef = React.useRef(false);
     React.useEffect(() => {
-        if (initialFocusDoneRef.current) return;
         const container = streamsContainerRef.current;
         if (!container || filteredStreams.length === 0) return;
         const ae = document.activeElement;
         const onAddonPill = ae && ae.closest && ae.closest('[class*="addon-pill"]');
         if (onAddonPill) return;
+
+        const wantKey = wantStreamKeyRef.current;
+        const targetIdx = wantKey ? filteredStreams.findIndex((s) => streamKey(s) === wantKey) : -1;
+
+        if (initialFocusDoneRef.current) {
+            // Gia' fatto il focus iniziale: l'unico motivo per ri-toccare e' che
+            // il target (addon lento) sia comparso ORA e l'utente non si sia
+            // ancora mosso (focus sulla prima card auto-selezionata). Altrimenti
+            // non rubare il focus.
+            if (targetIdx < 0) return;
+            if (ae !== container.querySelector('[tabindex], a, button')) {
+                wantStreamKeyRef.current = null;
+                return;
+            }
+            const target = focusableAt(container, targetIdx);
+            if (target) {
+                wantStreamKeyRef.current = null;
+                target.focus({ preventScroll: true });
+                target.scrollIntoView({ block: 'center' });
+            }
+            return;
+        }
+
         initialFocusDoneRef.current = true;
+        const target = targetIdx >= 0 ? focusableAt(container, targetIdx) : null;
+        if (target) {
+            wantStreamKeyRef.current = null;
+            target.focus({ preventScroll: true });
+            target.scrollIntoView({ block: 'center' });
+            return;
+        }
         const el = container.querySelector('[tabindex], a, button');
         if (el) el.focus();
-    }, [filteredStreams]);
+    }, [filteredStreams, focusableAt]);
 
     return (
         <div className={classnames(className, styles['streams-list-container'])}>

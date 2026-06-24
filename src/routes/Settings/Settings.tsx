@@ -78,6 +78,31 @@ const Settings = () => {
         updateSelectedSectionId();
     }, 50), []);
 
+    // TV: ArrowLeft dai controlli settings -> torna alla sidebar (menu app),
+    // stesso pattern di Board/Search. Senza, da telecomando il focus resta
+    // intrappolato dentro i settings (nessuna uscita a sinistra). Non rubiamo
+    // la freccia a input di testo / slider / dropdown aperti, dove ArrowLeft
+    // muove cursore/valore/selezione.
+    const onContentKeyDown = useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
+        if (event.key !== 'ArrowLeft') return;
+        const target = event.target as HTMLElement;
+        const tag = target.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+        if (target.isContentEditable) return;
+        if (target.getAttribute('role') === 'slider') return;
+        if (target.closest('[class*="menu-container"]')) return;
+        const navBar = document.querySelector('[class*="vertical-nav-bar-container"]');
+        const selectedTab = navBar && (
+            navBar.querySelector('[class*="nav-tab-button-container"].selected')
+            || navBar.querySelector('[class*="nav-tab-button-container"]')
+        );
+        if (selectedTab) {
+            event.preventDefault();
+            event.stopPropagation();
+            (selectedTab as HTMLElement).focus({ preventScroll: true });
+        }
+    }, []);
+
     useLayoutEffect(() => {
         if (routeFocused) {
             updateSelectedSectionId();
@@ -86,7 +111,7 @@ const Settings = () => {
 
     return (
         <MainNavBars className={styles['settings-container']} route={'settings'}>
-            <div className={classnames(styles['settings-content'], 'animation-fade-in')}>
+            <div className={classnames(styles['settings-content'], 'animation-fade-in')} onKeyDown={onContentKeyDown}>
                 <Menu
                     selected={selectedSectionId}
                     streamingServer={streamingServer}
