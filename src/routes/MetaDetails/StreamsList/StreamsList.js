@@ -315,60 +315,44 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
     // dover scrollare per "trovare" il punto di partenza. Ma se l'utente sta
     // gia' scorrendo le addon-pills (filtraggio live al focus) NON rubare il
     // focus.
+    // Focus al ritorno dal player + tenuta del focus attraverso i re-sort async
+    // (i verdetti salute rimescolano l'ordine E rimontano le card -> il focus di
+    // React non sopravvive). Strategia: RI-ASSERIRE il focus sulla card voluta ad
+    // ogni cambio, SENZA azzerare la chiave, finche' l'utente non si sposta su
+    // un'altra card (allora molliamo). Senza wantKey: focus iniziale 1a card, poi
+    // tieni in vista la card che l'utente sta navigando.
     const initialFocusDoneRef = React.useRef(false);
     React.useEffect(() => {
         const container = streamsContainerRef.current;
         if (!container || filteredStreams.length === 0) return;
         const ae = document.activeElement;
-        const onAddonPill = ae && ae.closest && ae.closest('[class*="addon-pill"]');
-        if (onAddonPill) return;
-
+        if (ae && ae.closest && ae.closest('[class*="addon-pill"]')) return; // sui filtri addon: non rubare
+        const focusInList = !!(ae && ae !== document.body && container.contains(ae));
         const wantKey = wantStreamKeyRef.current;
-        const targetIdx = wantKey ? filteredStreams.findIndex((s) => streamKey(s) === wantKey) : -1;
 
-        if (initialFocusDoneRef.current) {
-            // Gia' fatto il focus iniziale: l'unico motivo per ri-toccare e' che
-            // il target (addon lento) sia comparso ORA e l'utente non si sia
-            // ancora mosso (focus sulla prima card auto-selezionata). Altrimenti
-            // non rubare il focus.
-            if (targetIdx < 0) return;
-            if (ae !== container.querySelector('[tabindex], a, button')) {
-                wantStreamKeyRef.current = null;
-                return;
+        if (wantKey) {
+            const idx = filteredStreams.findIndex((s) => streamKey(s) === wantKey);
+            if (idx < 0) return; // il torrent voluto non e' (ancora) in lista: riprova al prossimo cambio
+            const target = focusableAt(container, idx);
+            if (!target) return;
+            if (focusInList && ae !== target) {
+                wantStreamKeyRef.current = null; // l'utente si e' spostato altrove -> molla
+            } else {
+                target.focus({ preventScroll: true }); // ri-asserisci (focus perso da remount, o conferma)
+                if (!focusInList) target.scrollIntoView({ block: 'center' }); // porta in vista solo se era perso
             }
-            const target = focusableAt(container, targetIdx);
-            if (target) {
-                wantStreamKeyRef.current = null;
-                target.focus({ preventScroll: true });
-                target.scrollIntoView({ block: 'center' });
-            }
+            initialFocusDoneRef.current = true;
             return;
         }
 
-        initialFocusDoneRef.current = true;
-        const target = targetIdx >= 0 ? focusableAt(container, targetIdx) : null;
-        if (target) {
-            wantStreamKeyRef.current = null;
-            target.focus({ preventScroll: true });
-            target.scrollIntoView({ block: 'center' });
-            return;
+        if (!initialFocusDoneRef.current && !focusInList) {
+            initialFocusDoneRef.current = true;
+            const el = container.querySelector('[tabindex], a, button');
+            if (el) el.focus();
+        } else if (focusInList) {
+            ae.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'auto' }); // tieni in vista durante i re-sort
         }
-        const el = container.querySelector('[tabindex], a, button');
-        if (el) el.focus();
     }, [filteredStreams, focusableAt]);
-
-    // Mantieni VISIBILE la card che ha il focus quando la lista si ri-ordina (i
-    // verdetti salute arrivano async e rimescolano l'ordine): senza, al ritorno
-    // dal player la card giusta resta focussata (key stabile) ma puo' finire
-    // fuori schermo. Segue il focus dell'utente, non lo combatte.
-    React.useEffect(() => {
-        const container = streamsContainerRef.current;
-        if (!container) return;
-        const ae = document.activeElement;
-        if (ae && ae !== document.body && container.contains(ae)) {
-            ae.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'auto' });
-        }
-    }, [filteredStreams]);
 
     return (
         <div className={classnames(className, styles['streams-list-container'])}>
