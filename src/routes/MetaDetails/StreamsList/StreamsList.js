@@ -65,6 +65,17 @@ const isLowRes = (stream) => { const h = streamHeight(stream); return h > 0 && h
 // Etichetta qualita' (da streamHeight, non dal name dell'addon che e' incoerente:
 // es. Ytztvio non mette il proprio nome). 2160->"4K", senno' "{h}p", 0->"".
 const qualityLabel = (stream) => { const h = streamHeight(stream); return h >= 2160 ? '4K' : (h > 0 ? h + 'p' : ''); };
+// Pack dal NOME (deterministico, istantaneo): firme inequivocabili di raccolta
+// multi-film. Complementa il rilevamento da contenuto del sidecar (in OR), utile
+// quando i metadata non si recuperano (swarm sparso) e il pack restava "ballerino".
+// Conservativo per evitare falsi positivi: "REPACK" non matcha (\bpack\b), niente
+// "collection"/"saga" (compaiono in titoli di film singoli).
+const PACK_NAME_RE = /\bpack\b|\bbox[\s.\-_]?set\b|\b\d{1,3}\s*movies?\b|\bfilms?\s*\d{1,3}\b/i;
+const isPackByName = (stream) => {
+    const bh = stream.behaviorHints || {};
+    const text = [stream.name, stream.title, stream.description, bh.filename, bh.bingeGroup].filter(Boolean).join(' ');
+    return PACK_NAME_RE.test(text);
+};
 
 // Ordine a 3 livelli (sort stabile su V8 -> preserva l'ordine addon/peers
 // dentro ogni gruppo):
@@ -88,7 +99,7 @@ const HEALTH_MAX = 30; // cap infohash sondati per lista
 //   1 = verifica in corso (health non ancora risolto)  -> sotto i clean
 //   2 = pack    3 = morto
 // streamPriority = healthRank*10 + tier risoluzione (0-2) -> nessun overlap.
-const healthRank = (s) => s.health === 'dead' ? 3 : s.health === 'pack' ? 2 : (s.healthChecking ? 1 : 0);
+const healthRank = (s) => s.health === 'dead' ? 3 : (s.health === 'pack' || s.packByName) ? 2 : (s.healthChecking ? 1 : 0);
 const streamPriority = (s) => healthRank(s) * 10 + (s.incompatible ? 2 : (s.lowRes ? 1 : 0));
 // Seeder dichiarati dall'addon (👤 N nella description), per ordinare A PARITA'
 // di tier. Numero potenzialmente stale, ma tra gli stream clean (verificati vivi
@@ -140,6 +151,8 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
                         seeders: parseSeeders(stream),
                         // Qualita' coerente (calcolata da noi, non dal name addon).
                         quality: qualityLabel(stream),
+                        // Pack riconosciuto dal nome (istantaneo, in OR col contenuto).
+                        packByName: isPackByName(stream),
                         // Salute torrent dal sidecar (dead/pack -> in fondo + badge).
                         health: typeof stream.infoHash === 'string' ? healthMap[stream.infoHash.toLowerCase()] : undefined,
                         // true finche' il sidecar non ha risposto per questo torrent -> badge "verifico".
@@ -428,6 +441,7 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
                                             incompatible={stream.incompatible}
                                             health={stream.health}
                                             healthChecking={stream.healthChecking}
+                                            packByName={stream.packByName}
                                             onClick={stream.onClick}
                                         />
                                     ))}

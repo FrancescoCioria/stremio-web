@@ -23,7 +23,7 @@ const SaveIcon = ({ className }) => (
     </svg>
 );
 
-const Stream = ({ className, videoId, videoReleased, addonName, quality, name, description, thumbnail, progress, deepLinks, incompatible, health, healthChecking, ...props }) => {
+const Stream = ({ className, videoId, videoReleased, addonName, quality, name, description, thumbnail, progress, deepLinks, incompatible, health, healthChecking, packByName, ...props }) => {
     const profile = useProfile();
     const toast = useToast();
     const platform = usePlatform();
@@ -299,22 +299,28 @@ const Stream = ({ className, videoId, videoReleased, addonName, quality, name, d
                         {source ? <div className={styles['meta-item']}>{source}</div> : null}
                     </div>
                     {
-                        /* Badge salute torrent: VERIFICO (sonda in corso), MORTO
-                         * (swarm spento), RACCOLTA (pack multi-film). I dead/pack
-                         * sono anche spinti in fondo via streamPriority. */
-                        healthChecking ?
-                            <div className={classnames(styles['health-badge'], styles['health-checking'])} title={'Verifico la salute del torrent...'}>
-                                {'VERIFICO…'}
+                        /* Badge salute, in ordine di precedenza: RACCOLTA (pack da
+                         * nome O da contenuto, anche mentre verifica), MORTO (swarm
+                         * spento), VERIFICO (sonda in corso), OK (verificato vivo e
+                         * singolo -> "vai tranquillo"). dead/pack anche in fondo. */
+                        (packByName || health === 'pack') ?
+                            <div className={classnames(styles['health-badge'], styles['health-pack'])} title={'Raccolta multi-film: il file scelto e una fetta del torrent'}>
+                                {'RACCOLTA'}
                             </div>
-                            : (health === 'dead' || health === 'pack') ?
-                                <div
-                                    className={classnames(styles['health-badge'], health === 'dead' ? styles['health-dead'] : styles['health-pack'])}
-                                    title={health === 'dead' ? 'Nessun seeder attivo: non scarica' : 'Raccolta multi-film: il file scelto e una fetta del torrent'}
-                                >
-                                    {health === 'dead' ? 'MORTO' : 'RACCOLTA'}
+                            : health === 'dead' ?
+                                <div className={classnames(styles['health-badge'], styles['health-dead'])} title={'Nessun seeder attivo: non scarica'}>
+                                    {'MORTO'}
                                 </div>
-                                :
-                                null
+                                : healthChecking ?
+                                    <div className={classnames(styles['health-badge'], styles['health-checking'])} title={'Verifico la salute del torrent...'}>
+                                        {'VERIFICO…'}
+                                    </div>
+                                    : health === 'clean' ?
+                                        <div className={classnames(styles['health-badge'], styles['health-ok'])} title={'Verificato: swarm vivo, file singolo'}>
+                                            {'OK'}
+                                        </div>
+                                        :
+                                        null
                     }
                     {
                         progress !== null && !isNaN(progress) && progress > 0 ?
@@ -339,7 +345,7 @@ const Stream = ({ className, videoId, videoReleased, addonName, quality, name, d
                 {children}
             </Button>
         );
-    }, [thumbnail, progress, addonName, quality, name, cleanDescription, seed, size, source, href, target, download, onClick, incompatible, health, healthChecking]);
+    }, [thumbnail, progress, addonName, quality, name, cleanDescription, seed, size, source, href, target, download, onClick, incompatible, health, healthChecking, packByName]);
 
     const renderMenu = React.useMemo(() => function renderMenu() {
         return (
@@ -411,6 +417,7 @@ Stream.propTypes = {
     incompatible: PropTypes.bool,
     health: PropTypes.string,
     healthChecking: PropTypes.bool,
+    packByName: PropTypes.bool,
     deepLinks: PropTypes.shape({
         player: PropTypes.string,
         externalPlayer: PropTypes.shape({
