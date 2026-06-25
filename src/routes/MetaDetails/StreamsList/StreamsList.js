@@ -180,25 +180,21 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
         }
         if (items.length === 0) return;
         items.forEach((it) => healthRequestedRef.current.add(it.infoHash));
-        const batch = items.map((it) => it.infoHash);
-        // NB: NIENTE cancellazione per-run (gli addon caricano a scaglioni e
-        // scartare i risultati perderebbe salute mai piu' ri-sondata). A fine
-        // fetch ogni hash del batch o ha un verdetto o diventa 'unknown' -> cosi'
-        // il loading ("verifico") si spegne sempre, anche se il sidecar e' giu'.
-        const settle = (results) => {
-            if (!healthMountedRef.current) return;
-            const arr = Array.isArray(results) ? results : [];
-            setHealthMap((prev) => {
-                const next = { ...prev };
-                for (const r of arr) { if (r && typeof r.infoHash === 'string') next[r.infoHash.toLowerCase()] = r.status; }
-                for (const ih of batch) { if (next[ih] === undefined) next[ih] = 'unknown'; }
-                return next;
-            });
+        // UNA richiesta PER torrent (non un unico batch): cosi' ogni badge si
+        // risolve per conto suo e compare appena pronto (i vivi in ~3s) invece di
+        // aspettare che ANCHE il piu' lento/morto finisca (~20s), come faceva il
+        // batch unico. setHealthMap incrementale -> la lista si riordina mano a
+        // mano. A fine richiesta l'hash ha un verdetto o 'unknown' (spegne il
+        // "verifico" anche se il sidecar e' giu'). NIENTE cancellazione per-run.
+        const setOne = (ih, status) => {
+            if (healthMountedRef.current) setHealthMap((prev) => (prev[ih] === status ? prev : Object.assign({}, prev, { [ih]: status })));
         };
-        fetch(HEALTH_URL, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ items }) })
-            .then((r) => r.ok ? r.json() : [])
-            .then(settle)
-            .catch(() => settle([]));
+        items.forEach((it) => {
+            fetch(HEALTH_URL, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ items: [it] }) })
+                .then((r) => r.ok ? r.json() : null)
+                .then((arr) => { const r = Array.isArray(arr) ? arr[0] : null; setOne(it.infoHash, (r && r.status) || 'unknown'); })
+                .catch(() => setOne(it.infoHash, 'unknown'));
+        });
     }, [props.streams]);
 
     const selectableOptions = React.useMemo(() => {
