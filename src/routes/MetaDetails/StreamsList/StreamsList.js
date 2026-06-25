@@ -83,8 +83,18 @@ const HEALTH_MAX = 30; // cap infohash sondati per lista
 // dead/pack penalizzati nel sort: clean(0-2) -> pack(10-12) -> dead(20-22).
 const healthPenalty = (s) => s.health === 'dead' ? 20 : s.health === 'pack' ? 10 : 0;
 const streamPriority = (s) => (s.incompatible ? 2 : (s.lowRes ? 1 : 0)) + healthPenalty(s);
+// Seeder dichiarati dall'addon (👤 N nella description), per ordinare A PARITA'
+// di tier. Numero potenzialmente stale, ma tra gli stream clean (verificati vivi
+// dall'indice salute) e' un ranking ragionevole; la salute resta primaria.
+const SEED_RE = /\u{1F464}\s*([\d.,]+)/u;
+const parseSeeders = (stream) => {
+    const text = [stream && stream.description, stream && stream.title, stream && stream.name].filter(Boolean).join(' ');
+    const m = text.match(SEED_RE);
+    return m ? (parseInt(m[1].replace(/[.,]/g, ''), 10) || 0) : 0;
+};
+const seedOf = (s) => (typeof s.seeders === 'number' ? s.seeders : 0);
 const byPriority = (streams) =>
-    streams.slice().sort((a, b) => streamPriority(a) - streamPriority(b));
+    streams.slice().sort((a, b) => (streamPriority(a) - streamPriority(b)) || (seedOf(b) - seedOf(a)));
 
 const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
     const { t } = useTranslation();
@@ -119,6 +129,8 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
                         incompatible: isIncompatibleStream(stream),
                         // 720p e sotto: deprioritizzato nel sort (anche con tante peers).
                         lowRes: isLowRes(stream),
+                        // Seeder dichiarati: ordina a parita' di tier di salute.
+                        seeders: parseSeeders(stream),
                         // Salute torrent dal sidecar (dead/pack -> in fondo + badge).
                         health: typeof stream.infoHash === 'string' ? healthMap[stream.infoHash.toLowerCase()] : undefined,
                         // true finche' il sidecar non ha risposto per questo torrent -> badge "verifico".
