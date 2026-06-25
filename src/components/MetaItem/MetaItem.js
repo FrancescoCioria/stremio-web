@@ -11,7 +11,7 @@ const { default: Button } = require('stremio/components/Button');
 const { default: Image } = require('stremio/components/Image');
 const Multiselect = require('stremio/components/Multiselect');
 const useBinaryState = require('stremio/common/useBinaryState');
-const useMovieAvailability = require('stremio/common/useMovieAvailability');
+const useTitleAvailability = require('stremio/common/useTitleAvailability');
 const { ICON_FOR_TYPE } = require('stremio/common/CONSTANTS');
 const styles = require('./styles');
 
@@ -68,7 +68,7 @@ const MetaItem = React.memo(({ className, type, id, name, poster, posterShape, p
             });
         }
     }, [dataset, optionOnSelect]);
-    const inCinema = useMovieAvailability(type, id);
+    const { inCinema, onPrime } = useTitleAvailability(type, id);
     const renderPosterFallback = React.useCallback(() => (
         <Icon
             className={styles['placeholder-icon']}
@@ -144,7 +144,10 @@ const MetaItem = React.memo(({ className, type, id, name, poster, posterShape, p
                     inCinema ?
                         <div className={styles['in-cinema-pill']}>Al Cinema</div>
                         :
-                        null
+                        onPrime ?
+                            <div className={styles['prime-pill']}>Prime</div>
+                            :
+                            null
                 }
             </div>
             {

@@ -256,7 +256,8 @@
             }
         }
 
-        .in-cinema-pill {
+        .in-cinema-pill,
+        .prime-pill {
             z-index: 2;
             position: absolute;
             top: 0.5rem;
@@ -266,11 +267,20 @@
             font-weight: 700;
             letter-spacing: 0.02rem;
             text-transform: uppercase;
+            white-space: nowrap;
             color: var(--primary-foreground-color);
-            background-color: hsl(15, 75%, 50%);
             border-radius: 0.25rem;
             box-shadow: 0 0.15rem 0.4rem rgba(0, 0, 0, 0.45);
             pointer-events: none;
+        }
+
+        .in-cinema-pill {
+            background-color: hsl(15, 75%, 50%);
+        }
+
+        // Blu "Prime Video" (#00A8E1): "incluso gratis su Prime IT".
+        .prime-pill {
+            background-color: hsl(196, 100%, 44%);
         }
 
         .new-videos {
