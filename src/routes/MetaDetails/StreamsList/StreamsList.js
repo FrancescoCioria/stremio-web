@@ -357,6 +357,19 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
         if (el) el.focus();
     }, [filteredStreams, focusableAt]);
 
+    // Mantieni VISIBILE la card che ha il focus quando la lista si ri-ordina (i
+    // verdetti salute arrivano async e rimescolano l'ordine): senza, al ritorno
+    // dal player la card giusta resta focussata (key stabile) ma puo' finire
+    // fuori schermo. Segue il focus dell'utente, non lo combatte.
+    React.useEffect(() => {
+        const container = streamsContainerRef.current;
+        if (!container) return;
+        const ae = document.activeElement;
+        if (ae && ae !== document.body && container.contains(ae)) {
+            ae.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'auto' });
+        }
+    }, [filteredStreams]);
+
     return (
         <div className={classnames(className, styles['streams-list-container'])}>
             <div className={styles['select-choices-wrapper']}>
@@ -428,7 +441,13 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
                                 <div className={styles['streams-container']} ref={streamsContainerRef} onKeyDown={onStreamsKeyDown}>
                                     {filteredStreams.map((stream, index) => (
                                         <Stream
-                                            key={index}
+                                            /* key STABILE per identita' del torrent (non l'indice):
+                                             * la lista si ri-ordina async coi verdetti salute -> con
+                                             * key=index React legherebbe il focus alla posizione e al
+                                             * ritorno dal player il focus finiva sul torrent sbagliato.
+                                             * Con key stabile React sposta il nodo col suo dato e il
+                                             * focus segue il torrent giusto. */
+                                            key={[stream.infoHash || stream.url || stream.name || index, stream.fileIdx, stream.addonName].join('|')}
                                             videoId={video?.id}
                                             videoReleased={video?.released}
                                             addonName={stream.addonName}
