@@ -9,6 +9,7 @@ import Player from './Player';
 import Streaming from './Streaming';
 import Shortcuts from './Shortcuts';
 import Info from './Info';
+import { CASA_VERSION } from 'stremio/casaVersion';
 import styles from './Settings.less';
 
 // Casa TV: Settings semplificato. Niente menu sezioni (General/Interface/...):
@@ -71,6 +72,16 @@ const Settings = () => {
                         !platform.isMobile && <Shortcuts />
                     }
                     <Info streamingServer={streamingServer} />
+                </div>
+                {/* Badge versione Casa SEMPRE visibile (radar anti-cache stale):
+                    se l'hash non corrisponde all'ultimo deploy, la tile sta
+                    servendo un bundle vecchio dal service worker. Le versioni
+                    complete restano in Info, in fondo. */}
+                <div
+                    title={`Casa ${CASA_VERSION} · ${process.env.COMMIT_HASH}`}
+                    style={{ position: 'fixed', bottom: '0.6rem', right: '1rem', zIndex: 9, fontSize: '0.8rem', opacity: 0.5, pointerEvents: 'none', fontFamily: 'monospace' }}
+                >
+                    {'Casa'}: {CASA_VERSION} · {(process.env.COMMIT_HASH || '').slice(0, 7)}
                 </div>
             </div>
         </MainNavBars>

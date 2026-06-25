@@ -3,4 +3,4 @@
 // girando: se la tile serve un bundle vecchio dalla cache del service worker,
 // questo numero (o l'hash di commit accanto) NON corrisponde all'ultimo deploy.
 // Bumpare a ogni deploy significativo del fork.
-export const CASA_VERSION = 'v1';
+export const CASA_VERSION = 'v2';
