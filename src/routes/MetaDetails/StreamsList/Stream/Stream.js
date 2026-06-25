@@ -23,7 +23,7 @@ const SaveIcon = ({ className }) => (
     </svg>
 );
 
-const Stream = ({ className, videoId, videoReleased, addonName, name, description, thumbnail, progress, deepLinks, incompatible, health, healthChecking, ...props }) => {
+const Stream = ({ className, videoId, videoReleased, addonName, quality, name, description, thumbnail, progress, deepLinks, incompatible, health, healthChecking, ...props }) => {
     const profile = useProfile();
     const toast = useToast();
     const platform = usePlatform();
@@ -289,7 +289,8 @@ const Stream = ({ className, videoId, videoReleased, addonName, name, descriptio
                             </div>
                             :
                             <div className={styles['addon-name-container']} title={name || addonName}>
-                                <div className={styles['addon-name']}>{name || addonName}</div>
+                                <div className={styles['addon-name']}>{addonName || name}</div>
+                                {quality ? <div className={styles['quality-label']}>{quality}</div> : null}
                             </div>
                     }
                     {
@@ -343,7 +344,7 @@ const Stream = ({ className, videoId, videoReleased, addonName, name, descriptio
                 {children}
             </Button>
         );
-    }, [thumbnail, progress, addonName, name, cleanDescription, seed, size, source, href, target, download, onClick, incompatible, health, healthChecking]);
+    }, [thumbnail, progress, addonName, quality, name, cleanDescription, seed, size, source, href, target, download, onClick, incompatible, health, healthChecking]);
 
     const renderMenu = React.useMemo(() => function renderMenu() {
         return (
@@ -407,6 +408,7 @@ Stream.propTypes = {
     videoId: PropTypes.string,
     videoReleased: PropTypes.instanceOf(Date),
     addonName: PropTypes.string,
+    quality: PropTypes.string,
     name: PropTypes.string,
     description: PropTypes.string,
     thumbnail: PropTypes.string,

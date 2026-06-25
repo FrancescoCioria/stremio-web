@@ -107,6 +107,18 @@
             border-radius: 0.7rem;
         }
 
+        /* Qualita' (1080p/4K/720p) sotto il nome addon: coerente per tutti gli
+         * addon, anche quelli che non la mettono nel name (es. Ytztvio). */
+        .quality-label {
+            margin-top: 0.3rem;
+            font-size: 1rem;
+            font-weight: 600;
+            line-height: 1.2;
+            text-align: left;
+            color: var(--primary-foreground-color);
+            opacity: 0.82;
+        }
+
         /* Meta-badge (seed/size) sotto il badge addon. Stessa famiglia
          * visiva ma piu' leggero e neutro, cosi' resta il bollino addon a
          * fare da anchor visivo. */
@@ -203,6 +215,9 @@
     .description-container {
         flex: 1;
         min-width: 0;
+        /* Centrato verticalmente come la colonna sx dei badge (look bilanciato);
+         * align-self center invece di stretch -> il blocco testo si centra. */
+        align-self: center;
         display: -webkit-box;
         -webkit-line-clamp: 5;
         -webkit-box-orient: vertical;

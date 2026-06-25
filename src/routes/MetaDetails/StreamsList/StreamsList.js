@@ -62,6 +62,9 @@ const streamHeight = (stream) => {
 };
 // "Bassa risoluzione" = 720p e sotto (ma >0: la sconosciuta resta in alto).
 const isLowRes = (stream) => { const h = streamHeight(stream); return h > 0 && h <= 720; };
+// Etichetta qualita' (da streamHeight, non dal name dell'addon che e' incoerente:
+// es. Ytztvio non mette il proprio nome). 2160->"4K", senno' "{h}p", 0->"".
+const qualityLabel = (stream) => { const h = streamHeight(stream); return h >= 2160 ? '4K' : (h > 0 ? h + 'p' : ''); };
 
 // Ordine a 3 livelli (sort stabile su V8 -> preserva l'ordine addon/peers
 // dentro ogni gruppo):
@@ -131,6 +134,8 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
                         lowRes: isLowRes(stream),
                         // Seeder dichiarati: ordina a parita' di tier di salute.
                         seeders: parseSeeders(stream),
+                        // Qualita' coerente (calcolata da noi, non dal name addon).
+                        quality: qualityLabel(stream),
                         // Salute torrent dal sidecar (dead/pack -> in fondo + badge).
                         health: typeof stream.infoHash === 'string' ? healthMap[stream.infoHash.toLowerCase()] : undefined,
                         // true finche' il sidecar non ha risposto per questo torrent -> badge "verifico".
@@ -410,6 +415,7 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
                                             videoId={video?.id}
                                             videoReleased={video?.released}
                                             addonName={stream.addonName}
+                                            quality={stream.quality}
                                             name={stream.name}
                                             description={stream.description}
                                             thumbnail={stream.thumbnail}
