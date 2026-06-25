@@ -38,9 +38,13 @@
         background-color: rgba(255, 255, 255, 0.1);
     }
 
-    /* Focus-visible TV: stessa sensazione del MetaItem nella Home
-     * (scale + drop-shadow scuro + alone bianco morbido). */
-    &:focus-visible {
+    /* Focus TV: stessa sensazione del MetaItem nella Home (scale + drop-shadow
+     * + alone bianco). Usiamo :focus OLTRE a :focus-visible perche' il ripristino
+     * del focus al ritorno dal player e' PROGRAMMATICO (.focus() da codice) e
+     * :focus-visible NON si applica al focus programmatico -> l'alone non si
+     * vedeva (card "in primo piano ma non in focus"). Su TV (no mouse) :focus va bene. */
+    &:focus-visible,
+    &:focus {
         outline: none;
         transform: scale(1.06);
         z-index: 2;
