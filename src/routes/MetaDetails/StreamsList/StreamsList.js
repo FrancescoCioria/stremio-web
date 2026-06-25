@@ -83,9 +83,13 @@ const qualityLabel = (stream) => { const h = streamHeight(stream); return h >= 2
 const STREAM_HEALTH_ENABLED = true;
 const HEALTH_URL = 'http://127.0.0.1:11480/health';
 const HEALTH_MAX = 30; // cap infohash sondati per lista
-// dead/pack penalizzati nel sort: clean(0-2) -> pack(10-12) -> dead(20-22).
-const healthPenalty = (s) => s.health === 'dead' ? 20 : s.health === 'pack' ? 10 : 0;
-const streamPriority = (s) => (s.incompatible ? 2 : (s.lowRes ? 1 : 0)) + healthPenalty(s);
+// Tier salute (i VERIFICATI buoni stanno sopra ai "in verifica"):
+//   0 = clean verificato (o unknown/non-torrent: fail-open)
+//   1 = verifica in corso (health non ancora risolto)  -> sotto i clean
+//   2 = pack    3 = morto
+// streamPriority = healthRank*10 + tier risoluzione (0-2) -> nessun overlap.
+const healthRank = (s) => s.health === 'dead' ? 3 : s.health === 'pack' ? 2 : (s.healthChecking ? 1 : 0);
+const streamPriority = (s) => healthRank(s) * 10 + (s.incompatible ? 2 : (s.lowRes ? 1 : 0));
 // Seeder dichiarati dall'addon (👤 N nella description), per ordinare A PARITA'
 // di tier. Numero potenzialmente stale, ma tra gli stream clean (verificati vivi
 // dall'indice salute) e' un ranking ragionevole; la salute resta primaria.
