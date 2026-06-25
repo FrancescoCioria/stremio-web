@@ -289,20 +289,15 @@ const Stream = ({ className, videoId, videoReleased, addonName, quality, name, d
                             </div>
                             :
                             <div className={styles['addon-name-container']} title={name || addonName}>
-                                <div className={styles['addon-name']}>{addonName || name}</div>
-                                {quality ? <div className={styles['quality-label']}>{quality}</div> : null}
+                                <div className={styles['addon-name']}>{quality || addonName || name}</div>
                             </div>
                     }
-                    {
-                        (size || seed || source) ?
-                            <div className={styles['meta-stack']}>
-                                {seed ? <div className={styles['meta-item']}><Icon className={styles['meta-icon']} name={'person'} /><span>{seed}</span></div> : null}
-                                {size ? <div className={styles['meta-item']}><SaveIcon className={classnames(styles['meta-icon'], styles['meta-icon-save'])} /><span>{size}</span></div> : null}
-                                {source ? <div className={styles['meta-item']}>{source}</div> : null}
-                            </div>
-                            :
-                            null
-                    }
+                    <div className={styles['meta-stack']}>
+                        {addonName ? <div className={styles['meta-item']}>{addonName}</div> : null}
+                        {seed ? <div className={styles['meta-item']}><Icon className={styles['meta-icon']} name={'person'} /><span>{seed}</span></div> : null}
+                        {size ? <div className={styles['meta-item']}><SaveIcon className={classnames(styles['meta-icon'], styles['meta-icon-save'])} /><span>{size}</span></div> : null}
+                        {source ? <div className={styles['meta-item']}>{source}</div> : null}
+                    </div>
                     {
                         /* Badge salute torrent: VERIFICO (sonda in corso), MORTO
                          * (swarm spento), RACCOLTA (pack multi-film). I dead/pack
