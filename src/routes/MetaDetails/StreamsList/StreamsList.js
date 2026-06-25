@@ -121,6 +121,8 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
                         lowRes: isLowRes(stream),
                         // Salute torrent dal sidecar (dead/pack -> in fondo + badge).
                         health: typeof stream.infoHash === 'string' ? healthMap[stream.infoHash.toLowerCase()] : undefined,
+                        // true finche' il sidecar non ha risposto per questo torrent -> badge "verifico".
+                        healthChecking: STREAM_HEALTH_ENABLED && typeof stream.infoHash === 'string' && healthMap[stream.infoHash.toLowerCase()] === undefined,
                         onClick: () => {
                             core.transport.analytics({
                                 event: 'StreamClicked',
@@ -167,29 +169,36 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
                 if (!ih || seen.has(ih)) continue;
                 seen.add(ih);
                 if (healthRequestedRef.current.has(ih)) continue;
-                items.push({ infoHash: ih, fileIdx: s.fileIdx != null ? s.fileIdx : null });
+                // tracker veri dello stream (da sources: ["tracker:udp://...", "dht:..."])
+                const trackers = Array.isArray(s.sources)
+                    ? s.sources.filter((x) => typeof x === 'string' && x.indexOf('tracker:') === 0).map((x) => x.slice(8))
+                    : undefined;
+                items.push({ infoHash: ih, fileIdx: s.fileIdx != null ? s.fileIdx : null, trackers });
                 if (items.length >= HEALTH_MAX) break;
             }
             if (items.length >= HEALTH_MAX) break;
         }
         if (items.length === 0) return;
         items.forEach((it) => healthRequestedRef.current.add(it.infoHash));
-        // NB: NIENTE cancellazione per-run. props.streams cambia mentre gli addon
-        // caricano -> l'effetto rifa' run; se scartassimo i risultati al cleanup,
-        // gli infohash gia' segnati in requestedRef non verrebbero ri-sondati e la
-        // loro salute andrebbe persa (il pack restava in cima senza badge). Si
-        // accumula SEMPRE; si guarda solo l'unmount.
+        const batch = items.map((it) => it.infoHash);
+        // NB: NIENTE cancellazione per-run (gli addon caricano a scaglioni e
+        // scartare i risultati perderebbe salute mai piu' ri-sondata). A fine
+        // fetch ogni hash del batch o ha un verdetto o diventa 'unknown' -> cosi'
+        // il loading ("verifico") si spegne sempre, anche se il sidecar e' giu'.
+        const settle = (results) => {
+            if (!healthMountedRef.current) return;
+            const arr = Array.isArray(results) ? results : [];
+            setHealthMap((prev) => {
+                const next = { ...prev };
+                for (const r of arr) { if (r && typeof r.infoHash === 'string') next[r.infoHash.toLowerCase()] = r.status; }
+                for (const ih of batch) { if (next[ih] === undefined) next[ih] = 'unknown'; }
+                return next;
+            });
+        };
         fetch(HEALTH_URL, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ items }) })
             .then((r) => r.ok ? r.json() : [])
-            .then((results) => {
-                if (!healthMountedRef.current || !Array.isArray(results)) return;
-                setHealthMap((prev) => {
-                    const next = { ...prev };
-                    for (const r of results) { if (r && typeof r.infoHash === 'string') next[r.infoHash.toLowerCase()] = r.status; }
-                    return next;
-                });
-            })
-            .catch(() => {});
+            .then(settle)
+            .catch(() => settle([]));
     }, [props.streams]);
 
     const selectableOptions = React.useMemo(() => {
@@ -400,6 +409,7 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
                                             deepLinks={stream.deepLinks}
                                             incompatible={stream.incompatible}
                                             health={stream.health}
+                                            healthChecking={stream.healthChecking}
                                             onClick={stream.onClick}
                                         />
                                     ))}
