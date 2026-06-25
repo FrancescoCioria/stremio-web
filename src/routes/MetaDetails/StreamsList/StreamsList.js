@@ -306,9 +306,9 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
     // "indietro" non rimetteva il focus. routeFocused flippa a true al ritorno.
     React.useEffect(() => {
         if (!routeFocused) return;
-        wantStreamKeyRef.current = recallStreamKey(video?.id);
+        wantStreamKeyRef.current = recallStreamKey(); // ultimo torrent riprodotto (per infoHash, globale)
         initialFocusDoneRef.current = false; // consenti il ri-focus al ritorno
-    }, [video?.id, routeFocused]);
+    }, [routeFocused]);
 
     // Trova l'elemento focusable della card stream all'indice idx (le card sono
     // figli diretti del container, nello stesso ordine di filteredStreams).

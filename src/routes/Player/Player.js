@@ -705,8 +705,8 @@ const Player = () => {
     // Ricorda quale stream stai guardando per questo video: al ritorno nella
     // lista torrent StreamsList ci preseleziona la card corrispondente.
     React.useEffect(() => {
-        rememberStream(videoId, selectedStream);
-    }, [videoId, streamInfoHash, streamFileIdx, selectedStream?.url, selectedStream?.ytId]);
+        rememberStream(selectedStream); // memoria globale per infoHash, non legata al videoId
+    }, [streamInfoHash, streamFileIdx, selectedStream?.url, selectedStream?.ytId]);
     // Una volta sola per stream: appena la riproduzione PARTE davvero
     // (buffer completo: paused===false && buffering===false) chiudiamo le
     // stats auto-aperte, senza costringere l'utente al tasto indietro.

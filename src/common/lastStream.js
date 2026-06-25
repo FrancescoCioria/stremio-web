@@ -23,21 +23,23 @@ const streamKey = (stream) => {
     return null;
 };
 
-const rememberStream = (videoId, stream) => {
+// L'infoHash del torrent e' univoco a livello globale, quindi NON leghiamo la
+// memoria al video: ricordiamo solo l'ultimo streamKey riprodotto. Al ritorno,
+// se una card con quella chiave esiste nella lista corrente, e' QUELLA giusta
+// (su un altro film non c'e' -> nessun match -> nessun danno). Legarlo a un
+// videoId causava mismatch (il videoId differiva tra continue-watching, click
+// dalla lista e prop di StreamsList) -> recall null -> focus sbagliato/assente.
+const rememberStream = (stream) => {
     const key = streamKey(stream);
-    if (!videoId || !key) return;
+    if (!key) return;
     try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({ videoId, key }));
+        localStorage.setItem(STORAGE_KEY, key);
     } catch (_e) { /* storage negato/pieno: niente preselezione, nessun danno */ }
 };
 
-const recallStreamKey = (videoId) => {
-    if (!videoId) return null;
+const recallStreamKey = () => {
     try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) return null;
-        const parsed = JSON.parse(raw);
-        return parsed && parsed.videoId === videoId ? parsed.key : null;
+        return localStorage.getItem(STORAGE_KEY) || null;
     } catch (_e) { return null; }
 };
 
