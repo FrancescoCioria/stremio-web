@@ -17,6 +17,20 @@ const LibItem = ({ _id, removable, notifications, watched, ...props }) => {
         return Math.min(Math.max(count, 0), 99);
     }, [_id, notifications]);
 
+    // Gli item della libreria (Continue Watching + pagina Library) espongono
+    // `_id`, non `id`, e per gli episodi il deepLink punta al parent: il badge
+    // availability di MetaItem vuole il type + l'imdb id del TITOLO. Li deriviamo
+    // dai deepLinks (#/detail/{type}/{metaId}[/{videoId}]), fallback props.type/_id.
+    const { metaType, metaId } = React.useMemo(() => {
+        const dl = props.deepLinks || {};
+        const link = dl.metaDetailsVideos || dl.metaDetailsStreams || '';
+        const m = String(link).match(/\/detail\/([^/]+)\/(tt\d+)/);
+        return {
+            metaType: m ? m[1] : props.type,
+            metaId: m ? m[2] : _id,
+        };
+    }, [props.deepLinks, props.type, _id]);
+
     const options = React.useMemo(() => {
         return [
             { label: 'LIBRARY_PLAY', value: 'play' },
@@ -176,6 +190,8 @@ const LibItem = ({ _id, removable, notifications, watched, ...props }) => {
     return (
         <MetaItem
             {...props}
+            type={metaType}
+            id={metaId}
             watched={watched}
             newVideos={newVideos}
             options={options}
