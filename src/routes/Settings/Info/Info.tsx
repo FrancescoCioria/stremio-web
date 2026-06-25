@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { usePlatform } from 'stremio/common';
 import { Option, Section } from '../components';
+import { CASA_VERSION } from 'stremio/casaVersion';
 import styles from './Info.less';
 
 type Props = {
@@ -19,6 +20,11 @@ const Info = ({ streamingServer }: Props) => {
 
     return (
         <Section className={styles['info']}>
+            <Option label={'Casa'}>
+                <div className={styles['label']}>
+                    {CASA_VERSION} · {(process.env.COMMIT_HASH || '').slice(0, 7)}
+                </div>
+            </Option>
             <Option label={t('SETTINGS_APP_VERSION')}>
                 <div className={styles['label']}>
                     {process.env.VERSION}

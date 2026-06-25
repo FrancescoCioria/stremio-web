@@ -63,18 +63,32 @@ const App = () => {
                 navigate(combo === 0 ? -1 : 1);
                 break;
             case 'exit': {
-                // TV fork: il telecomando "B" manda Escape -> back universale.
+                // TV fork: il telecomando "B" manda Escape -> tasto "indietro".
                 // Se siamo nel player, e' Player.js a gestire 'exit' (chiude
                 // menu / esce dalla TV-nav / torna alla lista): non navighiamo
                 // qui per non fare doppio back. Idem se c'e' una modale aperta
-                // (si chiude da sola). Altrimenti Escape = history.back().
+                // (si chiude da sola).
                 if (locationRef.current.pathname.startsWith('/player')) break;
                 const modalsContainer = document.querySelector('.modals-container');
                 // childElementCount === 1 e' solo il lock-div di focus-trap
                 // sempre presente; > 1 = modale attiva.
                 const modalOpen = !!modalsContainer && modalsContainer.childElementCount > 1;
                 if (modalOpen) break;
-                navigate(-1);
+                // Casa TV: tasto-indietro semplice e prevedibile.
+                // - Pagine DRILL-DOWN (dettaglio: episodi/stream/torrent) ->
+                //   back di un livello, torni al catalogo/ricerca da cui sei
+                //   entrato (history.back).
+                // - Pagine top-level (board/discover/library/calendar/addons/
+                //   settings, ricerca...) -> NON history.back ma torna a HOME.
+                // - Su HOME -> no-op. Cosi' hai sempre UN tasto per tornare alla
+                //   base, qualunque cosa accada.
+                const path = locationRef.current.pathname;
+                const isDrillDown = path.startsWith('/metadetails') || path.startsWith('/detail');
+                if (isDrillDown) {
+                    navigate(-1);
+                } else if (path !== '/') {
+                    navigate('/');
+                }
                 break;
             }
         }

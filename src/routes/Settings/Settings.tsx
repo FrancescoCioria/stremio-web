@@ -1,13 +1,9 @@
 // Copyright (C) 2017-2023 Smart code 203358507
 
-import React, { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useRef } from 'react';
 import classnames from 'classnames';
-import throttle from 'lodash.throttle';
-import { usePlatform, useProfile, useStreamingServer, useRouteFocused, withCoreSuspender } from 'stremio/common';
+import { usePlatform, useProfile, useStreamingServer, withCoreSuspender } from 'stremio/common';
 import { MainNavBars } from 'stremio/components';
-import { SECTIONS } from './constants';
-import Menu from './Menu';
-import General from './General';
 import Interface from './Interface';
 import Player from './Player';
 import Streaming from './Streaming';
@@ -15,81 +11,30 @@ import Shortcuts from './Shortcuts';
 import Info from './Info';
 import styles from './Settings.less';
 
+// Casa TV: Settings semplificato. Niente menu sezioni (General/Interface/...):
+// da TV era solo attrito (serviva una doppia ← per rientrarci, ndr). E niente
+// sezione General (login/logout, Trakt, Discord, ToS... roba di setup, non
+// d'uso quotidiano). Restano i controlli utili (Interface/Player/Streaming/
+// Shortcuts) + Info con le versioni (incl. riga Casa). Si naviga tra sezioni
+// scorrendo su/giu'; ← da un controllo esce dritto alla barra app.
 const Settings = () => {
-    const routeFocused = useRouteFocused();
     const profile = useProfile();
     const platform = usePlatform();
     const streamingServer = useStreamingServer();
-
     const sectionsContainerRef = useRef<HTMLDivElement>(null);
-    const generalSectionRef = useRef<HTMLDivElement>(null);
-    const interfaceSectionRef = useRef<HTMLDivElement>(null);
-    const playerSectionRef = useRef<HTMLDivElement>(null);
-    const streamingServerSectionRef = useRef<HTMLDivElement>(null);
-    const shortcutsSectionRef = useRef<HTMLDivElement>(null);
 
-    const sections = useMemo(() => ([
-        { ref: generalSectionRef, id: SECTIONS.GENERAL },
-        { ref: interfaceSectionRef, id: SECTIONS.INTERFACE },
-        { ref: playerSectionRef, id: SECTIONS.PLAYER },
-        { ref: streamingServerSectionRef, id: SECTIONS.STREAMING },
-        { ref: shortcutsSectionRef, id: SECTIONS.SHORTCUTS },
-    ]), []);
-
-    const [selectedSectionId, setSelectedSectionId] = useState(SECTIONS.GENERAL);
-
-    const updateSelectedSectionId = useCallback(() => {
-        const container = sectionsContainerRef.current;
-        if (!container) return;
-
-        const availableSections = sections.filter((section) => section.ref.current);
-        if (!availableSections.length) return;
-
-        const { scrollTop, clientHeight, scrollHeight, offsetTop } = container;
-        const isAtBottom = scrollTop + clientHeight >= scrollHeight - 10;
-
-        if (isAtBottom) {
-            setSelectedSectionId(availableSections[availableSections.length - 1].id);
-            return;
-        }
-
-        const marker = scrollTop + 50;
-        const activeSection = availableSections.reduce((current, section) => {
-            const sectionTop = section.ref.current!.offsetTop + offsetTop;
-            return sectionTop <= marker ? section : current;
-        }, availableSections[0]);
-
-        setSelectedSectionId(activeSection.id);
-    }, [sections]);
-
-    const onMenuSelect = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
-        const section = sections.find((section) => {
-            return section.id === event.currentTarget.dataset.section;
-        });
-
-        const container = sectionsContainerRef.current;
-        section && container?.scrollTo({
-            top: section.ref.current!.offsetTop - container!.offsetTop,
-            behavior: 'smooth'
-        });
-    }, [sections]);
-
-    const onContainerScroll = useCallback(throttle(() => {
-        updateSelectedSectionId();
-    }, 50), []);
-
-    // TV — 2o passo della cascata ←: dal MENU SEZIONI (colonna sinistra) esci
-    // alla sidebar app. La spatial-nav globale (polyfill) porta gia' i controlli
-    // di destra al menu sezioni (1o passo), ma da li' non puo' proseguire: i tab
-    // della sidebar app sono tabIndex=-1, quindi il polyfill non li raggiunge e
-    // ArrowLeft resta bloccato su "General". Board/Library/Search hanno lo stesso
-    // bridge esplicito; Settings ne era privo. Agiamo SOLO quando il focus e' nel
-    // menu sezioni (fuori da sections-container): sui controlli di destra NON
-    // tocchiamo nulla, cosi' il polyfill fa il suo 1o passo indisturbato.
+    // ← da un controllo → barra app (sidebar). I tab della sidebar sono
+    // tabIndex=-1, quindi la spatial-nav (polyfill) non li raggiunge: serve il
+    // bridge esplicito (stesso pattern di Board/Library/Search). Non rubiamo ←
+    // a input di testo / slider / dropdown aperti, dove la freccia ha senso suo.
     const onContentKeyDown = useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
         if (event.key !== 'ArrowLeft') return;
         const target = event.target as HTMLElement;
-        if (target.closest('[class*="sections-container"]')) return;
+        const tag = target.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+        if (target.isContentEditable) return;
+        if (target.getAttribute('role') === 'slider') return;
+        if (target.closest('[class*="menu-container"]')) return;
         const navBar = document.querySelector('[class*="vertical-nav-bar-container"]');
         const selectedTab = navBar && (
             navBar.querySelector('[class*="nav-tab-button-container"].selected')
@@ -102,41 +47,28 @@ const Settings = () => {
         }
     }, []);
 
-    useLayoutEffect(() => {
-        if (routeFocused) {
-            updateSelectedSectionId();
+    // TV: tieni il controllo in focus a META' schermo (non incollato in cima =
+    // illeggibile). La spatial-nav porta il focus ma lo scrolla in alto; qui lo
+    // ri-centriamo a ogni focusin dentro la lista.
+    const onSectionFocus = useCallback((event: React.FocusEvent<HTMLDivElement>) => {
+        const target = event.target as HTMLElement;
+        if (target && typeof target.scrollIntoView === 'function') {
+            target.scrollIntoView({ block: 'center', behavior: 'smooth' });
         }
-    }, [routeFocused]);
+    }, []);
 
     return (
         <MainNavBars className={styles['settings-container']} route={'settings'}>
             <div className={classnames(styles['settings-content'], 'animation-fade-in')} onKeyDown={onContentKeyDown}>
-                <Menu
-                    selected={selectedSectionId}
-                    streamingServer={streamingServer}
-                    onSelect={onMenuSelect}
-                />
-
-                <div ref={sectionsContainerRef} className={styles['sections-container']} onScroll={onContainerScroll}>
-                    <General
-                        ref={generalSectionRef}
-                        profile={profile}
-                    />
-                    <Interface
-                        ref={interfaceSectionRef}
-                        profile={profile}
-                    />
-                    <Player
-                        ref={playerSectionRef}
-                        profile={profile}
-                    />
+                <div ref={sectionsContainerRef} className={styles['sections-container']} onFocus={onSectionFocus}>
+                    <Interface profile={profile} />
+                    <Player profile={profile} />
                     <Streaming
-                        ref={streamingServerSectionRef}
                         profile={profile}
                         streamingServer={streamingServer}
                     />
                     {
-                        !platform.isMobile && <Shortcuts ref={shortcutsSectionRef} />
+                        !platform.isMobile && <Shortcuts />
                     }
                     <Info streamingServer={streamingServer} />
                 </div>
