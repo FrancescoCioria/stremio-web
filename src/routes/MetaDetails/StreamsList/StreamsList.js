@@ -11,6 +11,7 @@ const Stream = require('./Stream');
 const styles = require('./styles');
 const { usePlatform, useProfile } = require('stremio/common');
 const { streamKey, recallStreamKey } = require('stremio/common/lastStream');
+const { default: useRouteFocused } = require('stremio/common/useRouteFocused');
 const { default: SeasonEpisodePicker } = require('../EpisodePicker');
 
 const ALL_ADDONS_KEY = 'ALL';
@@ -119,6 +120,7 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
     const core = useCore();
     const platform = usePlatform();
     const profile = useProfile();
+    const routeFocused = useRouteFocused(); // true quando questa lista e' in primo piano (non il player)
     const streamsContainerRef = React.useRef(null);
     const [selectedAddon, setSelectedAddon] = React.useState(ALL_ADDONS_KEY);
     // infoHash(lower) -> 'clean'|'pack'|'dead' dal sidecar di salute.
@@ -297,9 +299,16 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
     // Chiave dell'ultimo stream riprodotto per QUESTO video (se si rientra qui
     // tornando indietro dal player): serve a preselezionare la card corrente.
     const wantStreamKeyRef = React.useRef(null);
+    const initialFocusDoneRef = React.useRef(false);
+    // Ri-leggi quale torrent preselezionare OGNI volta che la lista torna in
+    // primo piano (non solo al cambio video). Tornando dal player sullo STESSO
+    // film, video.id NON cambia -> prima la rilettura non ri-partiva e il 2o
+    // "indietro" non rimetteva il focus. routeFocused flippa a true al ritorno.
     React.useEffect(() => {
+        if (!routeFocused) return;
         wantStreamKeyRef.current = recallStreamKey(video?.id);
-    }, [video?.id]);
+        initialFocusDoneRef.current = false; // consenti il ri-focus al ritorno
+    }, [video?.id, routeFocused]);
 
     // Trova l'elemento focusable della card stream all'indice idx (le card sono
     // figli diretti del container, nello stesso ordine di filteredStreams).
@@ -321,10 +330,9 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
     // ogni cambio, SENZA azzerare la chiave, finche' l'utente non si sposta su
     // un'altra card (allora molliamo). Senza wantKey: focus iniziale 1a card, poi
     // tieni in vista la card che l'utente sta navigando.
-    const initialFocusDoneRef = React.useRef(false);
     React.useEffect(() => {
         const container = streamsContainerRef.current;
-        if (!container || filteredStreams.length === 0) return;
+        if (!container || filteredStreams.length === 0 || !routeFocused) return;
         const ae = document.activeElement;
         if (ae && ae.closest && ae.closest('[class*="addon-pill"]')) return; // sui filtri addon: non rubare
         const focusInList = !!(ae && ae !== document.body && container.contains(ae));
@@ -352,7 +360,7 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
         } else if (focusInList) {
             ae.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'auto' }); // tieni in vista durante i re-sort
         }
-    }, [filteredStreams, focusableAt]);
+    }, [filteredStreams, focusableAt, routeFocused]);
 
     return (
         <div className={classnames(className, styles['streams-list-container'])}>
