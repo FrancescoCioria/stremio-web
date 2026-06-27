@@ -1,0 +1,19 @@
+diff --git a/src/HTMLVideo/hlsConfig.js b/src/HTMLVideo/hlsConfig.js
+index 406fbe12cc9ae05381c95551bc4005cf31acc2c5..17df7e0e78cb2793f35bbd4d5fa95c2d5d5d7785 100644
+--- a/src/HTMLVideo/hlsConfig.js
++++ b/src/HTMLVideo/hlsConfig.js
+@@ -6,7 +6,13 @@ module.exports = {
+     maxBufferLength: 50,
+     maxMaxBufferLength: 80,
+     maxFragLookUpTolerance: 0,
+-    maxBufferHole: 0,
++    // Casa: era 0 (default Stremio) → ogni micro-gap audio ai confini dei
++    // frammenti HLS transcodificati (AAC) veniva scambiato per bufferStalledError
++    // → stall + nudge di currentTime (~1s di salto). 0.5 = default hls.js: i
++    // buchi <0.5s vengono ignorati senza stallare. Fix hickup ET (2026-06-27).
++    // Riscontri: hls.js#6169 (audio gap stall), risolto upstream solo in 1.6.0
++    // (PR#6972); stremio-video@0.0.80 pinna hls.js 1.5.4-patch2 → serve override.
++    maxBufferHole: 0.5,
+     appendErrorMaxRetry: 20,
+     nudgeMaxRetry: 20,
+     manifestLoadingTimeOut: 30000,
