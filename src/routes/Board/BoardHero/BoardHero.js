@@ -25,7 +25,8 @@ const needsEnrichment = (m) => !m || (
     !m.imdbRating || !m.runtime || !m.releaseInfo || !m.description ||
     !m.background || !m.logo ||
     (!Array.isArray(m.genres) || m.genres.length === 0) ||
-    (!Array.isArray(m.cast) || m.cast.length === 0)
+    (!Array.isArray(m.cast) || m.cast.length === 0) ||
+    (!Array.isArray(m.director) || m.director.length === 0)
 );
 
 const useEnrichedMeta = (meta) => {
@@ -63,11 +64,11 @@ const useEnrichedMeta = (meta) => {
             .then((data) => {
                 if (cancelled) return;
                 if (data && data.meta) {
-                    const { description, genres, cast, imdbRating, releaseInfo, runtime, background, logo, videos } = data.meta;
+                    const { description, genres, cast, director, imdbRating, releaseInfo, runtime, background, logo, videos } = data.meta;
                     // Filtra undefined/null cosi' campi gia' presenti
                     // nell'item originale non vengono blankerati dal merge.
                     const enrichment = Object.fromEntries(
-                        Object.entries({ description, genres, cast, imdbRating, releaseInfo, runtime, background, logo, videos })
+                        Object.entries({ description, genres, cast, director, imdbRating, releaseInfo, runtime, background, logo, videos })
                             .filter(([, v]) => v !== undefined && v !== null)
                     );
                     metaCache.set(cacheKey, enrichment);
@@ -94,6 +95,7 @@ const BoardHero = ({ meta: rawMeta }) => {
     const rating = meta.imdbRating ? `${meta.imdbRating}` : null;
     const genresText = Array.isArray(meta.genres) ? meta.genres.slice(0, 3).join(' · ') : null;
     const castText = Array.isArray(meta.cast) ? meta.cast.slice(0, 3).join(', ') : null;
+    const directorText = Array.isArray(meta.director) ? meta.director.slice(0, 2).join(', ') : null;
     // Se non c'e' background, fallback al poster (blur per non distrarre).
     const bgSrc = (typeof meta.background === 'string' && meta.background.length > 0)
         ? meta.background
@@ -151,6 +153,11 @@ const BoardHero = ({ meta: rawMeta }) => {
                 {
                     typeof meta.description === 'string' && meta.description.length > 0 ?
                         <div className={styles['hero-description']}>{meta.description}</div>
+                        : null
+                }
+                {
+                    directorText ?
+                        <div className={styles['hero-cast']}>Regista: {directorText}</div>
                         : null
                 }
                 {

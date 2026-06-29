@@ -125,10 +125,12 @@
         }
 
         .watched-icon-layer {
+            // Pallino "watched" (in library) nascosto: Casa non usa la library
+            // come segnale, e ingombra le card delle righe custom in home.
+            display: none;
             position: absolute;
             top: 0;
             left: 0;
-            display: flex;
             justify-content: center;
             align-items: center;
             width: 1.5rem;
