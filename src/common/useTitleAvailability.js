@@ -9,7 +9,12 @@ const React = require('react');
 // Serve a sapere "se i torrent fanno storie, dove lo guardo subito".
 // Default { false, false } (fail-safe: nessuna pill su dati incompleti).
 
-const BACKEND_URL = 'http://localhost:8765';
+// Backend co-locato con la pagina (stremio-web servito dal Beelink su :8080,
+// launcher-backend su :8765 stesso host). Deriviamo l'host DALLA PAGINA cosi'
+// la pill funziona sia in locale sulla TV (localhost:8080 -> localhost:8765)
+// sia da remoto via Tailscale (stremio.casa / beelink-cachyos:8080 -> :8765)
+// senza hardcode. http esplicito: il backend e' solo HTTP (la pagina e' HTTP).
+const BACKEND_URL = `http://${window.location.hostname}:8765`;
 
 const cache = new Map(); // imdbId -> { inCinema, onPrime, ts }
 const inflight = new Map(); // imdbId -> Promise
