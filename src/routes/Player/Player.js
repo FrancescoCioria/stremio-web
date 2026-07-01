@@ -748,9 +748,13 @@ const Player = () => {
 
     onShortcut('exit', () => {
         // Esc gerarchico: dismiss del piu' interno prima di tornare indietro.
+        // Ogni "indietro" toglie un livello di UI visibile; solo quando lo
+        // schermo e' pulito (video immersivo, barra nascosta) esce dal film.
         // 1) Un menu aperto -> chiudi solo il menu.
-        // 2) TV nav (seekbar/buttons) -> esci dalla nav (back al video).
-        // 3) Puro video -> window.history.back() (torna alla lista torrent).
+        // 2) Video in PAUSA -> riprendi (nasconde barra + popup stats).
+        // 3) TV nav (seekbar/buttons) -> esci dalla nav e nascondi la barra.
+        // 4) Barra visibile a video in play (immersed=false) -> nascondila.
+        // 5) Video pulito -> window.history.back() (torna alla lista torrent).
         //    back() raw (non navigate(-1)) perche' l'ingresso via Continue
         //    Watching semina la history con window.history.pushState: back()
         //    opera sul browser-history reale, navigate(-1) sull'indice interno
@@ -759,11 +763,41 @@ const Player = () => {
             closeMenus();
             return;
         }
+        // In pausa, barra e popup Statistics restano su per design
+        // (paused===true forza overlayHidden=false; il popup e' reso da
+        // `statisticsMenuOpen || paused===true` -> NON entra in menusOpen).
+        // "Indietro" qui RIPRENDE la riproduzione e nasconde tutto in un
+        // colpo, invece di uscire dal film: e' l'azione naturale su TV
+        // ("torno a guardare"). Per uscire: "indietro" da video in play.
+        if (video.state.paused === true) {
+            onPlayRequested();
+            setTvNavMode(null);
+            if (document.activeElement instanceof HTMLElement) {
+                document.activeElement.blur();
+            }
+            setImmersedDebounced.cancel();
+            setImmersed(true);
+            return;
+        }
         if (tvNavMode !== null) {
             setTvNavMode(null);
             if (document.activeElement instanceof HTMLElement) {
                 document.activeElement.blur();
             }
+            // Uscendo dalla nav a video in play, ri-immergi: la barra sparisce
+            // subito invece di restare su (immersed poteva essere false).
+            setImmersedDebounced.cancel();
+            setImmersed(true);
+            return;
+        }
+        // Video in play ma barra ancora visibile (immersed=false, es. dopo un
+        // movimento di mouse/telecomando): "indietro" la NASCONDE invece di
+        // uscire. Solo col video gia' pulito il prossimo "indietro" esce.
+        // Uso !immersed (non !overlayHidden) per non intrappolare il caso
+        // casting, dove la barra resta comunque su e serve poter uscire.
+        if (!immersed) {
+            setImmersedDebounced.cancel();
+            setImmersed(true);
             return;
         }
         // TV kiosk: B torna SEMPRE indietro. Niente guard escExitFullscreen
@@ -772,7 +806,7 @@ const Player = () => {
         // merge questo lo faceva il vecchio service KeyboardShortcuts (Esc ->
         // history.back senza guard), ora cancellato da upstream.
         window.history.back();
-    }, [tvNavMode, menusOpen, closeMenus]);
+    }, [tvNavMode, menusOpen, closeMenus, video.state.paused, onPlayRequested, immersed]);
 
     React.useLayoutEffect(() => {
         if (menusOpen) {
