@@ -194,6 +194,14 @@ const MetaItem = React.memo(({ className, type, id, name, poster, posterShape, p
             if (ctxMenuOpen) ctxMenuOnClose(); else openCtxMenu();
         }
     }, [hasOptions, ctxMenuOpen, openCtxMenu, ctxMenuOnClose]);
+    const cardOnContextMenu = React.useCallback((event) => {
+        // Tasto destro (mouse, es. test dal Mac): apre lo stesso menu e
+        // sopprime il menu nativo del browser. Sulla TV non c'e' mouse.
+        if (!hasOptions) return;
+        event.preventDefault();
+        event.stopPropagation();
+        openCtxMenu();
+    }, [hasOptions, openCtxMenu]);
     const ctxMenuOnSelect = React.useCallback((value, event) => {
         // Azioni distruttive: la card sparisce dalla riga. Sposta il focus su una
         // card vicina PRIMA che smonti (in-row, poi riga adiacente come fallback),
@@ -230,7 +238,7 @@ const MetaItem = React.memo(({ className, type, id, name, poster, posterShape, p
         <Icon className={styles['icon']} name={'more-vertical'} />
     ), []);
     return (
-        <Button ref={cardRef} title={name} href={href} {...filterInvalidDOMProps(props)} className={classnames(className, styles['meta-item-container'], styles['poster-shape-poster'], styles[`poster-shape-${posterShape}`], { 'active': menuOpen || ctxMenuOpen })} onClick={metaItemOnClick} onKeyDown={cardOnKeyDown}>
+        <Button ref={cardRef} title={name} href={href} {...filterInvalidDOMProps(props)} className={classnames(className, styles['meta-item-container'], styles['poster-shape-poster'], styles[`poster-shape-${posterShape}`], { 'active': menuOpen || ctxMenuOpen })} onClick={metaItemOnClick} onKeyDown={cardOnKeyDown} onContextMenu={cardOnContextMenu}>
             <div className={classnames(styles['poster-container'], { 'poster-change-cursor': posterChangeCursor })}>
                 {
                     onDismissClick ?
