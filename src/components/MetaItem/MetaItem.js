@@ -15,10 +15,122 @@ const useTitleAvailability = require('stremio/common/useTitleAvailability');
 const { ICON_FOR_TYPE } = require('stremio/common/CONSTANTS');
 const styles = require('./styles');
 
+// TV/Casa: azioni "distruttive" evidenziate in rosso nel menu contestuale.
+const CASA_DANGER_OPTIONS = ['remove'];
+
+// TV/Casa: menu contestuale della card, apribile da telecomando (tasto Menu =
+// Ctrl+Shift+F13, stessa gesture delle tile del launcher). La "X" di dismiss
+// non e' focusabile col telecomando; questo menu da' un modo raggiungibile per
+// eliminare/gestire un item (dismiss, watched, remove, ...). Nav propria a
+// frecce con preventDefault+stopPropagation cosi' ne' lo spatial-navigation
+// -polyfill (window, gate su !defaultPrevented) ne' la nav del Board
+// (onKeyDown sullo scroller, bubble) interferiscono mentre e' aperto.
+const CasaContextMenu = ({ options, onSelect, onClose }) => {
+    const containerRef = React.useRef(null);
+    const optionEls = React.useCallback(() => (
+        containerRef.current ? [...containerRef.current.querySelectorAll('[role="menuitem"]')] : []
+    ), []);
+    React.useEffect(() => {
+        const first = optionEls()[0];
+        if (first) first.focus({ preventScroll: true });
+    }, [optionEls]);
+    React.useEffect(() => {
+        const onPointerDown = (event) => {
+            if (containerRef.current && !containerRef.current.contains(event.target)) {
+                onClose();
+            }
+        };
+        window.addEventListener('pointerdown', onPointerDown, true);
+        return () => window.removeEventListener('pointerdown', onPointerDown, true);
+    }, [onClose]);
+    const focusByOffset = React.useCallback((delta) => {
+        const items = optionEls();
+        if (items.length === 0) return;
+        const current = items.indexOf(document.activeElement);
+        const next = current === -1 ? 0 : (current + delta + items.length) % items.length;
+        items[next].focus({ preventScroll: true });
+    }, [optionEls]);
+    const onKeyDown = React.useCallback((event) => {
+        switch (event.key) {
+            case 'ArrowDown':
+                event.preventDefault(); event.stopPropagation(); focusByOffset(1); break;
+            case 'ArrowUp':
+                event.preventDefault(); event.stopPropagation(); focusByOffset(-1); break;
+            case 'ArrowLeft':
+            case 'ArrowRight':
+                // Inghiotti gli orizzontali: senza questo il Board sposterebbe
+                // la card sotto al menu aperto.
+                event.preventDefault(); event.stopPropagation(); break;
+            case 'Enter':
+            case ' ': {
+                event.preventDefault(); event.stopPropagation();
+                const idx = optionEls().indexOf(document.activeElement);
+                const option = idx >= 0 ? options[idx] : null;
+                if (option) onSelect(option.value, event);
+                break;
+            }
+            case 'Escape':
+                event.preventDefault(); event.stopPropagation(); onClose(); break;
+            case 'F13':
+                // Tasto Menu di nuovo = chiudi (toggle). stopPropagation evita
+                // che risalga alla card e la riapra subito.
+                if (event.ctrlKey && event.shiftKey) {
+                    event.preventDefault(); event.stopPropagation(); onClose();
+                }
+                break;
+            default:
+                break;
+        }
+    }, [options, onSelect, onClose, optionEls]);
+    const optionOnClick = React.useCallback((event) => {
+        // Le option vivono dentro l'<a> della card: blocca la navigazione
+        // dell'anchor e il metaItemOnClick.
+        event.preventDefault();
+        event.stopPropagation();
+        event.nativeEvent.selectPrevented = true;
+        onSelect(event.currentTarget.dataset.value, event);
+    }, [onSelect]);
+    const optionOnMouseDown = React.useCallback((event) => {
+        // Evita il blur() che Button fa sul mousedown (ci toglierebbe il focus).
+        event.stopPropagation();
+        event.nativeEvent.buttonBlurPrevented = true;
+    }, []);
+    return (
+        <div ref={containerRef} className={styles['casa-context-menu']} onKeyDown={onKeyDown}>
+            {options.map((option) => (
+                <div
+                    key={option.value}
+                    role={'menuitem'}
+                    tabIndex={-1}
+                    data-value={option.value}
+                    title={option.label}
+                    className={classnames(styles['casa-context-option'], { [styles['casa-context-option-danger']]: CASA_DANGER_OPTIONS.includes(option.value) })}
+                    onClick={optionOnClick}
+                    onMouseDown={optionOnMouseDown}
+                >
+                    {option.label}
+                </div>
+            ))}
+        </div>
+    );
+};
+
+CasaContextMenu.propTypes = {
+    options: PropTypes.arrayOf(PropTypes.shape({
+        value: PropTypes.string,
+        label: PropTypes.string
+    })),
+    onSelect: PropTypes.func,
+    onClose: PropTypes.func
+};
+
 const MetaItem = React.memo(({ className, type, id, name, poster, posterShape, posterChangeCursor, progress, newVideos, options, deepLinks, dataset, optionOnSelect, onDismissClick, onPlayClick, watched, ...props }) => {
     const { t } = useTranslation();
     const { navigateWithOrigin } = useNavigateWithOrigin();
     const [menuOpen, onMenuOpen, onMenuClose] = useBinaryState(false);
+    const cardRef = React.useRef(null);
+    const [ctxMenuOpen, openCtxMenu, closeCtxMenu] = useBinaryState(false);
+    const hasOptions = Array.isArray(options) && options.length > 0;
     const href = React.useMemo(() => {
         return deepLinks ?
             typeof deepLinks.metaDetailsStreams === 'string' ?
@@ -68,6 +180,45 @@ const MetaItem = React.memo(({ className, type, id, name, poster, posterShape, p
             });
         }
     }, [dataset, optionOnSelect]);
+    const ctxMenuOnClose = React.useCallback(() => {
+        closeCtxMenu();
+        // Riporta il focus sulla card: se restasse sul menu smontato cadrebbe sul
+        // body e la nav a frecce del Board si bloccherebbe.
+        if (cardRef.current) cardRef.current.focus({ preventScroll: true });
+    }, [closeCtxMenu]);
+    const cardOnKeyDown = React.useCallback((event) => {
+        // Tasto Menu del telecomando / Options del gamepad = Ctrl+Shift+F13.
+        if (event.key === 'F13' && event.ctrlKey && event.shiftKey && hasOptions) {
+            event.preventDefault();
+            event.stopPropagation();
+            if (ctxMenuOpen) ctxMenuOnClose(); else openCtxMenu();
+        }
+    }, [hasOptions, ctxMenuOpen, openCtxMenu, ctxMenuOnClose]);
+    const ctxMenuOnSelect = React.useCallback((value, event) => {
+        // Azioni distruttive: la card sparisce dalla riga. Sposta il focus su una
+        // card vicina PRIMA che smonti (in-row, poi riga adiacente come fallback),
+        // altrimenti il focus cade sul body e le frecce del Board smettono di
+        // muoversi (target=body -> nessuna riga trovata).
+        const card = cardRef.current;
+        if (value === 'dismiss' || value === 'remove') {
+            const row = card && card.closest('[class*="meta-row-container"]');
+            const cards = row ? [...row.querySelectorAll('[class*="meta-item-container"]')] : [];
+            const idx = cards.indexOf(card);
+            let neighbor = idx >= 0 ? (cards[idx + 1] || cards[idx - 1]) : null;
+            if (!neighbor && card) {
+                const scroller = card.closest('[class*="board-content"]');
+                const rows = scroller ? [...scroller.querySelectorAll('[class*="meta-row-container"]')] : [];
+                const rowIdx = row ? rows.indexOf(row) : -1;
+                const adjacentRow = rowIdx >= 0 ? (rows[rowIdx + 1] || rows[rowIdx - 1]) : null;
+                neighbor = adjacentRow ? adjacentRow.querySelector('[class*="meta-item-container"]') : null;
+            }
+            if (neighbor) neighbor.focus({ preventScroll: true });
+            closeCtxMenu();
+        } else {
+            ctxMenuOnClose();
+        }
+        menuOnSelect({ value, reactEvent: event, nativeEvent: event.nativeEvent });
+    }, [menuOnSelect, closeCtxMenu, ctxMenuOnClose]);
     const { inCinema, onPrime } = useTitleAvailability(type, id);
     const renderPosterFallback = React.useCallback(() => (
         <Icon
@@ -79,7 +230,7 @@ const MetaItem = React.memo(({ className, type, id, name, poster, posterShape, p
         <Icon className={styles['icon']} name={'more-vertical'} />
     ), []);
     return (
-        <Button title={name} href={href} {...filterInvalidDOMProps(props)} className={classnames(className, styles['meta-item-container'], styles['poster-shape-poster'], styles[`poster-shape-${posterShape}`], { 'active': menuOpen })} onClick={metaItemOnClick}>
+        <Button ref={cardRef} title={name} href={href} {...filterInvalidDOMProps(props)} className={classnames(className, styles['meta-item-container'], styles['poster-shape-poster'], styles[`poster-shape-${posterShape}`], { 'active': menuOpen || ctxMenuOpen })} onClick={metaItemOnClick} onKeyDown={cardOnKeyDown}>
             <div className={classnames(styles['poster-container'], { 'poster-change-cursor': posterChangeCursor })}>
                 {
                     onDismissClick ?
@@ -148,6 +299,16 @@ const MetaItem = React.memo(({ className, type, id, name, poster, posterShape, p
                             <div className={styles['prime-pill']}>Prime</div>
                             :
                             null
+                }
+                {
+                    ctxMenuOpen && hasOptions ?
+                        <CasaContextMenu
+                            options={options}
+                            onSelect={ctxMenuOnSelect}
+                            onClose={ctxMenuOnClose}
+                        />
+                        :
+                        null
                 }
             </div>
             {

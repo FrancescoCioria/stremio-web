@@ -286,6 +286,59 @@
             background-color: #0779ff;
         }
 
+        /* TV/Casa: menu contestuale della card (apribile da telecomando col
+         * tasto Menu). Stile allineato al menu delle tile del launcher: pannello
+         * scuro traslucido, blur, item con highlight su focus, "danger" in rosso.
+         * z-index alto per stare sopra poster/pill; il container ha overflow
+         * visibile quindi puo' sforare oltre la card. */
+        .casa-context-menu {
+            z-index: 20;
+            position: absolute;
+            top: 0.5rem;
+            left: 0.5rem;
+            min-width: 12rem;
+            max-width: 18rem;
+            padding: 0.35rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.1rem;
+            border-radius: 0.7rem;
+            outline: 1px solid rgba(255, 255, 255, 0.08);
+            background-color: rgba(20, 20, 25, 0.96);
+            box-shadow: 0 0.8rem 2.5rem rgba(0, 0, 0, 0.55);
+            backdrop-filter: blur(6px);
+            cursor: default;
+            text-align: left;
+
+            .casa-context-option {
+                padding: 0.6rem 0.8rem;
+                border-radius: 0.4rem;
+                background-color: transparent;
+                color: var(--primary-foreground-color);
+                font-size: 1rem;
+                font-weight: 500;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                outline: none;
+                cursor: pointer;
+                transition: background-color 80ms ease-out;
+
+                &:hover, &:focus, &:focus-visible {
+                    outline: none;
+                    background-color: rgba(255, 255, 255, 0.1);
+                }
+
+                &.casa-context-option-danger {
+                    color: #ff6b6b;
+
+                    &:hover, &:focus, &:focus-visible {
+                        background-color: rgba(255, 107, 107, 0.14);
+                    }
+                }
+            }
+        }
+
         .new-videos {
             z-index: -1;
             position: absolute;
