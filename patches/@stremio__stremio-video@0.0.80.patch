@@ -17,3 +17,34 @@ index 406fbe12cc9ae05381c95551bc4005cf31acc2c5..17df7e0e78cb2793f35bbd4d5fa95c2d
      appendErrorMaxRetry: 20,
      nudgeMaxRetry: 20,
      manifestLoadingTimeOut: 30000,
+diff --git a/src/withHTMLSubtitles/withHTMLSubtitles.js b/src/withHTMLSubtitles/withHTMLSubtitles.js
+index 9bc2f3f4eb5ae4215bd54cdcbc2665384e173754..e6f8d8f662acf5368e80d27e0df5d2c2021fda8b 100644
+--- a/src/withHTMLSubtitles/withHTMLSubtitles.js
++++ b/src/withHTMLSubtitles/withHTMLSubtitles.js
+@@ -145,8 +145,25 @@ function withHTMLSubtitles(Video) {
+             if (rafId !== null) {
+                 return;
+             }
++            var errorLogged = false;
+             (function loop() {
+-                renderSubtitles();
++                // Casa: un'eccezione in renderSubtitles() (tipicamente
++                // vtt.js convertCueToDOMTree su una cue con markup ostico)
++                // usciva PRIMA di rischedulare -> loop MORTO per sempre, e
++                // startRenderLoop non lo rianima (rafId resta non-null).
++                // Sintomo reale: i sottotitoli si spengono "dopo un tot" e
++                // tornano solo cambiando+rimettendo il track (l'unico path che
++                // passa da stopRenderLoop -> rafId=null). Il try/catch salta la
++                // cue difettosa e tiene vivo il loop. Log throttled per la causa.
++                try {
++                    renderSubtitles();
++                } catch (e) {
++                    if (!errorLogged) {
++                        errorLogged = true;
++                        // eslint-disable-next-line no-console
++                        console.error('withHTMLSubtitles: renderSubtitles ha lanciato, loop preservato', e);
++                    }
++                }
+                 rafId = requestAnimationFrame(loop);
+             })();
+         }
