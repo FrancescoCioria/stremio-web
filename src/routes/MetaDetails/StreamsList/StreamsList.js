@@ -101,7 +101,10 @@ const isPackByName = (stream) => {
 // Perche': per film vecchi lo stream "piu' seedato" e' spesso una raccolta da
 // 100GB morta; la UI mostra la size del FILE (es. 1.79GB) non del torrent ->
 // impossibile distinguerlo a occhio. Vedi project_stremio_slow_dl_dead_packs.
-const STREAM_HEALTH_ENABLED = true;
+// DISATTIVATO 2026-07-03 (richiesta utente): niente health-check dei torrent.
+// Il sidecar stremio-health (:11480) e' anch'esso stop+disable. false -> il fork
+// non interroga :11480, health resta undefined -> nessun badge/penalita' (fail-open).
+const STREAM_HEALTH_ENABLED = false;
 const HEALTH_URL = 'http://127.0.0.1:11480/health';
 const HEALTH_MAX = 30; // cap infohash sondati per lista
 // Tier salute (i VERIFICATI buoni stanno sopra ai "in verifica"):
