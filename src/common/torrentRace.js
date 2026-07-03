@@ -75,26 +75,38 @@ const removeTorrent = (server, infoHash) => {
     } catch (_e) { /* best-effort */ }
 };
 
-// Un candidato "vince" appena e' chiaramente pronto: testa scaricata, oppure swarm
-// palesemente veloce (byte in arrivo forte). Ritorna true/false.
+// Metriche numeriche safe da uno stats.json.
+const metricsOf = (s) => ({
+    downloaded: +(s && s.downloaded) || 0,
+    speed: +(s && s.downloadSpeed) || 0,
+    unchoked: +(s && s.unchoked) || 0,
+    peers: +(s && s.peers) || 0,
+    streamLen: +(s && s.streamLen) || 0
+});
+// Rete VIVA adesso: un peer ci sta servendo (unchoked) o stanno arrivando byte.
+// ⚠️ La lettura da CACHE su disco NON alza downloadSpeed (e' traffico di rete) ne'
+// unchoked -> cosi' un torrent MORTO con la testa cachata da un tentativo
+// precedente NON risulta "vivo". Incidente 2026-07-03 (0 peers ma selezionato):
+// il segnale `downloaded` e' inquinato dalla cache (40GB) del server.
+const isLiveM = (m) => m.unchoked > 0 || m.speed > 0;
+
+// "Pronto a giocare": rete viva CON testa bufferata, oppure file gia' quasi tutto
+// in cache (unchoked/speed 0 ma downloaded ~ streamLen). Il caso pericoloso —
+// testa cachata (downloaded>=2MB) ma swarm morto — NON passa: manca la liveness.
 const isReady = (s) => {
-    if (!s) return false;
-    const downloaded = +s.downloaded || 0;
-    const speed = +s.downloadSpeed || 0;
-    const unchoked = +s.unchoked || 0;
-    if (downloaded >= READY_BYTES) return true;
-    if (unchoked > 0 && speed >= FAST_SPEED) return true;
-    return false;
+    const m = metricsOf(s);
+    const fullyCached = m.streamLen > 0 && m.downloaded >= m.streamLen * 0.98;
+    return (isLiveM(m) && m.downloaded >= READY_BYTES) || fullyCached;
 };
 
-// Punteggio per il ranking a TIMEOUT (nessuno "pronto"): privilegia byte reali,
-// poi velocita', poi peer che ci servono davvero.
+// Punteggio per il ranking a TIMEOUT. LIVENESS DOMINA: un torrent vivo batte
+// SEMPRE uno morto a prescindere dal `downloaded` (inquinato dalla cache). Tra i
+// vivi: piu' peer, poi piu' velocita'. `downloaded` conta solo come spareggio fine.
 const scoreOf = (s) => {
     if (!s) return -1;
-    const downloaded = +s.downloaded || 0;
-    const speed = +s.downloadSpeed || 0;
-    const unchoked = +s.unchoked || 0;
-    return downloaded + Math.min(speed, FAST_SPEED) * 2 + (unchoked > 0 ? ALIVE_SPEED : 0);
+    const m = metricsOf(s);
+    const liveBonus = (m.unchoked > 0 ? 4e12 : 0) + (m.peers > 0 ? 1e12 : 0) + (m.speed > 0 ? 1e11 : 0);
+    return liveBonus + m.peers * 1e6 + Math.min(m.speed, FAST_SPEED) + m.downloaded * 0.001;
 };
 
 // candidates: [{ infoHash, fileIdx, sources, stream, seeders }]
@@ -160,10 +172,13 @@ const raceTorrents = ({ candidates, serverUrl, onStatus, signal }) => {
                         finish(ready[0]);
                         return;
                     }
-                    // 2) Timeout: nessuno pronto -> il migliore per punteggio (o il piu' seedato se tutti a 0).
+                    // 2) Timeout: se c'e' almeno un torrent VIVO, vince il migliore
+                    // (scoreOf mette i vivi sopra i morti-cachati). Se NESSUNO e' vivo,
+                    // fallback al piu' seedato (racers[0]) -> NON al cache-heaviest morto.
                     if (elapsed >= RACE_MS) {
+                        const anyLive = racers.some((c) => isLiveM(metricsOf(last.get(c.infoHash))));
                         const ranked = racers.slice().sort((a, b) => scoreOf(last.get(b.infoHash)) - scoreOf(last.get(a.infoHash)));
-                        const best = scoreOf(last.get(ranked[0].infoHash)) > 0 ? ranked[0] : racers[0];
+                        const best = anyLive ? ranked[0] : racers[0];
                         if (onStatus) onStatus({ phase: 'timeout', leaderInfoHash: best.infoHash, elapsedMs: elapsed });
                         finish(best);
                         return;
