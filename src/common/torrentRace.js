@@ -2,8 +2,9 @@
 //
 // Motore "Auto": data una lista di stream torrent candidati (gia' filtrati per
 // qualita' + ordinati per seeder), li avvia IN PARALLELO sullo streaming-server
-// locale (:11470), polla la salute REALE dello swarm (stats.json) e ritorna il
-// primo che produce byte (time-to-first-byte). I perdenti vengono rimossi.
+// locale (:11470), polla la salute REALE dello swarm (stats.json) su una finestra
+// minima e ritorna quello che meglio reggera' l'INTERO video (throughput + swarm >
+// cache ambigua). I perdenti vengono rimossi.
 //
 // Perche' in-browser e non nel backend: il player carica il torrent DALLO STESSO
 // streaming-server; scaldando qui i torrent, quando navighiamo al player il
@@ -19,9 +20,13 @@ const RACE_K = 4; // max candidati messi in parallelo
 const POLL_MS = 700; // intervallo di polling stats.json
 const RACE_MS = 20000; // finestra massima di race prima del timeout (i cachati/vivi vincono molto prima)
 const UNREACHABLE_MS = 1500; // se dopo questo nessuno ha MAI risposto -> server giu' -> fail-open
-const READY_BYTES = 2 * 1024 * 1024; // 2MB scaricati = testa/moov pronti -> giocabile
-const FAST_SPEED = 2 * 1024 * 1024; // >=2MB/s = swarm palesemente veloce -> vincitore anticipato
-const ALIVE_SPEED = 120 * 1024; // >=120KB/s con peer = "vivo" (per il ranking a timeout)
+const MIN_RACE_MS = 4000; // finestra MINIMA: corriamo SEMPRE qualche secondo prima di
+// decidere — mai vincita istantanea su un singolo segnale ambiguo (streamProgress=1
+// puo' essere "tutto il file in cache" OPPURE "solo la testa cachata, swarm morto":
+// indistinguibili dalle stats). Qualche secondo lascia emergere la salute reale.
+const MB = 1024 * 1024;
+const SPEED_CAP = 8 * MB; // cap per il punteggio throughput
+const STRONG_SPEED = 1.5 * MB; // >= -> "chiaramente buono", decidibile in anticipo
 
 // Normalizza la base URL dello streaming-server (niente slash finale).
 const normServer = (url) => (typeof url === 'string' && url ? url.replace(/\/+$/, '') : null);
@@ -95,29 +100,28 @@ const metricsOf = (s) => ({
 // Rete VIVA adesso: un peer ci sta servendo (unchoked) o stanno arrivando byte.
 const isLiveM = (m) => m.unchoked > 0 || m.speed > 0;
 
-// "Pronto a giocare": il server ha buffer sufficiente (streamProgress alto — vale sia
-// per il cachato-completo =1 sia per il live che ha bufferato la testa). Fallback per
-// server che non popolano subito streamProgress: rete viva con testa scaricata.
-const READY_PROGRESS = 0.9;
-const isReady = (s) => {
-    const m = metricsOf(s);
-    if (m.progress >= READY_PROGRESS) return true;
-    if (isLiveM(m) && m.downloaded >= READY_BYTES) return true;
-    return false;
-};
-
-// Punteggio per il ranking a TIMEOUT. streamProgress DOMINA (buffer reale del server:
-// cachato o live-bufferato), poi liveness (peer che servono), poi velocita'. Un morto
-// (progress 0, 0 peer) finisce in fondo a prescindere.
+// Punteggio "reggera' l'INTERO video?". La THROUGHPUT reale (byte/s dallo swarm) e la
+// dimensione dello swarm predicono la consegna di tutto il film -> PRIMARIE. Lo
+// streamProgress (buffer/cache) da' solo un vantaggio di PARTENZA -> peso MODESTO, cosi'
+// una cache minuscola NON batte uno swarm sano (che invece garantisce l'intero video).
+// Perche' non fidarsi di streamProgress da solo: =1 puo' essere "tutto in cache" (ottimo)
+// o "solo la testa cachata, resto morto" (pessimo) -> indistinguibili. Quindi lo swarm
+// vivo, che consegna comunque tutto, e' il predittore piu' sicuro.
 const scoreOf = (s) => {
     if (!s) return -1;
     const m = metricsOf(s);
-    const liveBonus = (m.unchoked > 0 ? 4e12 : 0) + (m.peers > 0 ? 1e12 : 0) + (m.speed > 0 ? 1e11 : 0);
-    return m.progress * 1e13 + liveBonus + m.peers * 1e6 + Math.min(m.speed, FAST_SPEED) + m.downloaded * 0.001;
+    return Math.min(m.speed, SPEED_CAP) / 1e5 // throughput reale: PRIMARIO (0..~80)
+        + (m.unchoked > 0 ? 40 : 0) // un peer ci serve DAVVERO adesso
+        + m.peers * 3 // resilienza dello swarm
+        + m.progress * 25 // partenza pronta (cache/buffer): bonus MODESTO
+        + m.downloaded / 1e8; // spareggio fine
 };
-// Un candidato ha SENSO aprirlo solo se ha qualcosa: buffer (progress) o rete viva.
-// Se al timeout NESSUNO ce l'ha -> niente da aprire (l'utente aspetterebbe su uno
-// stallo) -> la race ritorna null e il chiamante ricade sulla lista manuale.
+// "Chiaramente buono" (decidibile in anticipo, dopo la finestra minima): sta gia'
+// scaricando forte, OPPURE e' bufferato/cachato E ha uno swarm dietro (non solo cache
+// nuda, che potrebbe essere una testa morta).
+const isStrongM = (m) => m.speed >= STRONG_SPEED || (m.progress >= 0.9 && m.peers > 0);
+// Apribile solo se ha QUALCOSA (buffer, rete, o peer). Se a fine finestra nessuno ce
+// l'ha -> null -> il chiamante ricade sulla lista manuale (niente stallo forzato).
 const isPlayableM = (m) => m.progress > 0 || isLiveM(m) || m.peers > 0;
 
 // candidates: [{ infoHash, fileIdx, sources, stream, seeders }]
@@ -125,8 +129,9 @@ const isPlayableM = (m) => m.progress > 0 || isLiveM(m) || m.peers > 0;
 // onStatus(optional): (info) => void   info = { phase, leaderInfoHash, elapsedMs }
 // signal(optional): AbortSignal per cancellare la race (utente esce dalla card)
 //
-// Ritorna il candidato vincitore (SEMPRE un elemento di candidates, mai null se
-// candidates non vuoto), gia' scaldato sul server.
+// Ritorna il candidato vincitore (gia' scaldato sul server), OPPURE null se dopo la
+// finestra NESSUN candidato e' giocabile (0 buffer/rete/peer) -> il chiamante ricade
+// sulla lista manuale. Su server irraggiungibile/assente -> fail-open al piu' seedato.
 const raceTorrents = ({ candidates, serverUrl, onStatus, signal }) => {
     const server = normServer(serverUrl);
     const list = (Array.isArray(candidates) ? candidates : []).filter((c) => c && typeof c.infoHash === 'string');
@@ -175,20 +180,27 @@ const raceTorrents = ({ candidates, serverUrl, onStatus, signal }) => {
                         finish(racers[0]);
                         return;
                     }
-                    // 1) Qualcuno pronto? Vince il primo pronto (a parita', piu' byte).
-                    const ready = racers.filter((c) => isReady(last.get(c.infoHash)));
-                    if (ready.length > 0) {
-                        ready.sort((a, b) => scoreOf(last.get(b.infoHash)) - scoreOf(last.get(a.infoHash)));
-                        if (onStatus) onStatus({ phase: 'ready', leaderInfoHash: ready[0].infoHash, elapsedMs: elapsed });
-                        finish(ready[0]);
+                    // 1) Finestra MINIMA: corriamo sempre qualche secondo prima di
+                    // decidere -> niente vincita istantanea su un segnale ambiguo.
+                    const ranked = racers.slice().sort((a, b) => scoreOf(last.get(b.infoHash)) - scoreOf(last.get(a.infoHash)));
+                    const best = ranked[0];
+                    if (elapsed < MIN_RACE_MS) {
+                        if (onStatus) onStatus({ phase: 'racing', leaderInfoHash: best && best.infoHash, elapsedMs: elapsed });
+                        setTimeout(tick, POLL_MS);
                         return;
                     }
-                    // 2) Timeout: vince il migliore per scoreOf (streamProgress/liveness).
-                    // MA se NESSUNO e' giocabile (0 buffer, 0 rete, 0 peer su tutti) ->
-                    // aprire qualcuno = stallo garantito -> ritorna null -> il chiamante
-                    // ricade sulla lista manuale (l'utente sceglie/vede i badge morto).
+                    // 2) Passata la finestra minima: decidi in ANTICIPO solo se il migliore
+                    // e' CHIARAMENTE buono (scarica forte, o cachato CON swarm dietro).
+                    // Altrimenti continua a cercare uno swarm vivo (che regge tutto il video).
+                    const bestM = metricsOf(last.get(best.infoHash));
+                    if (isStrongM(bestM)) {
+                        if (onStatus) onStatus({ phase: 'ready', leaderInfoHash: best.infoHash, elapsedMs: elapsed });
+                        finish(best);
+                        return;
+                    }
+                    // 3) Timeout massimo: prendi il migliore se giocabile; se NESSUNO lo e'
+                    // (0 buffer, 0 rete, 0 peer) -> null -> il chiamante ricade sul manuale.
                     if (elapsed >= RACE_MS) {
-                        const ranked = racers.slice().sort((a, b) => scoreOf(last.get(b.infoHash)) - scoreOf(last.get(a.infoHash)));
                         const anyPlayable = racers.some((c) => isPlayableM(metricsOf(last.get(c.infoHash))));
                         if (!anyPlayable) {
                             if (onStatus) onStatus({ phase: 'nolive', elapsedMs: elapsed });
@@ -196,14 +208,12 @@ const raceTorrents = ({ candidates, serverUrl, onStatus, signal }) => {
                             done = true; resolve(null);
                             return;
                         }
-                        const best = ranked[0];
                         if (onStatus) onStatus({ phase: 'timeout', leaderInfoHash: best.infoHash, elapsedMs: elapsed });
                         finish(best);
                         return;
                     }
-                    // 3) Continua: segnala il leader corrente (per feedback UI).
-                    const leader = racers.slice().sort((a, b) => scoreOf(last.get(b.infoHash)) - scoreOf(last.get(a.infoHash)))[0];
-                    if (onStatus) onStatus({ phase: 'racing', leaderInfoHash: leader && leader.infoHash, elapsedMs: elapsed });
+                    // 4) Continua a correre (feedback leader corrente).
+                    if (onStatus) onStatus({ phase: 'racing', leaderInfoHash: best.infoHash, elapsedMs: elapsed });
                     setTimeout(tick, POLL_MS);
                 });
         };
@@ -211,4 +221,4 @@ const raceTorrents = ({ candidates, serverUrl, onStatus, signal }) => {
     });
 };
 
-module.exports = { raceTorrents, RACE_K, RACE_MS, isReady, scoreOf, buildSources, READY_BYTES, FAST_SPEED };
+module.exports = { raceTorrents, RACE_K, RACE_MS, MIN_RACE_MS, scoreOf, isStrongM, isPlayableM, buildSources };

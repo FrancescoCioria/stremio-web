@@ -33,13 +33,14 @@ const DEFAULT_STREAMING_SERVER_URL = 'http://127.0.0.1:11470';
 // Incidente 2026-06-15: "Omaha 2025 1080p WEBRip 10Bit DDP x265" -> ffprobe
 // hevc Main10 yuv420p10le -> blocchi continui. Vedi project_stremio_codec_filter.
 //
-// NON nascondiamo piu' questi stream (prima li filtravamo via): se un film ha
-// SOLO release HEVC/10bit, l'utente restava senza nulla anche se quei torrent
-// girano bene sulla Fire TV (HW decode HEVC nativo). Ora li teniamo, marcati
-// `incompatible`: vengono mostrati DISABILITATI, IN FONDO alla lista, con un
-// badge "Fire TV" che invita a guardarli da li'. Cosi' il fallback resta
-// visibile invece di sparire silenziosamente.
-const FILTER_INCOMPATIBLE_CODECS = true;
+// ⚠️ FILTRO DISATTIVATO (2026-07-03). Serviva SOLO per Brave/Chromium su Linux (HEVC
+// software-decode = freeze). Ma la tile ora e' FIREFOX (HEVC via VAAPI) e i browser del
+// Mac (Safari/Chrome su macOS) decodificano HEVC in hardware -> il filtro non protegge
+// piu' nessuno, e faceva DANNO: escludeva l'HEVC dai candidati Auto (niente 4K, che e'
+// quasi tutto HEVC, e meno 1080p; e ci teneva fuori i torrent HEVC gia' in cache).
+// `false` -> gli stream HEVC sono trattati come normali (candidabili, ordinabili,
+// giocabili). Se un giorno si tornasse a Brave/Linux (non previsto), rimettere `true`.
+const FILTER_INCOMPATIBLE_CODECS = false;
 const INCOMPATIBLE_CODEC_RE = /\b(?:x[\s._-]?265|h[\s._-]?265|HEVC|10[\s._-]?bit)\b/i;
 // Firefox (Gecko) su Linux HW-decoda HEVC/10bit via VAAPI -> NON filtrare.
 // Brave/Chromium cade in software decode -> filtra. Stesso build, due browser.
