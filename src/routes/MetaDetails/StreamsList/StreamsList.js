@@ -10,11 +10,19 @@ const { useCore } = require('stremio/core');
 const Stream = require('./Stream');
 const styles = require('./styles');
 const { usePlatform, useProfile } = require('stremio/common');
-const { streamKey, recallStreamKey } = require('stremio/common/lastStream');
+const { streamKey, recallStreamKey, rememberStream } = require('stremio/common/lastStream');
 const { default: useRouteFocused } = require('stremio/common/useRouteFocused');
 const { default: SeasonEpisodePicker } = require('../EpisodePicker');
+const { raceTorrents } = require('stremio/common/torrentRace');
+const qualityBuckets = require('stremio/common/qualityBuckets');
 
 const ALL_ADDONS_KEY = 'ALL';
+// Modalita' "Auto" (default): niente lista di torrent da scegliere a mano, ma 3
+// card 4K/1080p/720p con recap (n. torrent + size media). Al click parte la race
+// (torrentRace.js) che scalda i piu' seedati in parallelo, sonda lo swarm reale e
+// apre il player sul migliore. Vedi qualityBuckets.js + torrentRace.js.
+const AUTO_KEY = 'AUTO';
+const DEFAULT_STREAMING_SERVER_URL = 'http://127.0.0.1:11470';
 
 // Codec VIDEO incompatibili (HEVC/x265/10-bit).
 // Su CachyOS lo Stremio Server transcodifica solo l'AUDIO (eac3/DDP/DTS -> AAC,
@@ -122,14 +130,23 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
     const profile = useProfile();
     const routeFocused = useRouteFocused(); // true quando questa lista e' in primo piano (non il player)
     const streamsContainerRef = React.useRef(null);
-    const [selectedAddon, setSelectedAddon] = React.useState(ALL_ADDONS_KEY);
+    const autoCardsRef = React.useRef(null);
+    const [selectedAddon, setSelectedAddon] = React.useState(AUTO_KEY);
+    // Race in corso: { bucketKey } mentre selezioniamo il torrent migliore per una qualita'.
+    const [racing, setRacing] = React.useState(null);
+    const raceAbortRef = React.useRef(null);
     // infoHash(lower) -> 'clean'|'pack'|'dead' dal sidecar di salute.
     const [healthMap, setHealthMap] = React.useState({});
     const healthRequestedRef = React.useRef(new Set());
     const healthMountedRef = React.useRef(true);
     React.useEffect(() => () => { healthMountedRef.current = false; }, []);
     const onAddonSelected = React.useCallback((value) => {
-        streamsContainerRef.current.scrollTo({ top: 0, left: 0, behavior: platform.name === 'ios' ? 'smooth' : 'instant' });
+        // In modalita' Auto la streams-container NON e' montata (mostriamo le card
+        // qualita'): senza questo guard lo scrollTo su ref null lanciava e
+        // setSelectedAddon non veniva mai chiamato -> impossibile uscire da Auto.
+        if (streamsContainerRef.current) {
+            streamsContainerRef.current.scrollTo({ top: 0, left: 0, behavior: platform.name === 'ios' ? 'smooth' : 'instant' });
+        }
         setSelectedAddon(value);
     }, [platform]);
     const showInstallAddonsButton = React.useMemo(() => {
@@ -153,6 +170,10 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
                         seeders: parseSeeders(stream),
                         // Qualita' coerente (calcolata da noi, non dal name addon).
                         quality: qualityLabel(stream),
+                        // Altezza numerica (per il bucketing Auto 4K/1080p/720p).
+                        height: streamHeight(stream),
+                        // Dimensione dichiarata (💾 nella description) per il recap Auto.
+                        sizeBytes: qualityBuckets.parseSizeBytes([stream.description, stream.title, stream.name].filter(Boolean).join(' ')),
                         // Pack riconosciuto dal nome (istantaneo, in OR col contenuto).
                         packByName: isPackByName(stream),
                         // Salute torrent dal sidecar (dead/pack -> in fondo + badge).
@@ -191,6 +212,49 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
                 [];
         return list;
     }, [streamsByAddon, selectedAddon]);
+    // Bucket Auto (4K/1080p/720p) da TUTTI gli addon: recap + candidati race.
+    // Ogni bucket ha count, avgBytes e streams (arricchiti) ordinati per seeder.
+    const autoBuckets = React.useMemo(() => {
+        const all = Object.values(streamsByAddon).map(({ streams }) => streams).flat(1);
+        return qualityBuckets.computeBuckets(all);
+    }, [streamsByAddon]);
+    // URL dello streaming-server (lo stesso che usa il player): profilo -> default loopback.
+    const streamingServerUrl = React.useMemo(() => {
+        const url = profile && profile.settings && profile.settings.streamingServerUrl;
+        return (typeof url === 'string' && url) ? url : DEFAULT_STREAMING_SERVER_URL;
+    }, [profile]);
+    // Annulla la race se si smonta / si cambia video mentre corre.
+    React.useEffect(() => () => { if (raceAbortRef.current) raceAbortRef.current.abort(); }, []);
+    // Click su una card qualita': avvia la race dei torrent piu' seedati di quel
+    // bucket, poi apre il player sul vincitore. Fail-open: se il server non
+    // risponde, raceTorrents ritorna comunque il candidato piu' seedato.
+    const onQualitySelected = React.useCallback((bucketKey) => {
+        if (racing) return;
+        const bucket = autoBuckets[bucketKey];
+        if (!bucket || bucket.count === 0) return;
+        const ctrl = new AbortController();
+        raceAbortRef.current = ctrl;
+        setRacing({ bucketKey });
+        const candidates = bucket.streams.map((s) => ({
+            infoHash: s.infoHash,
+            fileIdx: typeof s.fileIdx === 'number' ? s.fileIdx : null,
+            sources: s.sources,
+            seeders: s.seeders,
+            stream: s
+        }));
+        raceTorrents({ candidates, serverUrl: streamingServerUrl, signal: ctrl.signal })
+            .then((winner) => {
+                raceAbortRef.current = null;
+                if (ctrl.signal.aborted) return;
+                setRacing(null);
+                const dl = winner && winner.stream && winner.stream.deepLinks;
+                if (dl && dl.player) {
+                    try { rememberStream(winner.stream); } catch (_e) { /* no-op */ }
+                    window.location.href = dl.player;
+                }
+            })
+            .catch(() => { raceAbortRef.current = null; setRacing(null); });
+    }, [racing, autoBuckets, streamingServerUrl]);
     // Indice di qualita': raccogli gli infohash unici degli stream Ready e
     // sondali via sidecar stremio-health (solo metadata, niente download).
     // requestedRef evita ri-sonde; fail-open su qualsiasi errore.
@@ -209,7 +273,7 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
                 const trackers = Array.isArray(s.sources)
                     ? s.sources.filter((x) => typeof x === 'string' && x.indexOf('tracker:') === 0).map((x) => x.slice(8))
                     : undefined;
-                items.push({ infoHash: ih, fileIdx: s.fileIdx != null ? s.fileIdx : null, trackers });
+                items.push({ infoHash: ih, fileIdx: typeof s.fileIdx === 'number' ? s.fileIdx : null, trackers });
                 if (items.length >= HEALTH_MAX) break;
             }
             if (items.length >= HEALTH_MAX) break;
@@ -236,6 +300,11 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
     const selectableOptions = React.useMemo(() => {
         return {
             options: [
+                {
+                    value: AUTO_KEY,
+                    label: 'Auto',
+                    title: 'Auto'
+                },
                 {
                     value: ALL_ADDONS_KEY,
                     label: t('ALL_ADDONS'),
@@ -295,6 +364,40 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
             inline: 'center',
         });
     }, []);
+
+    // Nav frecce ←/→ tra le 3 card qualita' (Auto), stesso pattern deterministico
+    // di onStreamsKeyDown (il polyfill spatial-nav a volte non trova la card
+    // adiacente per via del layout). ↑ lasciata al polyfill (sale alle pill).
+    const onAutoCardsKeyDown = React.useCallback((event) => {
+        if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+        const container = autoCardsRef.current;
+        if (!container) return;
+        let card = event.target;
+        while (card && card.parentElement !== container) card = card.parentElement;
+        if (!card) return;
+        const sibling = event.key === 'ArrowRight' ? card.nextElementSibling : card.previousElementSibling;
+        if (!sibling) return;
+        const focusable = sibling.matches('a,button,[tabindex]') ? sibling : sibling.querySelector('a,button,[tabindex]');
+        if (!focusable) return;
+        event.preventDefault();
+        event.stopPropagation();
+        focusable.focus({ preventScroll: false });
+    }, []);
+
+    // Focus iniziale sulla 1a card Auto SOLO al vero primo ingresso (activeElement
+    // = body): non rubare il focus se l'utente sta navigando le pill (onFocus
+    // delle pill seleziona AUTO -> altrimenti gli scippammo il focus, come
+    // l'incidente Settings 2026-06-24).
+    React.useEffect(() => {
+        if (selectedAddon !== AUTO_KEY || !routeFocused) return;
+        const container = autoCardsRef.current;
+        if (!container) return;
+        const ae = document.activeElement;
+        const nothingFocused = !ae || ae === document.body;
+        if (!nothingFocused) return;
+        const first = container.querySelector('button:not([disabled]),a,[tabindex]');
+        if (first) first.focus({ preventScroll: true });
+    }, [selectedAddon, routeFocused, autoBuckets]);
 
     // Chiave dell'ultimo stream riprodotto per QUESTO video (se si rientra qui
     // tornando indietro dal player): serve a preselezionare la card corrente.
@@ -362,6 +465,45 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
         }
     }, [filteredStreams, focusableAt, routeFocused]);
 
+    // Almeno un bucket ha candidati? (se no, es. film SOLO Fire-TV/HEVC, cadiamo
+    // sulla lista normale cosi' quegli stream restano visibili.)
+    const hasAutoCandidates = qualityBuckets.BUCKET_ORDER.some((k) => autoBuckets[k].count > 0);
+    const autoCards = (
+        <React.Fragment>
+            <div className={styles['auto-cards']} ref={autoCardsRef} onKeyDown={onAutoCardsKeyDown}>
+                {qualityBuckets.BUCKET_ORDER.map((key) => {
+                    const bucket = autoBuckets[key];
+                    const empty = bucket.count === 0;
+                    const isRacing = !!(racing && racing.bucketKey === key);
+                    return (
+                        <Button
+                            key={key}
+                            className={classnames(styles['auto-card'], { [styles['empty']]: empty, [styles['racing']]: isRacing, [styles['dimmed']]: racing && !isRacing })}
+                            title={bucket.label}
+                            onClick={() => onQualitySelected(key)}
+                        >
+                            <div className={styles['auto-card-quality']}>{bucket.label}</div>
+                            <div className={styles['auto-card-recap']}>
+                                {empty ? 'nessun torrent' : (bucket.count + (bucket.count === 1 ? ' torrent' : ' torrent') + (bucket.avgBytes ? ' · ' + qualityBuckets.formatAvgSize(bucket.avgBytes) : ''))}
+                            </div>
+                            {isRacing ? <div className={styles['auto-card-status']}>Cerco il migliore…</div> : null}
+                        </Button>
+                    );
+                })}
+            </div>
+            {
+                countLoadingAddons > 0 ?
+                    <div className={styles['addons-loading-container']}>
+                        <div className={styles['addons-loading']}>
+                            {countLoadingAddons} {t('MOBILE_ADDONS_LOADING')}
+                        </div>
+                        <span className={styles['addons-loading-bar']}></span>
+                    </div>
+                    :
+                    null
+            }
+        </React.Fragment>
+    );
     return (
         <div className={classnames(className, styles['streams-list-container'])}>
             <div className={styles['select-choices-wrapper']}>
@@ -423,61 +565,64 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
                             }
                         </div>
                         :
-                        filteredStreams.length === 0 ?
-                            <div className={styles['streams-container']}>
-                                <Stream.Placeholder />
-                                <Stream.Placeholder />
-                            </div>
+                        (selectedAddon === AUTO_KEY && hasAutoCandidates) ?
+                            autoCards
                             :
-                            <React.Fragment>
-                                <div className={styles['streams-container']} ref={streamsContainerRef} onKeyDown={onStreamsKeyDown}>
-                                    {filteredStreams.map((stream, index) => (
-                                        <Stream
+                            filteredStreams.length === 0 ?
+                                <div className={styles['streams-container']}>
+                                    <Stream.Placeholder />
+                                    <Stream.Placeholder />
+                                </div>
+                                :
+                                <React.Fragment>
+                                    <div className={styles['streams-container']} ref={streamsContainerRef} onKeyDown={onStreamsKeyDown}>
+                                        {filteredStreams.map((stream, index) => (
+                                            <Stream
                                             /* key STABILE per identita' del torrent (non l'indice):
                                              * la lista si ri-ordina async coi verdetti salute -> con
                                              * key=index React legherebbe il focus alla posizione e al
                                              * ritorno dal player il focus finiva sul torrent sbagliato.
                                              * Con key stabile React sposta il nodo col suo dato e il
                                              * focus segue il torrent giusto. */
-                                            key={[stream.infoHash || stream.url || stream.name || index, stream.fileIdx, stream.addonName].join('|')}
-                                            videoId={video?.id}
-                                            videoReleased={video?.released}
-                                            addonName={stream.addonName}
-                                            quality={stream.quality}
-                                            name={stream.name}
-                                            description={stream.description}
-                                            thumbnail={stream.thumbnail}
-                                            progress={stream.progress}
-                                            deepLinks={stream.deepLinks}
-                                            incompatible={stream.incompatible}
-                                            health={stream.health}
-                                            healthChecking={stream.healthChecking}
-                                            packByName={stream.packByName}
-                                            onClick={stream.onClick}
-                                        />
-                                    ))}
+                                                key={[stream.infoHash || stream.url || stream.name || index, stream.fileIdx, stream.addonName].join('|')}
+                                                videoId={video?.id}
+                                                videoReleased={video?.released}
+                                                addonName={stream.addonName}
+                                                quality={stream.quality}
+                                                name={stream.name}
+                                                description={stream.description}
+                                                thumbnail={stream.thumbnail}
+                                                progress={stream.progress}
+                                                deepLinks={stream.deepLinks}
+                                                incompatible={stream.incompatible}
+                                                health={stream.health}
+                                                healthChecking={stream.healthChecking}
+                                                packByName={stream.packByName}
+                                                onClick={stream.onClick}
+                                            />
+                                        ))}
+                                        {
+                                            showInstallAddonsButton ?
+                                                <Button className={styles['install-button-container']} title={t('ADDON_CATALOGUE_MORE')} href={'#/addons'}>
+                                                    <Icon className={styles['icon']} name={'addons'} />
+                                                    <div className={styles['label']}>{t('ADDON_CATALOGUE_MORE')}</div>
+                                                </Button>
+                                                :
+                                                null
+                                        }
+                                    </div>
                                     {
-                                        showInstallAddonsButton ?
-                                            <Button className={styles['install-button-container']} title={t('ADDON_CATALOGUE_MORE')} href={'#/addons'}>
-                                                <Icon className={styles['icon']} name={'addons'} />
-                                                <div className={styles['label']}>{t('ADDON_CATALOGUE_MORE')}</div>
-                                            </Button>
+                                        countLoadingAddons > 0 ?
+                                            <div className={styles['addons-loading-container']}>
+                                                <div className={styles['addons-loading']}>
+                                                    {countLoadingAddons} {t('MOBILE_ADDONS_LOADING')}
+                                                </div>
+                                                <span className={styles['addons-loading-bar']}></span>
+                                            </div>
                                             :
                                             null
                                     }
-                                </div>
-                                {
-                                    countLoadingAddons > 0 ?
-                                        <div className={styles['addons-loading-container']}>
-                                            <div className={styles['addons-loading']}>
-                                                {countLoadingAddons} {t('MOBILE_ADDONS_LOADING')}
-                                            </div>
-                                            <span className={styles['addons-loading-bar']}></span>
-                                        </div>
-                                        :
-                                        null
-                                }
-                            </React.Fragment>
+                                </React.Fragment>
             }
         </div>
     );

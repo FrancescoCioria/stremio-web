@@ -243,6 +243,88 @@
         }
     }
 
+    /* Modalita' Auto: 3 card qualita' (4K/1080p/720p) con recap
+     * (n. torrent + size media), al posto della lista da scegliere a mano.
+     * Al click parte la race dei torrent piu' seedati (torrentRace.js). */
+    .auto-cards {
+        flex: none;
+        align-self: stretch;
+        display: flex;
+        flex-direction: row;
+        gap: 2rem;
+        padding: 2.5rem 2rem;
+        overflow-x: auto;
+        overflow-y: hidden;
+        scrollbar-width: none;
+
+        &::-webkit-scrollbar { display: none; }
+
+        .auto-card {
+            flex: 1 1 0;
+            min-width: 12rem;
+            max-width: 24rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            height: 11rem;
+            padding: 1.5rem;
+            border-radius: var(--border-radius);
+            background-color: var(--overlay-color);
+            border: 0.1rem solid transparent;
+            transition: transform 0.1s ease-out, background-color 0.1s ease-out;
+
+            .auto-card-quality {
+                font-size: 2.2rem;
+                font-weight: 700;
+                color: var(--primary-foreground-color);
+            }
+
+            .auto-card-recap {
+                font-size: 1.1rem;
+                font-weight: 500;
+                color: var(--primary-foreground-color);
+                opacity: 0.7;
+                text-align: center;
+                white-space: nowrap;
+            }
+
+            .auto-card-status {
+                font-size: 1rem;
+                font-weight: 600;
+                color: var(--primary-background-color);
+                background-color: var(--primary-foreground-color);
+                padding: 0.3rem 0.8rem;
+                border-radius: 1rem;
+            }
+
+            &:hover {
+                background-color: var(--secondary-accent-color);
+            }
+
+            &:focus-visible {
+                outline: 0.2rem solid var(--primary-foreground-color);
+                outline-offset: 0.2rem;
+                transform: scale(1.04);
+            }
+
+            &.racing {
+                background-color: var(--primary-accent-color);
+                .auto-card-recap { opacity: 0.9; }
+            }
+
+            &.dimmed {
+                opacity: 0.4;
+            }
+
+            &.empty {
+                opacity: 0.35;
+                pointer-events: none;
+            }
+        }
+    }
+
     .install-button-container {
         flex: none;
         align-self: stretch;
