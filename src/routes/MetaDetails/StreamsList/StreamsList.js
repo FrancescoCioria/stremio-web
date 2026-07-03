@@ -135,6 +135,8 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
     // Race in corso: { bucketKey } mentre selezioniamo il torrent migliore per una qualita'.
     const [racing, setRacing] = React.useState(null);
     const raceAbortRef = React.useRef(null);
+    // Messaggio quando la race non trova nulla di giocabile (ricadiamo sul manuale).
+    const [autoMessage, setAutoMessage] = React.useState(null);
     // infoHash(lower) -> 'clean'|'pack'|'dead' dal sidecar di salute.
     const [healthMap, setHealthMap] = React.useState({});
     const healthRequestedRef = React.useRef(new Set());
@@ -147,6 +149,7 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
         if (streamsContainerRef.current) {
             streamsContainerRef.current.scrollTo({ top: 0, left: 0, behavior: platform.name === 'ios' ? 'smooth' : 'instant' });
         }
+        setAutoMessage(null);
         setSelectedAddon(value);
     }, [platform]);
     const showInstallAddonsButton = React.useMemo(() => {
@@ -234,6 +237,7 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
         if (!bucket || bucket.count === 0) return;
         const ctrl = new AbortController();
         raceAbortRef.current = ctrl;
+        setAutoMessage(null);
         setRacing({ bucketKey });
         const candidates = bucket.streams.map((s) => ({
             infoHash: s.infoHash,
@@ -251,6 +255,12 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
                 if (dl && dl.player) {
                     try { rememberStream(winner.stream); } catch (_e) { /* no-op */ }
                     window.location.href = dl.player;
+                } else {
+                    // Race senza vincitore giocabile: NON aprire uno stallo -> mostra la
+                    // lista manuale (coi badge MORTO/RACCOLTA) e spiega perche'.
+                    const label = (autoBuckets[bucketKey] && autoBuckets[bucketKey].label) || bucketKey;
+                    setAutoMessage('Nessun torrent pronto per ' + label + ' — scegli manualmente:');
+                    setSelectedAddon(ALL_ADDONS_KEY);
                 }
             })
             .catch(() => { raceAbortRef.current = null; setRacing(null); });
@@ -528,6 +538,12 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
                         null
                 }
             </div>
+            {
+                autoMessage ?
+                    <div className={styles['auto-message']}>{autoMessage}</div>
+                    :
+                    null
+            }
             {
                 props.streams.length === 0 ?
                     <div className={styles['message-container']}>

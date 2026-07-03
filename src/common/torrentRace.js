@@ -17,7 +17,7 @@
 
 const RACE_K = 4; // max candidati messi in parallelo
 const POLL_MS = 700; // intervallo di polling stats.json
-const RACE_MS = 8000; // finestra massima di race prima del timeout
+const RACE_MS = 20000; // finestra massima di race prima del timeout (i cachati/vivi vincono molto prima)
 const UNREACHABLE_MS = 1500; // se dopo questo nessuno ha MAI risposto -> server giu' -> fail-open
 const READY_BYTES = 2 * 1024 * 1024; // 2MB scaricati = testa/moov pronti -> giocabile
 const FAST_SPEED = 2 * 1024 * 1024; // >=2MB/s = swarm palesemente veloce -> vincitore anticipato
@@ -76,38 +76,49 @@ const removeTorrent = (server, infoHash) => {
 };
 
 // Metriche numeriche safe da uno stats.json.
+// ⚠️ Segnale CHIAVE = `streamProgress` (0..1, "buffer sufficiente a giocare", 1=pronto),
+// dal file-level stats. Perche' NON `downloaded`: alla ri-creazione di un torrent
+// gia' in cache il contatore `downloaded` si AZZERA (verificato: un file 984MB in
+// cache riporta downloaded=0 ma streamProgress=1). Usare `downloaded` ci faceva
+// NON riconoscere il cachato-pronto e ricadere sul piu'-seedato MORTO. Incidente
+// 2026-07-03 (0 peers ma selezionato): la teoria "cache pollution di downloaded"
+// era sbagliata -> il vero segnale e' streamProgress. Serve pero' pollare a
+// FILE-LEVEL (torrent-level non espone streamProgress) -> candidati con fileIdx.
 const metricsOf = (s) => ({
     downloaded: +(s && s.downloaded) || 0,
     speed: +(s && s.downloadSpeed) || 0,
     unchoked: +(s && s.unchoked) || 0,
     peers: +(s && s.peers) || 0,
-    streamLen: +(s && s.streamLen) || 0
+    streamLen: +(s && s.streamLen) || 0,
+    progress: (s && typeof s.streamProgress === 'number') ? s.streamProgress : 0
 });
 // Rete VIVA adesso: un peer ci sta servendo (unchoked) o stanno arrivando byte.
-// ⚠️ La lettura da CACHE su disco NON alza downloadSpeed (e' traffico di rete) ne'
-// unchoked -> cosi' un torrent MORTO con la testa cachata da un tentativo
-// precedente NON risulta "vivo". Incidente 2026-07-03 (0 peers ma selezionato):
-// il segnale `downloaded` e' inquinato dalla cache (40GB) del server.
 const isLiveM = (m) => m.unchoked > 0 || m.speed > 0;
 
-// "Pronto a giocare": rete viva CON testa bufferata, oppure file gia' quasi tutto
-// in cache (unchoked/speed 0 ma downloaded ~ streamLen). Il caso pericoloso —
-// testa cachata (downloaded>=2MB) ma swarm morto — NON passa: manca la liveness.
+// "Pronto a giocare": il server ha buffer sufficiente (streamProgress alto — vale sia
+// per il cachato-completo =1 sia per il live che ha bufferato la testa). Fallback per
+// server che non popolano subito streamProgress: rete viva con testa scaricata.
+const READY_PROGRESS = 0.9;
 const isReady = (s) => {
     const m = metricsOf(s);
-    const fullyCached = m.streamLen > 0 && m.downloaded >= m.streamLen * 0.98;
-    return (isLiveM(m) && m.downloaded >= READY_BYTES) || fullyCached;
+    if (m.progress >= READY_PROGRESS) return true;
+    if (isLiveM(m) && m.downloaded >= READY_BYTES) return true;
+    return false;
 };
 
-// Punteggio per il ranking a TIMEOUT. LIVENESS DOMINA: un torrent vivo batte
-// SEMPRE uno morto a prescindere dal `downloaded` (inquinato dalla cache). Tra i
-// vivi: piu' peer, poi piu' velocita'. `downloaded` conta solo come spareggio fine.
+// Punteggio per il ranking a TIMEOUT. streamProgress DOMINA (buffer reale del server:
+// cachato o live-bufferato), poi liveness (peer che servono), poi velocita'. Un morto
+// (progress 0, 0 peer) finisce in fondo a prescindere.
 const scoreOf = (s) => {
     if (!s) return -1;
     const m = metricsOf(s);
     const liveBonus = (m.unchoked > 0 ? 4e12 : 0) + (m.peers > 0 ? 1e12 : 0) + (m.speed > 0 ? 1e11 : 0);
-    return liveBonus + m.peers * 1e6 + Math.min(m.speed, FAST_SPEED) + m.downloaded * 0.001;
+    return m.progress * 1e13 + liveBonus + m.peers * 1e6 + Math.min(m.speed, FAST_SPEED) + m.downloaded * 0.001;
 };
+// Un candidato ha SENSO aprirlo solo se ha qualcosa: buffer (progress) o rete viva.
+// Se al timeout NESSUNO ce l'ha -> niente da aprire (l'utente aspetterebbe su uno
+// stallo) -> la race ritorna null e il chiamante ricade sulla lista manuale.
+const isPlayableM = (m) => m.progress > 0 || isLiveM(m) || m.peers > 0;
 
 // candidates: [{ infoHash, fileIdx, sources, stream, seeders }]
 // serverUrl: base dello streaming-server (es. http://127.0.0.1:11470)
@@ -172,13 +183,20 @@ const raceTorrents = ({ candidates, serverUrl, onStatus, signal }) => {
                         finish(ready[0]);
                         return;
                     }
-                    // 2) Timeout: se c'e' almeno un torrent VIVO, vince il migliore
-                    // (scoreOf mette i vivi sopra i morti-cachati). Se NESSUNO e' vivo,
-                    // fallback al piu' seedato (racers[0]) -> NON al cache-heaviest morto.
+                    // 2) Timeout: vince il migliore per scoreOf (streamProgress/liveness).
+                    // MA se NESSUNO e' giocabile (0 buffer, 0 rete, 0 peer su tutti) ->
+                    // aprire qualcuno = stallo garantito -> ritorna null -> il chiamante
+                    // ricade sulla lista manuale (l'utente sceglie/vede i badge morto).
                     if (elapsed >= RACE_MS) {
-                        const anyLive = racers.some((c) => isLiveM(metricsOf(last.get(c.infoHash))));
                         const ranked = racers.slice().sort((a, b) => scoreOf(last.get(b.infoHash)) - scoreOf(last.get(a.infoHash)));
-                        const best = anyLive ? ranked[0] : racers[0];
+                        const anyPlayable = racers.some((c) => isPlayableM(metricsOf(last.get(c.infoHash))));
+                        if (!anyPlayable) {
+                            if (onStatus) onStatus({ phase: 'nolive', elapsedMs: elapsed });
+                            racers.forEach((c) => removeTorrent(server, c.infoHash));
+                            done = true; resolve(null);
+                            return;
+                        }
+                        const best = ranked[0];
                         if (onStatus) onStatus({ phase: 'timeout', leaderInfoHash: best.infoHash, elapsedMs: elapsed });
                         finish(best);
                         return;

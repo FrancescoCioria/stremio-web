@@ -243,6 +243,19 @@
         }
     }
 
+    /* Banner quando la race Auto non trova nulla di giocabile -> lista manuale. */
+    .auto-message {
+        flex: none;
+        align-self: stretch;
+        margin: 0.5rem 2rem 0;
+        padding: 0.75rem 1rem;
+        border-radius: var(--border-radius);
+        background-color: var(--overlay-color);
+        color: var(--primary-foreground-color);
+        font-size: 1.1rem;
+        font-weight: 500;
+    }
+
     /* Modalita' Auto: 3 card qualita' (4K/1080p/720p) con recap
      * (n. torrent + size media), al posto della lista da scegliere a mano.
      * Al click parte la race dei torrent piu' seedati (torrentRace.js). */
