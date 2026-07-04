@@ -21,7 +21,7 @@ const formatBuffer = (ms) => {
     return `${m}m ${('0' + (s % 60)).slice(-2)}s`;
 };
 
-const StatisticsMenu = React.memo(React.forwardRef(({ className, peers, speed, completed, buffer, infoHash }, ref) => {
+const StatisticsMenu = React.memo(React.forwardRef(({ className, peers, speed, buffer, infoHash }, ref) => {
     const { t } = useTranslation();
     const onMouseDown = React.useCallback((event) => {
         event.nativeEvent.statisticsMenuClosePrevented = true;
@@ -48,14 +48,11 @@ const StatisticsMenu = React.memo(React.forwardRef(({ className, peers, speed, c
                         {`${speed} ${t('MB_S')}`}
                     </div>
                 </div>
-                <div className={styles['stat']}>
-                    <div className={styles['label']}>
-                        {t('PLAYER_COMPLETED')}
-                    </div>
-                    <div className={styles['value']}>
-                        { Math.min(completed, 100) } %
-                    </div>
-                </div>
+                {/* "Completed %" rimosso: con TorrServer (streaming a finestra)
+                    e' preloaded_bytes/torrent_size -> resta ~2% per sempre e non
+                    sale mai a 100% (non e' un download cumulativo). "Buffer" sotto
+                    (secondi davanti alla testina) e' la metrica utile. `completed`
+                    resta come prop perche' Player.js ci deriva il Buffer. */}
                 <div className={styles['stat']}>
                     <div className={styles['label']}>
                         {'Buffer'}
@@ -81,7 +78,6 @@ StatisticsMenu.propTypes = {
     className: PropTypes.string,
     peers: PropTypes.number,
     speed: PropTypes.number,
-    completed: PropTypes.number,
     buffer: PropTypes.number,
     infoHash: PropTypes.string,
 };

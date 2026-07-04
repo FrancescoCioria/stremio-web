@@ -708,6 +708,22 @@ const Player = () => {
     const tsSel = typeof selectedStream?.url === 'string' ? selectedStream.url.match(/\/ts\/([a-f0-9]{40})\/(-?\d+)/i) : null;
     const streamInfoHash = typeof selectedStream?.infoHash === 'string' ? selectedStream.infoHash : (tsSel ? tsSel[1].toLowerCase() : null);
     const streamFileIdx = typeof selectedStream?.fileIdx === 'number' ? selectedStream.fileIdx : (tsSel ? 0 : null);
+    // Barra di progresso: per i nostri stream TorrServer (/ts) mostra anche la
+    // finestra scaricata. La Slider vuole `buffered` = posizione ASSOLUTA fin dove
+    // e' bufferizzato -> time + (completed% * durata), con completed% =
+    // preloaded/size (~secondi di finestra davanti alla testina). Cosi' il
+    // "riempito" della barra arriva qualche minuto oltre il punto corrente.
+    // Fuori da TorrServer resta il buffered del browser (MSE). max() per non
+    // mostrare mai MENO di quanto il browser ha davvero; clamp alla durata.
+    const seekBarBuffered = (() => {
+        const browserBuffered = typeof video.state.buffered === 'number' ? video.state.buffered : 0;
+        if (tsSel && statistics && typeof statistics.completed === 'number' &&
+            typeof video.state.time === 'number' && typeof video.state.duration === 'number' && video.state.duration > 0) {
+            const windowSec = (statistics.completed / 100) * video.state.duration;
+            return Math.min(video.state.duration, Math.max(browserBuffered, video.state.time + windowSec));
+        }
+        return video.state.buffered;
+    })();
     // Ricorda quale stream stai guardando per questo video: al ritorno nella
     // lista torrent StreamsList ci preseleziona la card corrispondente.
     React.useEffect(() => {
@@ -1125,7 +1141,7 @@ const Player = () => {
                 paused={video.state.paused}
                 time={video.state.time}
                 duration={video.state.duration}
-                buffered={video.state.buffered}
+                buffered={seekBarBuffered}
                 subtitlesTracks={allSubtitleTracks}
                 audioTracks={video.state.audioTracks}
                 nextVideo={player.nextVideo}
