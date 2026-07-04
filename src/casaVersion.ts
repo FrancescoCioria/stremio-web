@@ -6,4 +6,4 @@
 // Durante lo sviluppo usa i MINOR per le iterazioni ravvicinate (v3 -> v3.1 ->
 // v3.2 ...); il MAJOR (v4) solo per un cambiamento sostanziale. Cosi' non si
 // arriva a v970 in una settimana.
-export const CASA_VERSION = 'v4.5';
+export const CASA_VERSION = 'v4.6';

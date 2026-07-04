@@ -1,219 +1,142 @@
 // Copyright (C) 2017-2023 Smart code 203358507
 //
-// Motore "Auto": data una lista di stream torrent candidati (gia' filtrati per
-// qualita' + ordinati per seeder), li avvia IN PARALLELO sullo streaming-server
-// locale (:11470), polla la salute REALE dello swarm (stats.json) su una finestra
-// minima e ritorna quello che meglio reggera' l'INTERO video (throughput + swarm >
-// cache ambigua). I perdenti vengono rimossi.
+// Motore "Auto": data una lista di stream candidati (gia' filtrati per qualita' +
+// ordinati per seeder), aggiunge i piu' promettenti IN PARALLELO a TorrServer
+// (:8090), polla la salute REALE dello swarm e ritorna quello che scarica meglio;
+// i perdenti vengono rimossi. Sostituisce il vecchio motore su :11470 (rotto):
+// STESSO comportamento, engine nuovo. Vedi docs/stremio-torrserver.md.
 //
-// Perche' in-browser e non nel backend: il player carica il torrent DALLO STESSO
-// streaming-server; scaldando qui i torrent, quando navighiamo al player il
-// vincitore sta gia' scaricando e parte istantaneo. Vedi docs/stremio-server-tuning.md
-// ("IL COLLO NON E' LA BANDA": il collo e' lo swarm del singolo torrent, quindi
-// racing in parallelo su swarm disgiunti NON si ruba banda a vicenda).
+// Perche' in-browser e non nel backend: il player carica lo stream da TorrServer;
+// scaldando qui i torrent, quando navighiamo al player il vincitore sta gia'
+// scaricando e parte subito. Racing su swarm disgiunti NON si ruba banda a vicenda
+// (il collo e' lo swarm del singolo torrent, non la banda — 2.5Gbps fibra).
 //
-// FAIL-OPEN TOTALE: server irraggiungibile / fetch in errore / nessun candidato
-// pronto -> ritorna il candidato piu' seedato senza bloccare nulla. Il "peggio"
-// che puo' succedere e' comportarsi come un click manuale sul primo stream.
+// FAIL-OPEN TOTALE: TorrServer irraggiungibile / fetch in errore / nessun
+// candidato che scarica -> ritorna il candidato piu' seedato senza bloccare nulla
+// (il "peggio" = comportarsi come un click manuale sul primo stream).
 
-const RACE_K = 4; // max candidati messi in parallelo
-const POLL_MS = 700; // intervallo di polling stats.json
-const RACE_MS = 20000; // finestra massima di race prima del timeout (i cachati/vivi vincono molto prima)
-const UNREACHABLE_MS = 1500; // se dopo questo nessuno ha MAI risposto -> server giu' -> fail-open
-const MIN_RACE_MS = 4000; // finestra MINIMA: corriamo SEMPRE qualche secondo prima di
-// decidere — mai vincita istantanea su un singolo segnale ambiguo (streamProgress=1
-// puo' essere "tutto il file in cache" OPPURE "solo la testa cachata, swarm morto":
-// indistinguibili dalle stats). Qualche secondo lascia emergere la salute reale.
+const RACE_K = 4; // max candidati in parallelo
+const POLL_MS = 1000; // intervallo polling stats TorrServer
+const RACE_MS = 20000; // finestra massima prima del timeout
+const UNREACHABLE_MS = 2500; // se dopo questo nessuno ha MAI risposto -> TorrServer giu' -> fail-open
+const MIN_RACE_MS = 4000; // finestra MINIMA: corriamo sempre qualche secondo prima di decidere
 const MB = 1024 * 1024;
-const SPEED_CAP = 8 * MB; // cap per il punteggio throughput
 const STRONG_SPEED = 1.5 * MB; // >= -> "chiaramente buono", decidibile in anticipo
 
-// Normalizza la base URL dello streaming-server (niente slash finale).
-const normServer = (url) => (typeof url === 'string' && url ? url.replace(/\/+$/, '') : null);
-
-// Sorgenti peer per il create: gli stream portano sources tipo
-// ["tracker:udp://...", "dht:..."]; le passiamo com'e' + garantiamo il dht dell'infohash.
-const buildSources = (stream, infoHash) => {
-    const raw = Array.isArray(stream.sources) ? stream.sources.filter((s) => typeof s === 'string') : [];
-    const out = raw.filter((s) => s.indexOf('tracker:') === 0 || s.indexOf('dht:') === 0);
-    const dht = 'dht:' + infoHash;
-    if (out.indexOf(dht) === -1) out.push(dht);
-    return out;
+// hash (40 hex) dall'url del nostro addon: .../stremio-addon/ts/<hash>/<idx>
+const hashFromUrl = (url) => {
+    const m = typeof url === 'string' && url.match(/\/ts\/([a-f0-9]{40})\b/i);
+    return m ? m[1].toLowerCase() : null;
+};
+// base TorrServer dall'url addon (stesso host, porta 8090). Cosi' funziona sia
+// dalla tile (100.114...:8765 -> :8090) sia dal Mac (Tailscale), senza hardcode.
+const torrserverBase = (url) => {
+    try { const u = new URL(url); return u.protocol + '//' + u.hostname + ':8090'; }
+    catch (_e) { return null; }
+};
+// tracker dai sources dello stream (["tracker:udp://...", ...]) per l'add magnet.
+const trackersOf = (stream) => {
+    const raw = stream && Array.isArray(stream.sources) ? stream.sources : [];
+    return raw.filter((s) => typeof s === 'string' && s.indexOf('tracker:') === 0).map((s) => s.slice(8));
 };
 
-const fetchJson = (url, opts, timeoutMs) => {
+const post = (base, body, timeoutMs) => {
     const ctrl = new AbortController();
-    const to = setTimeout(() => ctrl.abort(), timeoutMs || 4000);
-    return fetch(url, Object.assign({ signal: ctrl.signal }, opts))
-        .then((r) => (r && r.ok ? r.json() : null))
-        .catch(() => null)
-        .then((v) => { clearTimeout(to); return v; });
-};
-
-// Avvia (o ri-avvia) un torrent sul server iniettando le sorgenti peer reali.
-const createTorrent = (server, infoHash, fileIdx, sources) => {
-    const body = {
-        torrent: { infoHash },
-        peerSearch: { sources, min: 40, max: 200 },
-        // guessFileIdx: oggetto (lascia scegliere al motore) se non sappiamo l'indice,
-        // false se lo conosciamo (l'addon di solito lo fornisce per i film).
-        guessFileIdx: typeof fileIdx === 'number' ? false : {}
-    };
-    return fetchJson(server + '/' + encodeURIComponent(infoHash) + '/create', {
+    const to = setTimeout(() => ctrl.abort(), timeoutMs || 5000);
+    return fetch(base + '/torrents', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(body)
-    }, 5000);
+        body: JSON.stringify(body),
+        signal: ctrl.signal
+    }).then((r) => (r && r.ok ? r.json() : null)).catch(() => null).then((v) => { clearTimeout(to); return v; });
 };
-
-// stats.json per (infoHash, fileIdx). Se fileIdx e' ignoto usa lo stats a livello
-// torrent (che espone comunque downloaded/peers/downloadSpeed globali).
-const statsOf = (server, infoHash, fileIdx) => {
-    const idx = typeof fileIdx === 'number' ? '/' + encodeURIComponent(fileIdx) : '';
-    return fetchJson(server + '/' + encodeURIComponent(infoHash) + idx + '/stats.json', undefined, 4000);
+// Aggiunge (idempotente) un torrent a TorrServer iniettando i tracker reali.
+const addTorrent = (base, hash, trackers) => {
+    let link = 'magnet:?xt=urn:btih:' + hash;
+    (trackers || []).forEach((tr) => { link += '&tr=' + encodeURIComponent(tr); });
+    return post(base, { action: 'add', link: link, title: hash, save_to_db: true }, 6000);
 };
+const getTorrent = (base, hash) => post(base, { action: 'get', hash: hash }, 4000);
+// Rimuove un torrent (libera i perdenti). Best-effort.
+const remTorrent = (base, hash) => { try { post(base, { action: 'rem', hash: hash }, 3000); } catch (_e) { /* best-effort */ } };
 
-// Rimuove un torrent dal server (libera connessioni/slot dei perdenti). Best-effort.
-const removeTorrent = (server, infoHash) => {
-    try {
-        fetch(server + '/' + encodeURIComponent(infoHash) + '/remove').catch(() => undefined);
-    } catch (_e) { /* best-effort */ }
-};
-
-// Metriche numeriche safe da uno stats.json.
-// ⚠️ Segnale CHIAVE = `streamProgress` (0..1, "buffer sufficiente a giocare", 1=pronto),
-// dal file-level stats. Perche' NON `downloaded`: alla ri-creazione di un torrent
-// gia' in cache il contatore `downloaded` si AZZERA (verificato: un file 984MB in
-// cache riporta downloaded=0 ma streamProgress=1). Usare `downloaded` ci faceva
-// NON riconoscere il cachato-pronto e ricadere sul piu'-seedato MORTO. Incidente
-// 2026-07-03 (0 peers ma selezionato): la teoria "cache pollution di downloaded"
-// era sbagliata -> il vero segnale e' streamProgress. Serve pero' pollare a
-// FILE-LEVEL (torrent-level non espone streamProgress) -> candidati con fileIdx.
-const metricsOf = (s) => ({
-    downloaded: +(s && s.downloaded) || 0,
-    speed: +(s && s.downloadSpeed) || 0,
-    unchoked: +(s && s.unchoked) || 0,
-    peers: +(s && s.peers) || 0,
-    streamLen: +(s && s.streamLen) || 0,
-    progress: (s && typeof s.streamProgress === 'number') ? s.streamProgress : 0
+// Metriche safe da un /torrents get di TorrServer. active_peers/download_speed/
+// preloaded_bytes sono null quando il torrent e' "in db" (non attivo) -> 0.
+const metricsOf = (t) => ({
+    peers: +((t && t.active_peers) || 0),
+    seeders: +((t && t.connected_seeders) || 0),
+    speed: +((t && t.download_speed) || 0), // byte/s
+    preloaded: +((t && t.preloaded_bytes) || 0)
 });
-// Rete VIVA adesso: un peer ci sta servendo (unchoked) o stanno arrivando byte.
-const isLiveM = (m) => m.unchoked > 0 || m.speed > 0;
-
-// Punteggio "reggera' l'INTERO video?". La THROUGHPUT reale (byte/s dallo swarm) e la
-// dimensione dello swarm predicono la consegna di tutto il film -> PRIMARIE. Lo
-// streamProgress (buffer/cache) da' solo un vantaggio di PARTENZA -> peso MODESTO, cosi'
-// una cache minuscola NON batte uno swarm sano (che invece garantisce l'intero video).
-// Perche' non fidarsi di streamProgress da solo: =1 puo' essere "tutto in cache" (ottimo)
-// o "solo la testa cachata, resto morto" (pessimo) -> indistinguibili. Quindi lo swarm
-// vivo, che consegna comunque tutto, e' il predittore piu' sicuro.
-const scoreOf = (s) => {
-    if (!s) return -1;
-    const m = metricsOf(s);
-    return Math.min(m.speed, SPEED_CAP) / 1e5 // throughput reale: PRIMARIO (0..~80)
-        + (m.unchoked > 0 ? 40 : 0) // un peer ci serve DAVVERO adesso
-        + m.peers * 3 // resilienza dello swarm
-        + m.progress * 25 // partenza pronta (cache/buffer): bonus MODESTO
-        + m.downloaded / 1e8; // spareggio fine
+// Rete VIVA adesso: byte in arrivo o peer/seeder connessi.
+const isLiveM = (m) => m.speed > 0 || m.peers > 0 || m.seeders > 0;
+// Punteggio "reggera' l'INTERO video?": throughput reale + swarm PRIMARI (predicono
+// la consegna di tutto il film); la cache (preloaded) da' solo un vantaggio di
+// partenza -> peso minimo, cosi' una cache minuscola NON batte uno swarm sano.
+const scoreOf = (t) => {
+    if (!t) return -1;
+    const m = metricsOf(t);
+    return Math.min(m.speed, 8 * MB) / 1e5 // throughput reale: PRIMARIO
+        + m.seeders * 5                     // seeder connessi = reggono il film
+        + m.peers * 2                       // resilienza swarm
+        + m.preloaded / 1e8;                // spareggio fine (cache di partenza)
 };
-// "Chiaramente buono" (decidibile in anticipo, dopo la finestra minima): sta gia'
-// scaricando forte, OPPURE e' bufferato/cachato E ha uno swarm dietro (non solo cache
-// nuda, che potrebbe essere una testa morta).
-const isStrongM = (m) => m.speed >= STRONG_SPEED || (m.progress >= 0.9 && m.peers > 0);
-// Apribile solo se ha QUALCOSA (buffer, rete, o peer). Se a fine finestra nessuno ce
-// l'ha -> null -> il chiamante ricade sulla lista manuale (niente stallo forzato).
-const isPlayableM = (m) => m.progress > 0 || isLiveM(m) || m.peers > 0;
+// "Chiaramente buono" (decidibile dopo la finestra minima): scarica gia' forte,
+// oppure ha piu' seeder connessi CHE gli stanno servendo byte.
+const isStrongM = (m) => m.speed >= STRONG_SPEED || (m.seeders >= 3 && m.speed > 0);
+// Apribile: ha almeno rete viva. Se a fine finestra nessuno ce l'ha -> null -> il
+// chiamante ricade sulla lista manuale (niente stallo forzato).
+const isPlayableM = (m) => isLiveM(m);
 
-// candidates: [{ infoHash, fileIdx, sources, stream, seeders }]
-// serverUrl: base dello streaming-server (es. http://127.0.0.1:11470)
-// onStatus(optional): (info) => void   info = { phase, leaderInfoHash, elapsedMs }
+// candidates: [{ hash, base, trackers, seeders, stream }]  (base = URL TorrServer)
 // signal(optional): AbortSignal per cancellare la race (utente esce dalla card)
-//
-// Ritorna il candidato vincitore (gia' scaldato sul server), OPPURE null se dopo la
-// finestra NESSUN candidato e' giocabile (0 buffer/rete/peer) -> il chiamante ricade
-// sulla lista manuale. Su server irraggiungibile/assente -> fail-open al piu' seedato.
-const raceTorrents = ({ candidates, serverUrl, onStatus, signal }) => {
-    const server = normServer(serverUrl);
-    const list = (Array.isArray(candidates) ? candidates : []).filter((c) => c && typeof c.infoHash === 'string');
-    // Guard fail-open: niente server o niente candidati torrent -> primo candidato.
-    if (!server || list.length === 0) {
-        return Promise.resolve((candidates && candidates[0]) || null);
-    }
+// Ritorna il candidato vincitore (gia' scaldato su TorrServer), OPPURE null se dopo
+// la finestra nessuno e' giocabile. TorrServer irraggiungibile -> fail-open al primo.
+const raceTorrents = ({ candidates, signal }) => {
+    const list = (Array.isArray(candidates) ? candidates : []).filter((c) => c && c.hash && c.base);
+    if (list.length === 0) return Promise.resolve((candidates && candidates[0]) || null);
+    const base = list[0].base;
     if (list.length === 1) {
-        // Un solo candidato: scaldalo comunque (parte prima) ma non c'e' race.
-        createTorrent(server, list[0].infoHash, list[0].fileIdx, buildSources(list[0].stream, list[0].infoHash));
+        addTorrent(base, list[0].hash, list[0].trackers);
         return Promise.resolve(list[0]);
     }
     const racers = list.slice(0, RACE_K);
     const aborted = () => signal && signal.aborted;
-
-    // Avvia tutti in parallelo (inietta sorgenti reali).
-    racers.forEach((c) => createTorrent(server, c.infoHash, c.fileIdx, buildSources(c.stream, c.infoHash)));
-
+    racers.forEach((c) => addTorrent(base, c.hash, c.trackers));
     const start = Date.now();
-    const last = new Map(); // infoHash -> ultimo stats
+    const lastStats = new Map();
 
     return new Promise((resolve) => {
         let done = false;
         const finish = (winner) => {
             if (done) return;
             done = true;
-            // Rimuovi i perdenti (libera slot/connessioni). Il vincitore resta caldo.
-            racers.forEach((c) => { if (c.infoHash !== winner.infoHash) removeTorrent(server, c.infoHash); });
+            racers.forEach((c) => { if (c.hash !== winner.hash) remTorrent(base, c.hash); });
             resolve(winner);
         };
-
         const tick = () => {
             if (done) return;
             if (aborted()) { done = true; resolve(null); return; }
             const elapsed = Date.now() - start;
-
-            Promise.all(racers.map((c) => statsOf(server, c.infoHash, c.fileIdx).then((s) => { if (s) last.set(c.infoHash, s); })))
+            Promise.all(racers.map((c) => getTorrent(base, c.hash).then((t) => { if (t) lastStats.set(c.hash, t); })))
                 .then(() => {
                     if (done) return;
-                    // 0) Server irraggiungibile? Un server VIVO risponde subito con
-                    // stats (anche a 0 byte); se dopo UNREACHABLE_MS nessun candidato
-                    // ha MAI risposto -> e' giu' -> fail-open al piu' seedato, non
-                    // aspettare tutta la finestra (era 9s di attesa a vuoto).
-                    if (last.size === 0 && elapsed >= UNREACHABLE_MS) {
-                        if (onStatus) onStatus({ phase: 'unreachable', leaderInfoHash: racers[0].infoHash, elapsedMs: elapsed });
-                        finish(racers[0]);
-                        return;
-                    }
-                    // 1) Finestra MINIMA: corriamo sempre qualche secondo prima di
-                    // decidere -> niente vincita istantanea su un segnale ambiguo.
-                    const ranked = racers.slice().sort((a, b) => scoreOf(last.get(b.infoHash)) - scoreOf(last.get(a.infoHash)));
+                    // 0) TorrServer irraggiungibile -> fail-open al piu' seedato.
+                    if (lastStats.size === 0 && elapsed >= UNREACHABLE_MS) { finish(racers[0]); return; }
+                    const ranked = racers.slice().sort((a, b) => scoreOf(lastStats.get(b.hash)) - scoreOf(lastStats.get(a.hash)));
                     const best = ranked[0];
-                    if (elapsed < MIN_RACE_MS) {
-                        if (onStatus) onStatus({ phase: 'racing', leaderInfoHash: best && best.infoHash, elapsedMs: elapsed });
-                        setTimeout(tick, POLL_MS);
-                        return;
-                    }
-                    // 2) Passata la finestra minima: decidi in ANTICIPO solo se il migliore
-                    // e' CHIARAMENTE buono (scarica forte, o cachato CON swarm dietro).
-                    // Altrimenti continua a cercare uno swarm vivo (che regge tutto il video).
-                    const bestM = metricsOf(last.get(best.infoHash));
-                    if (isStrongM(bestM)) {
-                        if (onStatus) onStatus({ phase: 'ready', leaderInfoHash: best.infoHash, elapsedMs: elapsed });
-                        finish(best);
-                        return;
-                    }
-                    // 3) Timeout massimo: prendi il migliore se giocabile; se NESSUNO lo e'
-                    // (0 buffer, 0 rete, 0 peer) -> null -> il chiamante ricade sul manuale.
+                    // 1) Finestra minima: mai vincita istantanea su un segnale ambiguo.
+                    if (elapsed < MIN_RACE_MS) { setTimeout(tick, POLL_MS); return; }
+                    // 2) Decidi in anticipo se il migliore e' chiaramente buono.
+                    if (isStrongM(metricsOf(lastStats.get(best.hash)))) { finish(best); return; }
+                    // 3) Timeout: prendi il migliore se giocabile; se nessuno -> null.
                     if (elapsed >= RACE_MS) {
-                        const anyPlayable = racers.some((c) => isPlayableM(metricsOf(last.get(c.infoHash))));
-                        if (!anyPlayable) {
-                            if (onStatus) onStatus({ phase: 'nolive', elapsedMs: elapsed });
-                            racers.forEach((c) => removeTorrent(server, c.infoHash));
-                            done = true; resolve(null);
-                            return;
-                        }
-                        if (onStatus) onStatus({ phase: 'timeout', leaderInfoHash: best.infoHash, elapsedMs: elapsed });
+                        const anyPlayable = racers.some((c) => isPlayableM(metricsOf(lastStats.get(c.hash))));
+                        if (!anyPlayable) { racers.forEach((c) => remTorrent(base, c.hash)); done = true; resolve(null); return; }
                         finish(best);
                         return;
                     }
-                    // 4) Continua a correre (feedback leader corrente).
-                    if (onStatus) onStatus({ phase: 'racing', leaderInfoHash: best.infoHash, elapsedMs: elapsed });
+                    // 4) Continua a correre.
                     setTimeout(tick, POLL_MS);
                 });
         };
@@ -221,4 +144,7 @@ const raceTorrents = ({ candidates, serverUrl, onStatus, signal }) => {
     });
 };
 
-module.exports = { raceTorrents, RACE_K, RACE_MS, MIN_RACE_MS, scoreOf, isStrongM, isPlayableM, buildSources };
+module.exports = {
+    raceTorrents, hashFromUrl, torrserverBase, trackersOf,
+    RACE_K, RACE_MS, MIN_RACE_MS, scoreOf, isStrongM, isPlayableM
+};

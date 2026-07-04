@@ -13,7 +13,7 @@ const { usePlatform, useProfile } = require('stremio/common');
 const { streamKey, recallStreamKey, rememberStream } = require('stremio/common/lastStream');
 const { default: useRouteFocused } = require('stremio/common/useRouteFocused');
 const { default: SeasonEpisodePicker } = require('../EpisodePicker');
-const { raceTorrents } = require('stremio/common/torrentRace');
+const torrentRace = require('stremio/common/torrentRace');
 const qualityBuckets = require('stremio/common/qualityBuckets');
 
 const ALL_ADDONS_KEY = 'ALL';
@@ -236,24 +236,41 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
     // bucket, poi apre il player sul vincitore. Fail-open: se il server non
     // risponde, raceTorrents ritorna comunque il candidato piu' seedato.
     const onQualitySelected = React.useCallback((bucketKey) => {
+        if (racing) return;
         const bucket = autoBuckets[bucketKey];
         if (!bucket || bucket.count === 0) return;
+        const ctrl = new AbortController();
+        raceAbortRef.current = ctrl;
         setAutoMessage(null);
-        // Con TorrServer il download e' affidabile -> niente race: apri il piu'
-        // seedato del bucket (gia' ordinati per seeder desc in computeBuckets).
-        // server.js transcodifica l'URL raw di TorrServer; il motore torrent
-        // :11470 (rotto) non viene usato. Se non parte, l'utente torna e sceglie
-        // manualmente dalla lista.
-        const best = bucket.streams[0];
-        const dl = best && best.deepLinks;
-        if (dl && dl.player) {
-            try { rememberStream(best); } catch (_e) { /* no-op */ }
-            window.location.href = dl.player;
-            return;
-        }
-        setAutoMessage('Nessuno stream pronto per ' + (bucket.label || bucketKey) + ' — scegli manualmente:');
-        setSelectedAddon(ALL_ADDONS_KEY);
-    }, [autoBuckets]);
+        setRacing({ bucketKey });
+        // Race su TorrServer: aggiunge in parallelo i candidati piu' seedati, sonda
+        // la salute reale dello swarm (peers/speed) e apre il vincitore. hash+base
+        // TorrServer estratti dall'url del nostro addon (/stremio-addon/ts/<hash>).
+        const candidates = bucket.streams.map((s) => ({
+            hash: torrentRace.hashFromUrl(s.url),
+            base: torrentRace.torrserverBase(s.url),
+            trackers: torrentRace.trackersOf(s),
+            seeders: s.seeders,
+            stream: s
+        })).filter((c) => c.hash && c.base);
+        torrentRace.raceTorrents({ candidates, signal: ctrl.signal })
+            .then((winner) => {
+                raceAbortRef.current = null;
+                if (ctrl.signal.aborted) return;
+                setRacing(null);
+                const dl = winner && winner.stream && winner.stream.deepLinks;
+                if (dl && dl.player) {
+                    try { rememberStream(winner.stream); } catch (_e) { /* no-op */ }
+                    window.location.href = dl.player;
+                } else {
+                    // Nessun candidato che scarica -> lista manuale (niente stallo).
+                    const label = (autoBuckets[bucketKey] && autoBuckets[bucketKey].label) || bucketKey;
+                    setAutoMessage('Nessun torrent pronto per ' + label + ' — scegli manualmente:');
+                    setSelectedAddon(ALL_ADDONS_KEY);
+                }
+            })
+            .catch(() => { raceAbortRef.current = null; setRacing(null); });
+    }, [racing, autoBuckets]);
     // Indice di qualita': raccogli gli infohash unici degli stream Ready e
     // sondali via sidecar stremio-health (solo metadata, niente download).
     // requestedRef evita ri-sonde; fail-open su qualsiasi errore.

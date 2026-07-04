@@ -702,8 +702,12 @@ const Player = () => {
     const streamingStatsRef = React.useRef(streamingServer.statistics);
     React.useEffect(() => { streamingStatsRef.current = streamingServer.statistics; }, [streamingServer.statistics]);
     const selectedStream = player.selected?.stream;
-    const streamInfoHash = typeof selectedStream?.infoHash === 'string' ? selectedStream.infoHash : null;
-    const streamFileIdx = typeof selectedStream?.fileIdx === 'number' ? selectedStream.fileIdx : null;
+    // TorrServer: i nostri url stream (/ts/<hash>/<idx>) non hanno infoHash/fileIdx
+    // nativi -> li deriviamo dall'url, cosi' l'auto-apertura delle stats a 5s (sotto)
+    // e la memoria "ultimo stream" funzionano come per i torrent classici.
+    const tsSel = typeof selectedStream?.url === 'string' ? selectedStream.url.match(/\/ts\/([a-f0-9]{40})\/(-?\d+)/i) : null;
+    const streamInfoHash = typeof selectedStream?.infoHash === 'string' ? selectedStream.infoHash : (tsSel ? tsSel[1].toLowerCase() : null);
+    const streamFileIdx = typeof selectedStream?.fileIdx === 'number' ? selectedStream.fileIdx : (tsSel ? 0 : null);
     // Ricorda quale stream stai guardando per questo video: al ritorno nella
     // lista torrent StreamsList ci preseleziona la card corrispondente.
     React.useEffect(() => {
