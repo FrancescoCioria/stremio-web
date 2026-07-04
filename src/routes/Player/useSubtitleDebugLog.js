@@ -27,7 +27,11 @@
 
 const React = require('react');
 
-const ENDPOINT = 'http://127.0.0.1:8765/debug/player-event';
+// Backend derivato dall'host della pagina (come useTitleAvailability): sulla TV
+// = localhost, dal Mac remoto = beelink-cachyos/IP Tailscale → i POST di debug
+// arrivano al backend del Beelink invece che al 127.0.0.1 locale del Mac (dove
+// non c'e' backend) → cosi' anche le sessioni remote finiscono nel log.
+const ENDPOINT = 'http://' + window.location.hostname + ':8765/debug/player-event';
 const HEAL_MS = 1000;         // cadenza del watchdog self-heal (check mode, economico)
 const SAMPLE_MS = 4000;       // cadenza della diagnostica verbosa (scan cue)
 const HEARTBEAT_MS = 30000;   // log periodico anche se nulla cambia

@@ -176,7 +176,6 @@ const useSubtitles = ({
         const savedTrack = player.streamState?.subtitleTrack;
         const savedTrackId = savedTrack?.id;
         const savedLanguage = savedTrack?.lang;
-        const savedExternalTrack = Boolean(savedTrackId && savedTrack?.embedded === false);
         const embeddedTrack = savedTrackId ?
             findTrackById(video.state.subtitlesTracks, savedTrackId)
             :
@@ -186,25 +185,36 @@ const useSubtitles = ({
             :
             findTrackByLanguage(video.state.extraSubtitlesTracks, savedLanguage ?? settings.subtitlesLanguage);
 
-        if (embeddedTrack?.id) {
-            if (video.state.selectedSubtitlesTrackId !== embeddedTrack.id ||
-                video.state.selectedExtraSubtitlesTrackId !== null) {
-                video.setSubtitlesTrack(embeddedTrack.id);
-            }
-
-            defaultTrackSelected.current = true;
-            return;
-        }
-
+        // Casa: preferiamo gli EXTRA (OpenSubtitles = file SRT separato) agli
+        // EMBEDDED (cue in-band muxate nel transcode HLS). Motivo: gli embedded
+        // "si bloccano" durante il film — le cue in-band si esauriscono
+        // (CUE_SUPPLY_LOW nel log di debug), mentre gli extra no. Upstream
+        // preferiva gli embedded: qui l'ordine e' INVERTITO.
+        // Gli extra caricano async dall'addon OpenSubtitles: finche' non
+        // arrivano usiamo l'embedded come fallback SENZA bloccare, cosi' quando
+        // l'extra per la lingua compare ci switchiamo sopra. Una scelta embedded
+        // SALVATA esplicitamente dall'utente (savedTrack.embedded===true) va
+        // invece rispettata e blocca.
         if (extraTrack?.id) {
             if (video.state.selectedExtraSubtitlesTrackId !== extraTrack.id ||
                 video.state.selectedSubtitlesTrackId !== null) {
                 video.setExtraSubtitlesTrack(extraTrack.id);
             }
 
-            if (savedExternalTrack) {
+            defaultTrackSelected.current = true;
+            return;
+        }
+
+        if (embeddedTrack?.id) {
+            if (video.state.selectedSubtitlesTrackId !== embeddedTrack.id ||
+                video.state.selectedExtraSubtitlesTrackId !== null) {
+                video.setSubtitlesTrack(embeddedTrack.id);
+            }
+
+            if (savedTrack?.embedded === true) {
                 defaultTrackSelected.current = true;
             }
+            return;
         }
     }, [
         player.streamState,
