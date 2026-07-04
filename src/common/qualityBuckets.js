@@ -49,8 +49,10 @@ const isGoodForAuto = (s) => {
     if (s.incompatible) return false;
     if (s.health === 'dead') return false;
     if (s.health === 'pack' || s.packByName) return false;
-    if (typeof s.infoHash !== 'string') return false; // serve un torrent (no url diretti/yt)
-    return true;
+    // Solo i nostri stream TorrServer: download robusto + server.js transcodifica
+    // l'URL raw -> il motore torrent :11470 (rotto) non viene usato. Identificati
+    // dall'URL del nostro addon. NON gli infoHash diretti (:11470) ne' url yt.
+    return typeof s.url === 'string' && s.url.indexOf('/stremio-addon/ts/') !== -1;
 };
 
 // Media (bytes) ignorando gli 0 (size sconosciuta): non azzerare la media solo

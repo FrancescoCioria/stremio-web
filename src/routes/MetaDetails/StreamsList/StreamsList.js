@@ -236,39 +236,24 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
     // bucket, poi apre il player sul vincitore. Fail-open: se il server non
     // risponde, raceTorrents ritorna comunque il candidato piu' seedato.
     const onQualitySelected = React.useCallback((bucketKey) => {
-        if (racing) return;
         const bucket = autoBuckets[bucketKey];
         if (!bucket || bucket.count === 0) return;
-        const ctrl = new AbortController();
-        raceAbortRef.current = ctrl;
         setAutoMessage(null);
-        setRacing({ bucketKey });
-        const candidates = bucket.streams.map((s) => ({
-            infoHash: s.infoHash,
-            fileIdx: typeof s.fileIdx === 'number' ? s.fileIdx : null,
-            sources: s.sources,
-            seeders: s.seeders,
-            stream: s
-        }));
-        raceTorrents({ candidates, serverUrl: streamingServerUrl, signal: ctrl.signal })
-            .then((winner) => {
-                raceAbortRef.current = null;
-                if (ctrl.signal.aborted) return;
-                setRacing(null);
-                const dl = winner && winner.stream && winner.stream.deepLinks;
-                if (dl && dl.player) {
-                    try { rememberStream(winner.stream); } catch (_e) { /* no-op */ }
-                    window.location.href = dl.player;
-                } else {
-                    // Race senza vincitore giocabile: NON aprire uno stallo -> mostra la
-                    // lista manuale (coi badge MORTO/RACCOLTA) e spiega perche'.
-                    const label = (autoBuckets[bucketKey] && autoBuckets[bucketKey].label) || bucketKey;
-                    setAutoMessage('Nessun torrent pronto per ' + label + ' — scegli manualmente:');
-                    setSelectedAddon(ALL_ADDONS_KEY);
-                }
-            })
-            .catch(() => { raceAbortRef.current = null; setRacing(null); });
-    }, [racing, autoBuckets, streamingServerUrl]);
+        // Con TorrServer il download e' affidabile -> niente race: apri il piu'
+        // seedato del bucket (gia' ordinati per seeder desc in computeBuckets).
+        // server.js transcodifica l'URL raw di TorrServer; il motore torrent
+        // :11470 (rotto) non viene usato. Se non parte, l'utente torna e sceglie
+        // manualmente dalla lista.
+        const best = bucket.streams[0];
+        const dl = best && best.deepLinks;
+        if (dl && dl.player) {
+            try { rememberStream(best); } catch (_e) { /* no-op */ }
+            window.location.href = dl.player;
+            return;
+        }
+        setAutoMessage('Nessuno stream pronto per ' + (bucket.label || bucketKey) + ' — scegli manualmente:');
+        setSelectedAddon(ALL_ADDONS_KEY);
+    }, [autoBuckets]);
     // Indice di qualita': raccogli gli infohash unici degli stream Ready e
     // sondali via sidecar stremio-health (solo metadata, niente download).
     // requestedRef evita ri-sonde; fail-open su qualsiasi errore.
