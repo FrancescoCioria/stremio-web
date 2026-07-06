@@ -1,10 +1,24 @@
 diff --git a/src/HTMLVideo/hlsConfig.js b/src/HTMLVideo/hlsConfig.js
-index 406fbe12cc9ae05381c95551bc4005cf31acc2c5..17df7e0e78cb2793f35bbd4d5fa95c2d5d5d7785 100644
+index 406fbe12cc9ae05381c95551bc4005cf31acc2c5..e69f14162b3baabf60d630ca9ffed28fa4c49ab0 100644
 --- a/src/HTMLVideo/hlsConfig.js
 +++ b/src/HTMLVideo/hlsConfig.js
-@@ -6,7 +6,13 @@ module.exports = {
+@@ -4,9 +4,26 @@ module.exports = {
+     lowLatencyMode: false,
+     backBufferLength: 30,
      maxBufferLength: 50,
-     maxMaxBufferLength: 80,
+-    maxMaxBufferLength: 80,
++    // Casa: 80->300s (5 min) per bancare buffer da remoto (4G/LTE). Va alzato
++    // ANCHE maxBufferSize: la formula hls.js e'
++    // min(maxMaxBufferLength, max(8*maxBufferSize/bitrate, maxBufferLength)),
++    // col default 60MB il buffer si fermava a ~48s @10Mbps -> maxMaxBufferLength
++    // da solo era inefficace. 500MB -> ~400s @10Mbps (cappati a 300 = 5 min);
++    // su VBR 1080p ~15Mbps ~266s. Banca minuti su rete buona -> scavalca i picchi
++    // VBR + i cali di cella, e la PAUSA diventa utile (banchi minuti, non 80s).
++    // Costa RAM browser client + re-buffer al seek; aiuta solo se banda media >=
++    // bitrate (regime 1). Se il browser sfora la quota MSE, hls.js degrada da
++    // solo (reduceMaxBufferLength). 2026-07-06.
++    maxMaxBufferLength: 300,
++    maxBufferSize: 500 * 1000 * 1000,
      maxFragLookUpTolerance: 0,
 -    maxBufferHole: 0,
 +    // Casa: era 0 (default Stremio) → ogni micro-gap audio ai confini dei
