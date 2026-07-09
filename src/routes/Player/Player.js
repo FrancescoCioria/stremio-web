@@ -29,6 +29,7 @@ const usePlayer = require('./usePlayer');
 const useStatistics = require('./useStatistics');
 const usePlayerDebugLog = require('./usePlayerDebugLog');
 const useSubtitleDebugLog = require('./useSubtitleDebugLog');
+const useNextEpisodePrewarm = require('./useNextEpisodePrewarm');
 const useVideo = require('./useVideo');
 const { default: useSubtitles } = require('./useSubtitles');
 const styles = require('./styles');
@@ -69,6 +70,7 @@ const Player = () => {
     const video = useVideo();
     usePlayerDebugLog(video, streamingServer, statistics); // DEBUG: log pause/buffering + stato torrent al backend
     useSubtitleDebugLog(video); // DEBUG: log stato texttrack per bug sottotitoli embedded che spariscono
+    useNextEpisodePrewarm(player, video, type); // scalda il prossimo episodio su TorrServer (custom Casa)
     const routeFocused = useRouteFocused();
     const platform = usePlatform();
     const toast = useToast();
