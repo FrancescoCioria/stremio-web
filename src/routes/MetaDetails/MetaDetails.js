@@ -9,6 +9,7 @@ const { useContentGamepadNavigation } = require('stremio/services/GamepadNavigat
 const { withCoreSuspender } = require('stremio/common');
 // TV fork: niente HorizontalNavBar (nessuna top bar su TV).
 const { VerticalNavBar, DelayedRenderer, Image, MetaPreview, ModalDialog } = require('stremio/components');
+const useEpisodeRuntimes = require('stremio/common/useEpisodeRuntimes');
 const StreamsList = require('./StreamsList');
 const VideosList = require('./VideosList');
 const useMetaDetails = require('./useMetaDetails');
@@ -64,6 +65,17 @@ const MetaDetails = () => {
     }, [focusedVideoId, metaDetails.metaItem]);
     // Priorita': focused (hover-by-remote) > selected-by-url > null (show series-level)
     const previewVideo = focusedVideo || video;
+
+    // TV: durata REALE dell'episodio in preview (minuti). Il `runtime` del meta
+    // e' quello nominale della serie, uguale per ogni episodio -> per la riga
+    // stats la prendiamo dal backend (TMDB, per stagione). Assente = non mostrata.
+    // Il gate su `season` scarta la mappa della stagione precedente (race del
+    // refetch post-paint, vedi useEpisodeRuntimes).
+    const episodeRuntimes = useEpisodeRuntimes(type, id, previewVideo?.season);
+    const previewVideoRuntime = typeof previewVideo?.episode === 'number' && episodeRuntimes.season === previewVideo.season ?
+        episodeRuntimes.runtimes[String(previewVideo.episode)] ?? null
+        :
+        null;
     const addToLibrary = React.useCallback(() => {
         if (metaDetails.metaItem === null || metaDetails.metaItem.content.type !== 'Ready') {
             return;
@@ -209,6 +221,7 @@ const MetaDetails = () => {
                                                     : metaDetails.metaItem.content.content.description
                                             }
                                             focusedEpisode={previewVideo}
+                                            focusedEpisodeRuntime={previewVideoRuntime}
                                             /* Per i FILM la pagina streams e' anche la pagina
                                              * di dettaglio (non c'e' episode list prima), quindi
                                              * manteniamo visibili Trailer/Add to Lib/Mark as

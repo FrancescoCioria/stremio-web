@@ -26,7 +26,7 @@ const ALLOWED_LINK_REDIRECTS = [
     routesRegexp.metadetails.regexp
 ];
 
-const MetaPreview = React.forwardRef(({ className, compact, name, logo, background, runtime, releaseInfo, released, description, deepLinks, links, trailerStreams, inLibrary, toggleInLibrary, watched, toggleWatched, ratingInfo, focusedEpisode, hideActions, showWatchedToggle }, ref) => {
+const MetaPreview = React.forwardRef(({ className, compact, name, logo, background, runtime, releaseInfo, released, description, deepLinks, links, trailerStreams, inLibrary, toggleInLibrary, watched, toggleWatched, ratingInfo, focusedEpisode, focusedEpisodeRuntime, hideActions, showWatchedToggle }, ref) => {
     const { t } = useTranslation();
     const [shareModalOpen, openShareModal, closeShareModal] = useBinaryState(false);
     const linksGroups = React.useMemo(() => {
@@ -144,7 +144,7 @@ const MetaPreview = React.forwardRef(({ className, compact, name, logo, backgrou
                 }
                 {
                     focusedEpisode ?
-                        /* TV: episodio focus-ato -> "S02E01 · Dec 25, 2024 · Ppang-gwa boggwon"
+                        /* TV: episodio focus-ato -> "S02E01 · 53 min · Dec 25, 2024 · Ppang-gwa boggwon"
                          * al posto di "runtime · year · IMDb". Info della serie
                          * torna quando il focus esce dal rail. */
                         <div className={styles['runtime-release-info-container']}>
@@ -153,6 +153,16 @@ const MetaPreview = React.forwardRef(({ className, compact, name, logo, backgrou
                                     <div className={styles['runtime-label']}>
                                         S{String(focusedEpisode.season).padStart(2, '0')}E{String(focusedEpisode.episode).padStart(2, '0')}
                                     </div>
+                                    :
+                                    null
+                            }
+                            {
+                                /* Durata dell'episodio (TMDB, via useEpisodeRuntimes).
+                                 * Assente per le serie che TMDB non conosce: si omette
+                                 * invece di ripiegare sul runtime nominale della serie,
+                                 * che sarebbe lo stesso numero su ogni episodio. */
+                                typeof focusedEpisodeRuntime === 'number' ?
+                                    <div className={styles['runtime-label']}>{focusedEpisodeRuntime} min</div>
                                     :
                                     null
                             }
@@ -323,6 +333,7 @@ MetaPreview.propTypes = {
     toggleWatched: PropTypes.func,
     ratingInfo: PropTypes.object,
     focusedEpisode: PropTypes.object,
+    focusedEpisodeRuntime: PropTypes.number,
     hideActions: PropTypes.bool,
     showWatchedToggle: PropTypes.bool,
 };
