@@ -16,8 +16,12 @@
 // rimuovere a diagnosi conclusa.
 
 const React = require('react');
+const { casaBeacon } = require('stremio/common/casaBackend');
 
-const ENDPOINT = 'http://127.0.0.1:8765/debug/player-event';
+// Host DALLA PAGINA, non loopback: da remoto (Mac via Tailscale) 127.0.0.1 e' il
+// Mac, non il Beelink -> gli eventi si perdevano in silenzio e le sessioni remote
+// erano cieche (fixato 2026-07-09). La regola vive in casaBackend.js.
+const ENDPOINT = '/debug/player-event';
 
 const usePlayerDebugLog = (video, streamingServer, statistics) => {
     const prev = React.useRef({ paused: undefined, buffering: undefined, loaded: undefined });
@@ -55,12 +59,7 @@ const usePlayerDebugLog = (video, streamingServer, statistics) => {
             downloadSpeedMBs: statistics.speed,
         };
 
-        try {
-            const blob = new Blob([JSON.stringify(payload)], { type: 'text/plain' });
-            navigator.sendBeacon(ENDPOINT, blob);
-        } catch (e) {
-            // best-effort
-        }
+        casaBeacon(ENDPOINT, payload);
     }, [video.state.paused, video.state.buffering, video.state.loaded]);
 };
 
