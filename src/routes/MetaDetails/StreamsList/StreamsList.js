@@ -127,6 +127,27 @@ const seedOf = (s) => (typeof s.seeders === 'number' ? s.seeders : 0);
 const byPriority = (streams) =>
     streams.slice().sort((a, b) => (streamPriority(a) - streamPriority(b)) || (seedOf(b) - seedOf(a)));
 
+// UI della race "Auto": uno step per torrent che si colora per stato
+// (pending -> alive -> downloading -> winner). Rende visibile che sta lavorando
+// (shimmer anche a pending) invece del vecchio "Cerco il migliore…" statico.
+// steps = [{state}] da torrentRace onProgress; fallback a 1 step pending.
+const RaceProgress = ({ steps }) => {
+    const list = (Array.isArray(steps) && steps.length) ? steps : [{ state: 'pending' }];
+    return (
+        <div className={styles['race-progress']}>
+            <div className={styles['race-steps']}>
+                {list.map((s, i) => (
+                    <div
+                        key={i}
+                        className={classnames(styles['race-step'], styles['race-step-' + (s.state || 'pending')])}
+                    />
+                ))}
+            </div>
+            <div className={styles['race-caption']}>Cerco la sorgente migliore…</div>
+        </div>
+    );
+};
+
 const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
     const { t } = useTranslation();
     const core = useCore();
@@ -138,6 +159,8 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
     const [selectedAddon, setSelectedAddon] = React.useState(AUTO_KEY);
     // Race in corso: { bucketKey } mentre selezioniamo il torrent migliore per una qualita'.
     const [racing, setRacing] = React.useState(null);
+    // Progress per-candidato della race (uno step per torrent): [{hash, state}].
+    const [raceProgress, setRaceProgress] = React.useState(null);
     const raceAbortRef = React.useRef(null);
     // Messaggio quando la race non trova nulla di giocabile (ricadiamo sul manuale).
     const [autoMessage, setAutoMessage] = React.useState(null);
@@ -253,11 +276,20 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
             seeders: s.seeders,
             stream: s
         })).filter((c) => c.hash && c.base);
-        torrentRace.raceTorrents({ candidates, signal: ctrl.signal })
+        // Steppini iniziali (tutti 'pending') = i candidati che correranno: cosi'
+        // la UI mostra subito N step, prima ancora del primo poll.
+        const nSteps = Math.min(candidates.length, torrentRace.RACE_K);
+        setRaceProgress(Array.from({ length: nSteps }, () => ({ state: 'pending' })));
+        torrentRace.raceTorrents({
+            candidates,
+            signal: ctrl.signal,
+            onProgress: (steps) => { if (!ctrl.signal.aborted) setRaceProgress(steps); },
+        })
             .then((winner) => {
                 raceAbortRef.current = null;
                 if (ctrl.signal.aborted) return;
                 setRacing(null);
+                setRaceProgress(null);
                 const dl = winner && winner.stream && winner.stream.deepLinks;
                 if (dl && dl.player) {
                     try { rememberStream(winner.stream); } catch (_e) { /* no-op */ }
@@ -269,7 +301,7 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
                     setSelectedAddon(ALL_ADDONS_KEY);
                 }
             })
-            .catch(() => { raceAbortRef.current = null; setRacing(null); });
+            .catch(() => { raceAbortRef.current = null; setRacing(null); setRaceProgress(null); });
     }, [racing, autoBuckets]);
     // Indice di qualita': raccogli gli infohash unici degli stream Ready e
     // sondali via sidecar stremio-health (solo metadata, niente download).
@@ -502,7 +534,7 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
                             <div className={styles['auto-card-recap']}>
                                 {empty ? 'nessun torrent' : (bucket.count + (bucket.count === 1 ? ' torrent' : ' torrent') + (bucket.avgBytes ? ' · ' + qualityBuckets.formatAvgSize(bucket.avgBytes) : ''))}
                             </div>
-                            {isRacing ? <div className={styles['auto-card-status']}>Cerco il migliore…</div> : null}
+                            {isRacing ? <RaceProgress steps={raceProgress} /> : null}
                         </Button>
                     );
                 })}

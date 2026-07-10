@@ -312,6 +312,74 @@
                 border-radius: 1rem;
             }
 
+            // Race UI: uno step per torrent (sfondo card = --primary-accent-color
+            // quando racing, quindi i fill sono foreground/bianco che "si accende").
+            .race-progress {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 0.6rem;
+                width: 100%;
+
+                .race-steps {
+                    display: flex;
+                    flex-direction: row;
+                    justify-content: center;
+                    gap: 0.4rem;
+                    width: 80%;
+
+                    .race-step {
+                        flex: 1 1 0;
+                        height: 0.5rem;
+                        border-radius: 0.5rem;
+                        background-color: rgba(255, 255, 255, 0.25);
+                        overflow: hidden;
+                        position: relative;
+                        transition: background-color 0.3s ease;
+                    }
+
+                    // pending: shimmer che scorre -> non sembra bloccato
+                    .race-step-pending::after {
+                        content: '';
+                        position: absolute;
+                        inset: 0;
+                        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+                        transform: translateX(-100%);
+                        animation: race-shimmer 1.1s ease-in-out infinite;
+                    }
+
+                    .race-step-alive {
+                        background-color: rgba(255, 255, 255, 0.6);
+                    }
+
+                    .race-step-downloading {
+                        background-color: var(--primary-foreground-color);
+                    }
+
+                    .race-step-winner {
+                        background-color: var(--primary-foreground-color);
+                        animation: race-pop 0.4s ease;
+                    }
+                }
+
+                .race-caption {
+                    font-size: 1rem;
+                    font-weight: 600;
+                    color: var(--primary-foreground-color);
+                    white-space: nowrap;
+                }
+            }
+
+            @keyframes race-shimmer {
+                100% { transform: translateX(100%); }
+            }
+
+            @keyframes race-pop {
+                0% { transform: scaleY(1); }
+                50% { transform: scaleY(1.8); }
+                100% { transform: scaleY(1); }
+            }
+
             &:hover {
                 background-color: var(--secondary-accent-color);
             }

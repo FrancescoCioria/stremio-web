@@ -7,7 +7,7 @@ const {
     isStrongM, isVeryStrongM, hasHealthySwarmM, hasMovedBytes, scoreOf,
     emptyEvidence, foldEvidence,
     hashFromUrl, torrserverBase, trackersOf, raceTorrents,
-    MIN_WIN_SPEED, STRONG_SPEED
+    MIN_WIN_SPEED, STRONG_SPEED, raceStepState
 } = require('../src/common/torrentRace');
 
 const KB = 1024;
@@ -245,5 +245,27 @@ describe('raceTorrents', () => {
         const winner = await raceTorrents({ candidates: [cand('solo', 1)], timing: TIMING, onDecision: () => {} });
         expect(winner.hash).toBe('solo');
         expect(calls.filter((c) => c.action === 'get')).toHaveLength(0);
+    });
+});
+
+describe('raceStepState (steppino UI per torrent)', () => {
+    const withSpeed = (kb) => foldEvidence(emptyEvidence(), { speed: kb * KB, preloaded: 0, seeders: 0, peers: 0 });
+
+    it('nessuna risposta da TorrServer -> pending', () => {
+        expect(raceStepState(false, emptyEvidence(), false)).toBe('pending');
+    });
+    it('metadata risolti ma zero byte -> alive', () => {
+        expect(raceStepState(true, emptyEvidence(), false)).toBe('alive');
+    });
+    it('ha mosso byte (speed) -> downloading', () => {
+        expect(raceStepState(true, withSpeed(500), false)).toBe('downloading');
+    });
+    it('ha mosso byte (preload) -> downloading', () => {
+        const e = foldEvidence(emptyEvidence(), { speed: 0, preloaded: 2 * 1024 * 1024, seeders: 0, peers: 0 });
+        expect(raceStepState(true, e, false)).toBe('downloading');
+    });
+    it('vincitore -> winner, a prescindere dallo stato', () => {
+        expect(raceStepState(true, withSpeed(500), true)).toBe('winner');
+        expect(raceStepState(false, emptyEvidence(), true)).toBe('winner');
     });
 });

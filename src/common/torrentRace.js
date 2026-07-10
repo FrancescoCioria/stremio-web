@@ -133,13 +133,21 @@ const foldEvidence = (e, m) => ({
 // manuale che appendere l'utente. Incidente 2026-07-09.
 const hasMovedBytes = (e) => e.maxSpeed > 0 || e.maxPreloaded > 0;
 
+// Stato visuale di un candidato per la UI della race (uno "steppino" per torrent):
+//   pending     -> TorrServer non ha ancora risposto (metadata non risolti)
+//   alive       -> metadata risolti (c'e' swarm/peers) ma ancora zero byte
+//   downloading -> ha mosso byte (maxSpeed>0 o preload>0)
+//   winner      -> incoronato
+const raceStepState = (hasStats, e, isWinner) =>
+    isWinner ? 'winner' : (!hasStats ? 'pending' : (hasMovedBytes(e) ? 'downloading' : 'alive'));
+
 // candidates: [{ hash, base, trackers, seeders, stream }]  (base = URL TorrServer)
 // signal(optional): AbortSignal per cancellare la race (utente esce dalla card)
 // timing(optional): override delle costanti temporali (test)
 // onDecision(optional): sink della telemetria (test); default = POST al backend
 // Ritorna il candidato vincitore (gia' scaldato su TorrServer), OPPURE null se dopo
 // la finestra nessuno ha mosso byte. TorrServer irraggiungibile -> fail-open al primo.
-const raceTorrents = ({ candidates, signal, timing, onDecision }) => {
+const raceTorrents = ({ candidates, signal, timing, onDecision, onProgress }) => {
     const T = Object.assign({
         pollMs: POLL_MS, raceMs: RACE_MS, minRaceMs: MIN_RACE_MS,
         unreachableMs: UNREACHABLE_MS, metadataGraceMs: METADATA_GRACE_MS
@@ -196,6 +204,15 @@ const raceTorrents = ({ candidates, signal, timing, onDecision }) => {
         })
     });
 
+    // Progress live per la UI (uno step per racer). Best-effort, opzionale.
+    const emitProgress = (winner) => {
+        if (typeof onProgress !== 'function') return;
+        onProgress(racers.map((c) => ({
+            hash: c.hash,
+            state: raceStepState(lastStats.has(c.hash), ev(c.hash), !!(winner && c.hash === winner.hash)),
+        })));
+    };
+
     return new Promise((resolve) => {
         let done = false;
         // Unica uscita: `winner === null` = rinuncia (il chiamante mostra la lista
@@ -204,6 +221,7 @@ const raceTorrents = ({ candidates, signal, timing, onDecision }) => {
             if (done) return;
             done = true;
             report(snapshot(reason, elapsed, winner));
+            emitProgress(winner);
             resolve(winner);
         };
         const tick = () => {
@@ -217,6 +235,7 @@ const raceTorrents = ({ candidates, signal, timing, onDecision }) => {
             })))
                 .then(() => {
                     if (done) return;
+                    emitProgress(null); // aggiorna gli steppini con l'evidenza di questo poll
                     // 0) TorrServer irraggiungibile -> fail-open al piu' seedato.
                     if (lastStats.size === 0 && elapsed >= T.unreachableMs) { settle(racers[0], 'unreachable', elapsed); return; }
                     const ranked = racers.slice().sort((a, b) => scoreOf(lastStats.get(b.hash)) - scoreOf(lastStats.get(a.hash)));
@@ -260,5 +279,5 @@ module.exports = {
     raceTorrents, hashFromUrl, torrserverBase, trackersOf,
     RACE_K, RACE_MS, MIN_RACE_MS, METADATA_GRACE_MS, MIN_WIN_SPEED, STRONG_SPEED,
     scoreOf, isStrongM, isVeryStrongM, hasHealthySwarmM, hasMovedBytes,
-    metricsOf, emptyEvidence, foldEvidence
+    metricsOf, emptyEvidence, foldEvidence, raceStepState
 };
