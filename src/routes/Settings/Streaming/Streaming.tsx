@@ -5,6 +5,7 @@ import { Button, MultiselectMenu } from 'stremio/components';
 import { useToast } from 'stremio/common';
 import { Section, Option } from '../components';
 import URLsManager from './URLsManager';
+import CacheSizeSlider from './CacheSizeSlider';
 import useStreamingOptions from './useStreamingOptions';
 import styles from './Streaming.less';
 
@@ -20,7 +21,7 @@ const Streaming = forwardRef<HTMLDivElement, Props>(({ profile, streamingServer 
     const {
         streamingServerRemoteUrlInput,
         remoteEndpointSelect,
-        cacheSizeSelect,
+        cacheSizeSlider,
         torrentProfileSelect,
         transcodingProfileSelect,
     } = useStreamingOptions(streamingServer);
@@ -59,12 +60,9 @@ const Streaming = forwardRef<HTMLDivElement, Props>(({ profile, streamingServer 
                     </Option>
             }
             {
-                cacheSizeSelect !== null &&
+                cacheSizeSlider !== null &&
                     <Option label={'SETTINGS_SERVER_CACHE_SIZE'}>
-                        <MultiselectMenu
-                            className={'multiselect'}
-                            {...cacheSizeSelect}
-                        />
+                        <CacheSizeSlider {...cacheSizeSlider} />
                     </Option>
             }
             {

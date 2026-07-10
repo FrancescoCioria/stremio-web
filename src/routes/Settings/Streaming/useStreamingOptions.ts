@@ -5,18 +5,6 @@ import { useTranslation } from 'react-i18next';
 import { deepEqual } from 'fast-equals';
 import { useCore } from 'stremio/core';
 
-const CACHE_SIZES = [0, 2147483648, 5368709120, 10737418240, null];
-
-const cacheSizeToString = (size: number | null) => {
-    return size === null ?
-        'Infinite'
-        :
-        size === 0 ?
-            'No caching'
-            :
-            `${Math.ceil(((size / 1024 / 1024 / 1024) + Number.EPSILON) * 100) / 100}GiB`;
-};
-
 type TorrentProfile = {
     btDownloadSpeedHardLimit: number,
     btDownloadSpeedSoftLimit: number,
@@ -117,28 +105,26 @@ const useStreamingOptions = (streamingServer: StreamingServer) => {
         };
     }, [settings, networkInfo]);
 
-    const cacheSizeSelect = useMemo(() => {
+    // Casa: slider 0-60GB step 5 al posto del dropdown [0/2/5/10/inf]. Il valore
+    // (cacheSize di server.js) e' anche il TETTO reale della disk-cache di
+    // TorrServer: lo legge il prune `torrserver-cache-prune.py` (values.cacheSize).
+    // Vedi docs/stremio-torrserver.md. onChange scrive su server.js come il vecchio
+    // select; il componente CacheSizeSlider gestisce debounce + stato locale.
+    const cacheSizeSlider = useMemo(() => {
         if (!settings) {
             return null;
         }
 
         return {
-            options: CACHE_SIZES.map((size) => ({
-                label: cacheSizeToString(size),
-                value: JSON.stringify(size)
-            })),
-            value: JSON.stringify(settings.cacheSize),
-            title: () => {
-                return cacheSizeToString(settings.cacheSize);
-            },
-            onSelect: (value: any) => {
+            value: settings.cacheSize as number | null,
+            onChange: (bytes: number) => {
                 core.transport.dispatch({
                     action: 'StreamingServer',
                     args: {
                         action: 'UpdateSettings',
                         args: {
                             ...settings,
-                            cacheSize: JSON.parse(value),
+                            cacheSize: bytes,
                         }
                     }
                 });
@@ -228,7 +214,7 @@ const useStreamingOptions = (streamingServer: StreamingServer) => {
     return {
         streamingServerRemoteUrlInput,
         remoteEndpointSelect,
-        cacheSizeSelect,
+        cacheSizeSlider,
         torrentProfileSelect,
         transcodingProfileSelect,
     };
