@@ -1,8 +1,18 @@
 # `@stremio/stremio-video` — vendorizzato (fork Casa)
 
 Copia di `@stremio/stremio-video@0.0.80` (upstream: https://github.com/Stremio/stremio-video),
-importata nel repo il **2026-07-11** e da qui in poi **mantenuta da noi**. La
-dipendenza in `package.json` punta a `file:./vendor/stremio-video`.
+importata nel repo il **2026-07-11** e da qui in poi **mantenuta da noi**.
+
+> ⚠️ **E' un WORKSPACE PACKAGE, non una dipendenza `file:`.** `pnpm-workspace.yaml`
+> ha `packages: [vendor/stremio-video]` e il root dipende con `"workspace:*"`.
+> **Non tornare a `file:`**: pnpm COPIA il pacchetto nello store invece di linkarlo,
+> quindi **editi `vendor/` e la modifica NON arriva nel bundle** finche' non rifai
+> `pnpm install` (bruciata mezz'ora il 2026-07-11: `enableWorker: false` restava
+> `true` nel bundle). E nemmeno `link:`: e' un symlink nudo, pnpm non installa le
+> dipendenze del pacchetto -> 31 "Module not found". Come workspace, `node_modules/
+> @stremio/stremio-video` e' un **symlink vero** a questa cartella: quello che editi
+> e' quello che gira. Verifica dopo ogni modifica: `grep -o "<il tuo valore>"
+> build/*/scripts/main.js`.
 
 ## Perche' vendorizzato (e non piu' una pnpm patch)
 
@@ -36,12 +46,41 @@ esatta**. Problemi concreti:
      solo in 1.6.0 (PR#6972); `hls.js` qui e' pinnato a `1.5.4-patch2` (tarball
      Stremio) → serve l'override.
 
-2. **`src/withHTMLSubtitles/withHTMLSubtitles.js`** — `try/catch` attorno a
+2. **`src/HTMLVideo/hlsConfig.js` — `enableWorker: true` → `false`** (2026-07-11).
+   hls.js costruisce il worker inline **stringificando una funzione**
+   (`__HLS_WORKER_BUNDLE__.toString()`) e valutandola dentro un Blob; il Terser di
+   stremio-web hoista/rinomina simboli fuori da quella funzione, che nel blob non
+   esistono → `ReferenceError: e is not defined` alla prima riproduzione (pescato dal
+   nostro `stremio-js-errors.log`). hls.js intercetta e ripiega da solo sul main
+   thread — il video parte lo stesso — ma e' un fallback silenzioso. **A noi il worker
+   non serve**: serve a demuxare MPEG-TS, mentre `server.js` ci consegna **fMP4**
+   (`init.mp4` + `.m4s`) → il transmuxer e' quasi un passacarte. Con `false` il
+   comportamento e' identico, ma deterministico e senza errore.
+
+3. **`src/withHTMLSubtitles/withHTMLSubtitles.js`** — `try/catch` attorno a
    `renderSubtitles()` dentro il loop `requestAnimationFrame`. Un'eccezione (tipico:
    `vtt.js convertCueToDOMTree` su una cue con markup ostico) usciva **prima** di
    rischedulare il rAF → loop morto per sempre, e `startRenderLoop` non lo rianima
    (`rafId` resta non-null). Sintomo: i sottotitoli si spengono "dopo un po'" e
    tornano solo cambiando e rimettendo la traccia.
+
+## `hls.js`: dal fork Stremio all'ufficiale (2026-07-11)
+
+Era `https://github.com/Stremio/hls.js/.../v1.5.4-patch2.tgz` — un **fork di Stremio
+della 1.5.4**, scaricato da un tarball su GitHub. Quel fork esiste per **una** feature:
+**HEVC dentro MPEG-TS** (PR #5847). Non ci serve (noi riceviamo **fMP4**, non TS) e
+upstream l'ha comunque assorbita (la 1.6.16 ha HEVC nel `tsdemuxer`). Ora: **`hls.js`
+ufficiale da npm, 1.6.16**.
+
+API verificate una per una sul sorgente 1.6: `attachMedia`, `loadSource`, `destroy`,
+`detachMedia`, `audioTrack`, `subtitleTrack`, `on`, `removeAllListeners`,
+`isSupported`, `setAudioOption`, eventi `MANIFEST_LOADING`/`AUDIO_TRACKS_UPDATED`/
+`AUDIO_TRACK_SWITCHED`. Tutte presenti.
+
+La 1.6 include anche il fix upstream del gap-controller (PR#6972) per gli stall sui
+micro-gap audio — il bug che tamponavamo con `maxBufferHole`. **Il tuning e' rimasto
+0.5 di proposito** (una variabile per volta): si potra' rivalutare il ritorno al
+default (0.1) dopo un po' di 1.6 sul campo.
 
 ## Aggiornarlo da upstream
 
