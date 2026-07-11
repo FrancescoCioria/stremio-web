@@ -1,6 +1,18 @@
 module.exports = {
     debug: false,
-    enableWorker: true,
+    // Casa: worker OFF (era true). hls.js costruisce il worker inline
+    // STRINGIFICANDO una funzione (`__HLS_WORKER_BUNDLE__.toString()`) e
+    // valutandola dentro un Blob: il nostro Terser, minificando, hoista/rinomina
+    // simboli FUORI da quella funzione -> dentro il blob non esistono ->
+    // "ReferenceError: e is not defined" (visto in stremio-js-errors.log alla
+    // prima riproduzione con hls.js 1.6.16). hls.js intercetta e ripiega da solo
+    // sul main thread, quindi il video parte lo stesso: ma e' un fallback
+    // silenzioso, e un errore che non spiegheremmo piu' fra sei mesi.
+    // A NOI il worker non serve: serve a demuxare MPEG-TS, mentre il transcode di
+    // server.js ci consegna fMP4 (init.mp4 + segmenti .m4s) -> il transmuxer e'
+    // quasi un passacarte. Spegnendolo il comportamento e' lo stesso, ma
+    // deterministico e senza errore. 2026-07-11.
+    enableWorker: false,
     lowLatencyMode: false,
     backBufferLength: 30,
     maxBufferLength: 50,
