@@ -1,17 +1,30 @@
 // Test della logica di selezione della race "Auto" (torrentRace.js).
-// I casi negativi sono ancorati all'incidente 2026-07-09: la race incorono'
-// `dcb3ff...` (3 seeder, ~131 KB/s) scartando `11970d52...` (sano, metadata
-// lenti a risolvere) e il player resto' appeso per sempre.
+//
+// Due famiglie di regressioni sono ancorate qui:
+//   - 2026-07-09: la race incorono' `dcb3ff...` (3 seeder, ~131 KB/s) scartando
+//     `11970d52...` (sano, metadata lenti a risolvere) e il player resto' appeso.
+//   - 2026-07-11: la race misurava torrent che NESSUNO stava leggendo (TorrServer
+//     senza reader sta fermo) -> speed ~0 su tutti -> "too-slow" su OGNI race, Auto
+//     non incoronava mai nessuno. Ora e' il backend ad aprire i reader e a misurare
+//     i byte consegnati; qui si legge /stremio-addon/probe. I test parlano quel
+//     contratto: se qualcuno tornasse a parlare direttamente con TorrServer (:8090)
+//     dal browser, `fakeBackend` non lo servirebbe e la race fallirebbe fail-open.
 
 const {
     isStrongM, isVeryStrongM, hasHealthySwarmM, hasMovedBytes, scoreOf,
     emptyEvidence, foldEvidence,
-    hashFromUrl, torrserverBase, trackersOf, raceTorrents,
+    hashFromUrl, seFromUrl, raceTorrents,
     MIN_WIN_SPEED, STRONG_SPEED, raceStepState
 } = require('../src/common/torrentRace');
 
 const KB = 1024;
-const m = (o) => Object.assign({ peers: 0, seeders: 0, speed: 0, preloaded: 0 }, o);
+const MB = 1024 * KB;
+// Una riga di /stremio-addon/probe. `metadata:false` = il torrent non e' mai
+// partito (magnet morto / metadata non risolti) -> non e' selezionabile.
+const stat = (o) => Object.assign(
+    { hash: 'h', speed: 0, bytes: 0, seeders: 0, peers: 0, metadata: true }, o
+);
+const m = (o) => Object.assign({ peers: 0, seeders: 0, speed: 0, bytes: 0, metadata: true }, o);
 
 describe('isStrongM', () => {
     it('NON incorona un gocciolamento con tanti seeder (regressione dcb3ff)', () => {
@@ -46,13 +59,21 @@ describe('isStrongM', () => {
 describe('hasMovedBytes', () => {
     it('peer connessi che non consegnano nulla NON sono giocabili (regressione)', () => {
         // Prima `isLiveM` diceva true su peers>0 -> vinceva -> spinner infinito.
-        const e = foldEvidence(emptyEvidence(), m({ peers: 12, seeders: 4, speed: 0 }));
+        const e = foldEvidence(emptyEvidence(), m({ peers: 12, seeders: 4, speed: 0, bytes: 0 }));
         expect(hasMovedBytes(e)).toBe(false);
     });
 
-    it('un solo poll con byte basta, anche se poi la speed torna a 0', () => {
-        let e = foldEvidence(emptyEvidence(), m({ speed: 400 * KB }));
-        e = foldEvidence(e, m({ speed: 0 }));
+    it('i byte CONSEGNATI sono la verita\', non la speed', () => {
+        // Il backend misura speed = bytes/tempo-di-lettura e la ARROTONDA: un reader
+        // che ha consegnato pochi byte in molti secondi legge 0 B/s pur essendo vivo.
+        // Il verdetto "giocabile" deve guardare i byte.
+        const e = foldEvidence(emptyEvidence(), m({ bytes: 900, speed: 0 }));
+        expect(hasMovedBytes(e)).toBe(true);
+    });
+
+    it('tiene il PICCO di velocita\', anche se poi lo swarm rallenta', () => {
+        let e = foldEvidence(emptyEvidence(), m({ speed: 400 * KB, bytes: 2 * MB }));
+        e = foldEvidence(e, m({ speed: 120 * KB, bytes: 3 * MB }));
         expect(e.maxSpeed).toBe(400 * KB);
         expect(hasMovedBytes(e)).toBe(true);
     });
@@ -64,88 +85,115 @@ describe('hasMovedBytes', () => {
         expect(e.maxPeers).toBe(9);
         expect(e.polls).toBe(2);
     });
-
-    it('la cache preloaded conta come byte mossi', () => {
-        expect(hasMovedBytes(foldEvidence(emptyEvidence(), m({ preloaded: 1 })))).toBe(true);
-    });
 });
 
 describe('scoreOf', () => {
-    it('un torrent senza stats sta sotto a qualunque altro', () => {
-        expect(scoreOf(null)).toBeLessThan(scoreOf({ active_peers: 1 }));
+    it('un torrent senza misure sta sotto a qualunque altro', () => {
+        expect(scoreOf(null)).toBeLessThan(scoreOf(stat({ peers: 1 })));
     });
 
     it('il throughput reale batte i soli seeder', () => {
-        const veloce = { download_speed: 4 * 1024 * 1024, connected_seeders: 1 };
-        const seedato = { download_speed: 0, connected_seeders: 6 };
+        const veloce = stat({ speed: 4 * MB, seeders: 1 });
+        const seedato = stat({ speed: 0, seeders: 6 });
         expect(scoreOf(veloce)).toBeGreaterThan(scoreOf(seedato));
     });
 });
 
 describe('helper url', () => {
-    it('estrae hash e base dall\'url del nostro addon', () => {
+    it('estrae l\'hash dall\'url del nostro addon', () => {
         const u = 'http://100.114.200.47:8765/stremio-addon/ts/dcb3ffc78329955803b15fb70ccb234bb8a71c0b/0';
         expect(hashFromUrl(u)).toBe('dcb3ffc78329955803b15fb70ccb234bb8a71c0b');
-        expect(torrserverBase(u)).toBe('http://100.114.200.47:8090');
     });
 
     it('hashFromUrl e\' robusto a input non validi', () => {
         expect(hashFromUrl(null)).toBeNull();
         expect(hashFromUrl('http://x/ts/nonhex/0')).toBeNull();
-        expect(torrserverBase('non-un-url')).toBeNull();
     });
 
-    it('trackersOf estrae solo i sources tracker:', () => {
-        expect(trackersOf({ sources: ['tracker:udp://a:1', 'dht:xyz'] })).toEqual(['udp://a:1']);
-        expect(trackersOf({})).toEqual([]);
+    it('seFromUrl estrae stagione.episodio (serve al backend per il file del season pack)', () => {
+        expect(seFromUrl('http://h/stremio-addon/ts/ab/0?se=1.4')).toBe('1.4');
+        expect(seFromUrl('http://h/stremio-addon/ts/ab/0')).toBeNull();
+        expect(seFromUrl(null)).toBeNull();
     });
 });
 
-// --- Race end-to-end, con fetch finto e costanti temporali accorciate --------
+// --- Race end-to-end, con backend finto e costanti temporali accorciate ------
 
-// Simula TorrServer: `stats[hash]` = stato ritornato da action:get (null = il
-// torrent non ha mai risolto i metadata, come 11970d52 nell'incidente).
-const fakeTorrserver = (stats) => {
+// Simula il backend: POST /probe avvia i reader, GET ne legge le misure, POST
+// /probe/stop ferma i perdenti (beacon).
+// ⚠️ Come il backend vero, la GET ritorna SEMPRE una riga per ogni hash richiesto:
+// un torrent mai partito e' una riga con `metadata:false`, non una riga assente.
+// Un fake piu' "comodo" (che omette le righe) farebbe passare un ritorno al
+// vecchio "il backend ha risposto = metadata risolti", che e' il bug originale.
+const fakeBackend = (stats) => {
     const calls = [];
+    global.window = { location: { hostname: 'beelink' } };
+    global.navigator = { sendBeacon: jest.fn((url, blob) => { calls.push({ url, method: 'BEACON', blob }); return true; }) };
+    global.Blob = function Blob(parts) { this.parts = parts; };
     global.fetch = jest.fn((url, opts) => {
-        const body = JSON.parse(opts.body);
-        calls.push(body);
-        if (body.action === 'add') return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
-        if (body.action === 'get') {
-            const t = stats[body.hash];
-            return Promise.resolve({ ok: true, json: () => Promise.resolve(t || null) });
+        const method = (opts && opts.method) || 'GET';
+        calls.push({ url, method, body: opts && opts.body ? JSON.parse(opts.body) : null });
+        if (method === 'POST') {
+            return Promise.resolve({ ok: true, json: () => Promise.resolve({ started: 1 }) });
         }
-        return Promise.resolve({ ok: true, json: () => Promise.resolve(null) });
+        const hashes = (url.split('hashes=')[1] || '').split(',').filter(Boolean);
+        const rows = hashes.map((h) => Object.assign(
+            { hash: h, speed: 0, bytes: 0, seeders: 0, peers: 0, metadata: false },
+            stats[h] || {}
+        ));
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ stats: rows }) });
     });
     return calls;
 };
 
-const cand = (hash, seeders) => ({
-    hash, seeders, base: 'http://ts:8090', trackers: [], stream: { url: 'u/' + hash }
-});
+// Un torrent che il backend ha davvero misurato (metadata risolti).
+const measured = (o) => Object.assign({ metadata: true }, o);
+// Un magnet che non e' mai partito: TorrServer non ne ha i metadata.
+const DEAD = { metadata: false, speed: 0, bytes: 0 };
 
-const TIMING = { pollMs: 1, minRaceMs: 5, raceMs: 40, unreachableMs: 3, metadataGraceMs: 20 };
+const cand = (hash, seeders) => ({ hash, seeders, stream: { url: 'http://h/ts/' + hash + '/0' } });
+
+const TIMING = {
+    pollMs: 1, minRaceMs: 5, raceMs: 40, unreachableMs: 3, metadataGraceMs: 20,
+    guardMarginMs: 20, postTimeoutMs: 10, getTimeoutMs: 10
+};
 
 describe('raceTorrents', () => {
-    afterEach(() => { delete global.fetch; });
+    afterEach(() => { delete global.fetch; delete global.window; });
 
-    it('NON rimuove mai i perdenti (ucciderebbe il reader di un altro client)', async () => {
-        const calls = fakeTorrserver({
-            good: { download_speed: 3 * 1024 * 1024, connected_seeders: 5 },
-            slow: { download_speed: 1000, connected_seeders: 1 }
+    it('apre i reader nel BACKEND prima di misurare (regressione 2026-07-11)', async () => {
+        // Senza reader TorrServer non scarica: la race misurava zeri e nessuno
+        // vinceva mai. Il POST /probe DEVE precedere la prima lettura.
+        const calls = fakeBackend({
+            good: measured({ speed: 3 * MB, bytes: 12 * MB, seeders: 5 }),
+            slow: measured({ speed: 1000, bytes: 4000, seeders: 1 })
         });
         const winner = await raceTorrents({
             candidates: [cand('good', 9), cand('slow', 2)],
             timing: TIMING, onDecision: () => {}
         });
         expect(winner.hash).toBe('good');
-        expect(calls.some((c) => c.action === 'rem')).toBe(false);
+        expect(calls[0].method).toBe('POST');
+        expect(calls[0].url).toContain('/stremio-addon/probe');
+        expect(calls[0].body.hashes).toEqual(['good', 'slow']);
+        // Nessuno parla piu' con TorrServer (:8090) dal browser, ne' rimuove torrent.
+        expect(calls.some((c) => c.url.includes(':8090'))).toBe(false);
+        expect(calls.some((c) => c.body && c.body.action === 'rem')).toBe(false);
     });
 
-    it('ritorna null (lista manuale) se nessuno ha mosso un byte', async () => {
-        fakeTorrserver({
-            a: { active_peers: 8, connected_seeders: 3, download_speed: 0 },
-            b: { active_peers: 2, connected_seeders: 1, download_speed: 0 }
+    it('propaga stagione.episodio al backend (senza, misurerebbe il file sbagliato)', async () => {
+        const calls = fakeBackend({ a: measured({ speed: 3 * MB, bytes: 9 * MB, seeders: 5 }), b: DEAD });
+        const withSe = (hash) => ({ hash, seeders: 1, stream: { url: 'http://h/ts/' + hash + '/0?se=2.7' } });
+        await raceTorrents({
+            candidates: [withSe('a'), withSe('b')], timing: TIMING, onDecision: () => {}
+        });
+        expect(calls[0].body.se).toBe('2.7');
+    });
+
+    it('ritorna null (lista manuale) se nessuno ha consegnato un byte', async () => {
+        fakeBackend({
+            a: measured({ peers: 8, seeders: 3, speed: 0, bytes: 0 }),
+            b: measured({ peers: 2, seeders: 1, speed: 0, bytes: 0 })
         });
         const decisions = [];
         const winner = await raceTorrents({
@@ -157,12 +205,12 @@ describe('raceTorrents', () => {
     });
 
     it('NON incorona un torrent che gocciola: lista manuale (regressione Carolina)', async () => {
-        // Il caso esatto del 2026-07-09: dcb3ff muove byte (131 KB/s) ma non
+        // Il caso esatto del 2026-07-09: dcb3ff consegna byte (131 KB/s) ma non
         // reggerebbe un 1080p; gli altri candidati sono morti. Prima vinceva lui e
         // il player restava appeso per sempre.
-        fakeTorrserver({
-            dcb3ff: { download_speed: 131 * KB, connected_seeders: 3, active_peers: 5 },
-            morto: null
+        fakeBackend({
+            dcb3ff: measured({ speed: 131 * KB, bytes: 2 * MB, seeders: 3, peers: 5 }),
+            morto: DEAD
         });
         const decisions = [];
         const winner = await raceTorrents({
@@ -175,9 +223,9 @@ describe('raceTorrents', () => {
     });
 
     it('incorona chi supera il pavimento anche se la speed poi cala', async () => {
-        fakeTorrserver({
-            buono: { download_speed: 900 * KB, connected_seeders: 2 },
-            lento: { download_speed: 50 * KB, connected_seeders: 1 }
+        fakeBackend({
+            buono: measured({ speed: 900 * KB, bytes: 8 * MB, seeders: 2 }),
+            lento: measured({ speed: 50 * KB, bytes: 200 * KB, seeders: 1 })
         });
         const winner = await raceTorrents({
             candidates: [cand('buono', 3), cand('lento', 30)],
@@ -188,10 +236,10 @@ describe('raceTorrents', () => {
 
     it('sul segnale DEBOLE aspetta chi non ha ancora i metadata (regressione 11970d52)', async () => {
         // `mediocre` passa solo per "3 seeder + ritmo decente" (segnale debole);
-        // `pending` non risponde mai. Non si incorona prima della grace.
-        fakeTorrserver({
-            mediocre: { download_speed: 400 * KB, connected_seeders: 3 },
-            pending: null
+        // `pending` non ha ancora i metadata. Non si incorona prima della grace.
+        fakeBackend({
+            mediocre: measured({ speed: 400 * KB, bytes: 4 * MB, seeders: 3 }),
+            pending: DEAD
         });
         const decisions = [];
         const winner = await raceTorrents({
@@ -204,12 +252,12 @@ describe('raceTorrents', () => {
     });
 
     it('un magnet morto NON ritarda un torrent inequivocabilmente forte', async () => {
-        // Regressione trovata in review: il gate metadata e' globale, quindi un
-        // magnet morto (comune) faceva aspettare METADATA_GRACE_MS a ogni play.
-        // Chi scarica >= STRONG_SPEED deve partire alla finestra minima.
-        fakeTorrserver({
-            fortissimo: { download_speed: 3 * 1024 * 1024, connected_seeders: 8 },
-            morto: null
+        // Il gate metadata e' globale, quindi un magnet morto (comune) faceva
+        // aspettare METADATA_GRACE_MS a ogni play. Chi scarica >= STRONG_SPEED
+        // deve partire alla finestra minima.
+        fakeBackend({
+            fortissimo: measured({ speed: 3 * MB, bytes: 20 * MB, seeders: 8 }),
+            morto: DEAD
         });
         const decisions = [];
         const winner = await raceTorrents({
@@ -221,17 +269,8 @@ describe('raceTorrents', () => {
         expect(decisions[0].elapsedMs).toBeLessThan(TIMING.metadataGraceMs);
     });
 
-    it('il candidato singolo bypassa i controlli ma emette telemetria', async () => {
-        fakeTorrserver({ solo: {} });
-        const decisions = [];
-        const winner = await raceTorrents({
-            candidates: [cand('solo', 1)], timing: TIMING, onDecision: (d) => decisions.push(d)
-        });
-        expect(winner.hash).toBe('solo');
-        expect(decisions[0].reason).toBe('single');
-    });
-
-    it('fail-open al piu\' seedato se TorrServer non risponde', async () => {
+    it('fail-open al piu\' seedato se il backend non risponde', async () => {
+        global.window = { location: { hostname: 'beelink' } };
         global.fetch = jest.fn(() => Promise.reject(new Error('down')));
         const winner = await raceTorrents({
             candidates: [cand('primo', 50), cand('secondo', 10)],
@@ -240,32 +279,66 @@ describe('raceTorrents', () => {
         expect(winner.hash).toBe('primo');
     });
 
+    it('una fetch che non risponde MAI non appende la race (guardia)', async () => {
+        // Backend in restart / WiFi del box in crash-loop: la connessione resta
+        // appesa. Senza un timer di guardia la promise non si settlava piu' e le
+        // card qualita' smettevano di rispondere ai click (`if (racing) return`).
+        global.window = { location: { hostname: 'beelink' } };
+        global.navigator = { sendBeacon: jest.fn() };
+        global.Blob = function Blob() {};
+        global.fetch = jest.fn(() => new Promise(() => {})); // non si risolve mai
+        const winner = await raceTorrents({
+            candidates: [cand('primo', 50), cand('secondo', 10)],
+            timing: TIMING, onDecision: () => {}
+        });
+        expect(winner.hash).toBe('primo'); // fail-open, come col backend giu'
+    });
+
+    it('appena c\'e\' un vincitore, FERMA i reader dei perdenti', async () => {
+        // Continuare a leggere 3 torrent mentre il player apre il vincitore gli ruba
+        // banda e connessioni TorrServer proprio nel momento peggiore.
+        const calls = fakeBackend({
+            vince: measured({ speed: 3 * MB, bytes: 20 * MB, seeders: 8 }),
+            perde: measured({ speed: 10 * KB, bytes: 50 * KB, seeders: 1 })
+        });
+        const winner = await raceTorrents({
+            candidates: [cand('vince', 9), cand('perde', 2)],
+            timing: TIMING, onDecision: () => {}
+        });
+        expect(winner.hash).toBe('vince');
+        const stop = calls.find((c) => c.method === 'BEACON' && c.url.includes('/probe/stop'));
+        expect(stop).toBeDefined();
+        expect(JSON.parse(stop.blob.parts[0]).hashes).toEqual(['perde']); // MAI il vincitore
+    });
+
     it('un solo candidato: lo scalda e lo ritorna senza correre', async () => {
-        const calls = fakeTorrserver({ solo: {} });
-        const winner = await raceTorrents({ candidates: [cand('solo', 1)], timing: TIMING, onDecision: () => {} });
+        const calls = fakeBackend({ solo: {} });
+        const decisions = [];
+        const winner = await raceTorrents({
+            candidates: [cand('solo', 1)], timing: TIMING, onDecision: (d) => decisions.push(d)
+        });
         expect(winner.hash).toBe('solo');
-        expect(calls.filter((c) => c.action === 'get')).toHaveLength(0);
+        expect(decisions[0].reason).toBe('single');
+        // Scaldato (POST), ma nessuna misura letta: non c'e' nulla da scegliere.
+        expect(calls.filter((c) => c.method === 'POST')).toHaveLength(1);
+        expect(calls.filter((c) => c.method === 'GET')).toHaveLength(0);
     });
 });
 
 describe('raceStepState (steppino UI per torrent)', () => {
-    const withSpeed = (kb) => foldEvidence(emptyEvidence(), { speed: kb * KB, preloaded: 0, seeders: 0, peers: 0 });
+    const withBytes = (kb) => foldEvidence(emptyEvidence(), m({ speed: kb * KB, bytes: kb * KB }));
 
-    it('nessuna risposta da TorrServer -> pending', () => {
+    it('metadata non risolti -> pending (il torrent non puo\' partire)', () => {
         expect(raceStepState(false, emptyEvidence(), false)).toBe('pending');
     });
     it('metadata risolti ma zero byte -> alive', () => {
         expect(raceStepState(true, emptyEvidence(), false)).toBe('alive');
     });
-    it('ha mosso byte (speed) -> downloading', () => {
-        expect(raceStepState(true, withSpeed(500), false)).toBe('downloading');
-    });
-    it('ha mosso byte (preload) -> downloading', () => {
-        const e = foldEvidence(emptyEvidence(), { speed: 0, preloaded: 2 * 1024 * 1024, seeders: 0, peers: 0 });
-        expect(raceStepState(true, e, false)).toBe('downloading');
+    it('sta consegnando byte -> downloading', () => {
+        expect(raceStepState(true, withBytes(500), false)).toBe('downloading');
     });
     it('vincitore -> winner, a prescindere dallo stato', () => {
-        expect(raceStepState(true, withSpeed(500), true)).toBe('winner');
+        expect(raceStepState(true, withBytes(500), true)).toBe('winner');
         expect(raceStepState(false, emptyEvidence(), true)).toBe('winner');
     });
 });

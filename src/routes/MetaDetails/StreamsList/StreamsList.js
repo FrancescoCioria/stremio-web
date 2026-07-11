@@ -14,6 +14,7 @@ const { streamKey, recallStreamKey, rememberStream } = require('stremio/common/l
 const { default: useRouteFocused } = require('stremio/common/useRouteFocused');
 const { default: SeasonEpisodePicker } = require('../EpisodePicker');
 const torrentRace = require('stremio/common/torrentRace');
+const { decideStreamFocus } = require('stremio/common/streamFocus');
 const qualityBuckets = require('stremio/common/qualityBuckets');
 
 const ALL_ADDONS_KEY = 'ALL';
@@ -266,16 +267,14 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
         raceAbortRef.current = ctrl;
         setAutoMessage(null);
         setRacing({ bucketKey });
-        // Race su TorrServer: aggiunge in parallelo i candidati piu' seedati, sonda
-        // la salute reale dello swarm (peers/speed) e apre il vincitore. hash+base
-        // TorrServer estratti dall'url del nostro addon (/stremio-addon/ts/<hash>).
+        // Race: il backend apre un reader vero su ogni candidato (TorrServer senza
+        // lettori sta fermo) e misura i byte consegnati; qui li leggiamo e apriamo il
+        // vincitore. L'hash si estrae dall'url del nostro addon (/stremio-addon/ts/<hash>).
         const candidates = bucket.streams.map((s) => ({
             hash: torrentRace.hashFromUrl(s.url),
-            base: torrentRace.torrserverBase(s.url),
-            trackers: torrentRace.trackersOf(s),
             seeders: s.seeders,
             stream: s
-        })).filter((c) => c.hash && c.base);
+        })).filter((c) => c.hash);
         // Steppini iniziali (tutti 'pending') = i candidati che correranno: cosi'
         // la UI mostra subito N step, prima ancora del primo poll.
         const nSteps = Math.min(candidates.length, torrentRace.RACE_K);
@@ -450,7 +449,6 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
     // Chiave dell'ultimo stream riprodotto per QUESTO video (se si rientra qui
     // tornando indietro dal player): serve a preselezionare la card corrente.
     const wantStreamKeyRef = React.useRef(null);
-    const initialFocusDoneRef = React.useRef(false);
     // Ri-leggi quale torrent preselezionare OGNI volta che la lista torna in
     // primo piano (non solo al cambio video). Tornando dal player sullo STESSO
     // film, video.id NON cambia -> prima la rilettura non ri-partiva e il 2o
@@ -458,7 +456,6 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
     React.useEffect(() => {
         if (!routeFocused) return;
         wantStreamKeyRef.current = recallStreamKey(); // ultimo torrent riprodotto (per infoHash, globale)
-        initialFocusDoneRef.current = false; // consenti il ri-focus al ritorno
     }, [routeFocused]);
 
     // Trova l'elemento focusable della card stream all'indice idx (le card sono
@@ -486,30 +483,40 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
         if (!container || filteredStreams.length === 0 || !routeFocused) return;
         const ae = document.activeElement;
         if (ae && ae.closest && ae.closest('[class*="addon-pill"]')) return; // sui filtri addon: non rubare
-        const focusInList = !!(ae && ae !== document.body && container.contains(ae));
+        const nothingFocused = !ae || ae === document.body; // focus sul NULLA (elemento smontato)
+        const focusInList = !!(ae && !nothingFocused && container.contains(ae));
         const wantKey = wantStreamKeyRef.current;
 
-        if (wantKey) {
-            const idx = filteredStreams.findIndex((s) => streamKey(s) === wantKey);
-            if (idx < 0) return; // il torrent voluto non e' (ancora) in lista: riprova al prossimo cambio
-            const target = focusableAt(container, idx);
-            if (!target) return;
-            if (focusInList && ae !== target) {
-                wantStreamKeyRef.current = null; // l'utente si e' spostato altrove -> molla
-            } else {
-                target.focus({ preventScroll: true }); // ri-asserisci (focus perso da remount, o conferma)
-                if (!focusInList) target.scrollIntoView({ block: 'center' }); // porta in vista solo se era perso
-            }
-            initialFocusDoneRef.current = true;
-            return;
-        }
+        // wantKey e' GLOBALE (un solo slot, non per-video): su un film mai aperto
+        // e' la chiave di un ALTRO film e wantIdx resta -1. Vedi streamFocus.js:
+        // quel caso DEVE cadere sulla prima card, non lasciare il focus nel vuoto.
+        const wantIdx = wantKey ? filteredStreams.findIndex((s) => streamKey(s) === wantKey) : -1;
+        const target = wantIdx >= 0 ? focusableAt(container, wantIdx) : null;
+        const action = decideStreamFocus({
+            wantIdx: target ? wantIdx : -1, // card voluta non ancora montata = come non trovata
+            nothingFocused,
+            focusInList,
+            focusIsWanted: ae === target,
+        });
 
-        if (!initialFocusDoneRef.current && !focusInList) {
-            initialFocusDoneRef.current = true;
-            const el = container.querySelector('[tabindex], a, button');
-            if (el) el.focus();
-        } else if (focusInList) {
-            ae.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'auto' }); // tieni in vista durante i re-sort
+        switch (action) {
+            case 'reassert-want':
+                target.focus({ preventScroll: true }); // focus perso da un remount, o conferma
+                if (!focusInList) target.scrollIntoView({ block: 'center' }); // in vista solo se era perso
+                break;
+            case 'drop-want':
+                wantStreamKeyRef.current = null; // l'utente si e' spostato altrove -> molla
+                break;
+            case 'focus-first': {
+                const el = container.querySelector('[tabindex], a, button');
+                if (el) el.focus();
+                break;
+            }
+            case 'keep-in-view':
+                ae.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'auto' }); // tieni in vista nei re-sort
+                break;
+            default: // 'none': focus fuori dalla lista di proposito, non rubarlo
+                break;
         }
     }, [filteredStreams, focusableAt, routeFocused]);
 
