@@ -4,9 +4,6 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
-patchedDependencies:
-  '@stremio/stremio-video@0.0.80': c77a42beb5f082d9d611ee696f3b4f674dd163f7ad03cb25786a20afc485aac8
-
 importers:
 
   .:
@@ -27,8 +24,8 @@ importers:
         specifier: 5.10.0
         version: 5.10.0
       '@stremio/stremio-video':
-        specifier: 0.0.80
-        version: 0.0.80(patch_hash=c77a42beb5f082d9d611ee696f3b4f674dd163f7ad03cb25786a20afc485aac8)
+        specifier: file:./vendor/stremio-video
+        version: file:vendor/stremio-video
       a-color-picker:
         specifier: 1.2.1
         version: 1.2.1
@@ -1426,8 +1423,8 @@ packages:
   '@stremio/stremio-icons@5.10.0':
     resolution: {integrity: sha512-Zw/vGC3D2yeQfk8xv/tfMJTDvbCPOI91tBg4XpR2+EgbZSX8Xvm7Vz457PIhFPhTAwdOPHp0VX0M3gzjbt0zOg==}
 
-  '@stremio/stremio-video@0.0.80':
-    resolution: {integrity: sha512-9mIDeKUUEt6h7h685Bl9HUTOLT0VtaQWrC7uBlL5uoo2CWohIZBr3KEHYlaTnM2ve6CIQJ/nB+hfTyymgGDiGg==}
+  '@stremio/stremio-video@file:vendor/stremio-video':
+    resolution: {directory: vendor/stremio-video, type: directory}
 
   '@stylistic/eslint-plugin-jsx@4.4.1':
     resolution: {integrity: sha512-83SInq4u7z71vWwGG+6ViOtlOmZ6tSrDkMPhrvdBBTGMLA0gs22WSdhQ4vZP3oJ5Xg4ythvqeUiFSedvVxzhyA==}
@@ -6491,7 +6488,7 @@ snapshots:
 
   '@stremio/stremio-icons@5.10.0': {}
 
-  '@stremio/stremio-video@0.0.80(patch_hash=c77a42beb5f082d9d611ee696f3b4f674dd163f7ad03cb25786a20afc485aac8)':
+  '@stremio/stremio-video@file:vendor/stremio-video':
     dependencies:
       buffer: 6.0.3
       color: 4.2.3
