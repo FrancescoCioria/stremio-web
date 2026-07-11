@@ -30,6 +30,7 @@ const useStatistics = require('./useStatistics');
 const usePlayerDebugLog = require('./usePlayerDebugLog');
 const useSubtitleDebugLog = require('./useSubtitleDebugLog');
 const useNextEpisodePrewarm = require('./useNextEpisodePrewarm');
+const useStallWatchdog = require('./useStallWatchdog');
 const useVideo = require('./useVideo');
 const { default: useSubtitles } = require('./useSubtitles');
 const styles = require('./styles');
@@ -164,6 +165,7 @@ const Player = () => {
     const defaultAudioTrackSelected = React.useRef(false);
     const playingOnExternalDevice = React.useRef(false);
     const [error, setError] = React.useState(null);
+    const lastLoadRef = React.useRef(null);
 
     const playbackSpeed = React.useRef(video.state.playbackSpeed || 1);
     const pressTimer = React.useRef(null);
@@ -413,7 +415,7 @@ const Player = () => {
         video.unload();
 
         if (player.selected && player.stream?.type === 'Ready' && streamingServer.settings?.type !== 'Loading') {
-            video.load({
+            const loadArgs = {
                 stream: {
                     ...player.stream.content,
                     subtitles: streamSubtitles
@@ -441,12 +443,33 @@ const Player = () => {
                     :
                     null,
                 seriesInfo: player.seriesInfo,
-            }, {
+            };
+            const loadOptions = {
                 chromecastTransport: services.chromecast.active ? services.chromecast.transport : null,
                 shellTransport: platform.shell.active ? platform.shell : null,
-            });
+            };
+            // Casa: memorizzati per il watchdog anti-stallo (ricarica dallo
+            // stesso punto senza rifare tutta questa derivazione).
+            lastLoadRef.current = { loadArgs, loadOptions };
+            video.load(loadArgs, loadOptions);
         }
     }, [streamingServer.baseUrl, player.selected, player.stream, streamSubtitles, forceTranscoding, casting]);
+
+    // Casa: se il player resta appeso in buffering senza avanzare (append MSE
+    // che non si completa mai: nessun errore, nessun frammento nuovo chiesto),
+    // ricrea l'istanza hls dallo stesso punto. Vedi useStallWatchdog.js.
+    const reloadStream = React.useCallback((time) => {
+        const last = lastLoadRef.current;
+        if (last === null) return;
+
+        video.unload();
+        video.load({
+            ...last.loadArgs,
+            time: typeof time === 'number' ? time : last.loadArgs.time,
+        }, last.loadOptions);
+    }, []);
+
+    useStallWatchdog(video.state, reloadStream);
 
     React.useEffect(() => {
         !seeking && timeChanged(video.state.time, video.state.duration, video.state.manifest?.name);

@@ -20,6 +20,11 @@ const stremioTranslations = require('stremio-translations');
 const App = require('./App');
 const { CoreProvider } = require('./core');
 const { FileDropProvider, PlatformProvider } = require('./common');
+const { installCasaErrorLog } = require('./common/casaErrorLog');
+
+// Casa: errori JS della tile -> ~/.local/state/stremio-js-errors.log. Prima di
+// tutto il resto, cosi' becca anche gli errori di boot.
+installCasaErrorLog();
 
 const translations = Object.fromEntries(Object.entries(stremioTranslations()).map(([key, value]) => [key, {
     translation: value

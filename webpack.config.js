@@ -232,7 +232,26 @@ module.exports = (env, argv) => ({
                 // deploy che cambia l'hash-dir dei bundle il SW vecchio puo'
                 // servire un index stale che punta a un bundle gia' rimosso
                 // da `rsync --delete` -> schermo bianco. Vedi CLAUDE.md.
-                cleanupOutdatedCaches: true
+                cleanupOutdatedCaches: true,
+                // Casa: il DOCUMENTO fuori dalla precache, servito network-first.
+                // Con index.html precachato workbox risolve `/` dalla cache
+                // (directoryIndex), quindi la tile continuava a montare un
+                // index vecchio finche' non si svuotava a mano la SW-cache del
+                // profilo: e' la trappola "il deploy non arriva sulla TV" (e ci
+                // ha anche impedito di strumentare la pagina dall'esterno, 2026-07-11).
+                // I bundle restano precachati: sono in cartelle-hash immutabili,
+                // sono loro il peso. Il documento e' 1KB da un server in LAN ->
+                // andarlo a prendere non costa nulla. Offline: fallback alla
+                // copia in runtime cache.
+                exclude: [/\.map$/, /^manifest.*\.js$/, /index\.html$/],
+                runtimeCaching: [{
+                    urlPattern: ({ request }) => request.mode === 'navigate',
+                    handler: 'NetworkFirst',
+                    options: {
+                        cacheName: 'casa-document',
+                        networkTimeoutSeconds: 5,
+                    },
+                }],
             }),
         new CopyWebpackPlugin({
             patterns: [
