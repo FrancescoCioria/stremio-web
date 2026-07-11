@@ -4,3 +4,5 @@
 /npm-debug.log
 .DS_Store
 .prettierignore
+# Casa: dipendenze del pacchetto vendorizzato (installate da pnpm, non versionate)
+vendor/*/node_modules/

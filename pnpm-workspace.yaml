@@ -2,3 +2,12 @@ minimumReleaseAgeExclude:
   - '@stremio/*'
 
 blockExoticSubdeps: false
+
+# Casa: stremio-video vendorizzato = pacchetto del workspace, NON `file:`.
+# Con `file:` pnpm COPIA il pacchetto nello store -> editi vendor/ e la modifica
+# NON arriva nel bundle finche' non reinstalli (bruciato mezz'ora il 2026-07-11:
+# enableWorker restava true). Come workspace e' un symlink vero: quello che editi
+# e' quello che gira, e pnpm gli installa comunque le sue dipendenze.
+packages:
+  - vendor/stremio-video
+
