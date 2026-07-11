@@ -712,13 +712,17 @@ const Player = () => {
         }
     }, [video.state.playbackSpeed, onPlaybackSpeedChanged], !menusOpen);
 
+    // Casa: il gate e' `statistics.infoHash` (lo espone useStatistics, che lo ricava
+    // dall'url /ts per i nostri stream TorrServer e da stream.infoHash per i torrent
+    // classici). Era ancorato a stream.infoHash+fileIdx = campi che i nostri stream
+    // HTTP non hanno -> da TorrServer in poi le stats erano sempre irraggiungibili,
+    // pur essendo gia' calcolate.
     onShortcut('statisticsMenu', () => {
         closeMenus();
-        const stream = player.selected?.stream;
-        if (streamingServer?.statistics?.type !== 'Err' && typeof stream?.infoHash === 'string' && typeof stream?.fileIdx === 'number') {
+        if (typeof statistics?.infoHash === 'string') {
             toggleStatisticsMenu();
         }
-    }, [player.selected, streamingServer.statistics, toggleStatisticsMenu]);
+    }, [statistics, toggleStatisticsMenu]);
 
     // Auto-apri il popup statistics 5s dopo lo start dello stream. L'utente
     // lo aprirebbe manualmente per monitorare peers/speed durante il loading;

@@ -83,7 +83,12 @@ const ControlBar = React.forwardRef(({
                 <Button className={classnames(styles['control-bar-button'], { 'disabled': !Array.isArray(audioTracks) || audioTracks.length === 0 })} title={t('PLAYER_AUDIO')} tabIndex={0} onMouseDown={onAudioButtonMouseDown} onClick={onToggleAudioMenu} data-tv-button="audio">
                     <Icon className={styles['icon']} name={'audio-tracks'} />
                 </Button>
-                <Button className={classnames(styles['control-bar-button'], { 'disabled': statistics === null || statistics.type === 'Err' || stream === null || typeof stream.infoHash !== 'string' || typeof stream.fileIdx !== 'number' })} title={t('PLAYER_STATISTICS')} tabIndex={0} onMouseDown={onStatisticsButtonMouseDown} onClick={onToggleStatisticsMenu} data-tv-button="statistics">
+                {/* Casa: gate su `statistics.infoHash` (useStatistics lo ricava dall'url
+                    /ts per gli stream TorrServer, o da stream.infoHash per i torrent
+                    classici). Prima era `stream.infoHash` + `stream.fileIdx`: campi che
+                    i nostri stream HTTP non hanno -> il pulsante era SEMPRE disabilitato
+                    da quando siamo passati a TorrServer, benche' le stats ci fossero. */}
+                <Button className={classnames(styles['control-bar-button'], { 'disabled': statistics === null || typeof statistics.infoHash !== 'string' })} title={t('PLAYER_STATISTICS')} tabIndex={0} onMouseDown={onStatisticsButtonMouseDown} onClick={onToggleStatisticsMenu} data-tv-button="statistics">
                     <Icon className={styles['icon']} name={'network'} />
                 </Button>
             </div>
