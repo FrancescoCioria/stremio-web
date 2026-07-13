@@ -157,23 +157,53 @@ const useSubtitles = ({
         videoRef.current.addLocalSubtitles(file.name, buffer);
     });
 
+    // Casa (2026-07-13): al cambio episodio il core espone per ~1s uno stato
+    // INCOERENTE — `player.selected` e' gia' il video nuovo, ma `player.subtitles`
+    // sono ancora quelle del PRECEDENTE. Questo effetto rifiora sul cambio di
+    // `video.state.stream` e, senza guardia, infila nel player nuovo le tracce
+    // vecchie; la selezione qui sotto ne sceglie una per lingua e richiude il latch
+    // `defaultTrackSelected` -> quando 1s dopo arrivano le tracce GIUSTE vengono
+    // accodate ma non le seleziona piu' nessuno. Risultato: l'episodio nuovo si
+    // guarda coi sottotitoli del vecchio (bug riportato dall'utente: E08 -> E09).
+    //
+    // Provato con le URL di OpenSubtitles, che contengono l'id del file: al load di
+    // E03 aggiungevamo gli STESSI 24 file appena aggiunti per E02, e un secondo dopo
+    // arrivavano i 23 veri.
+    //
+    // Guardia: se lo stream e' cambiato ma le tracce sono IDENTICHE a quelle
+    // dell'ultima aggiunta, sono stantie per costruzione -> si aspetta (arrivano
+    // subito dopo e questo effetto rifiora, perche' `externalSubtitles` e' fra le
+    // dipendenze). NB: il latch resta false, quindi la selezione avviene sulle
+    // tracce giuste; nel frattempo l'embedded fa da fallback non bloccante, come
+    // gia' previsto dalla logica qui sotto.
+    const lastAddedRef = useRef<{ stream: unknown; sig: string } | null>(null);
+
     useEffect(() => {
-        if (video.state.stream !== null) {
-            // Casa (2026-07-13): sospetto che al cambio episodio qui finiscano le
-            // tracce del video PRECEDENTE (`player.subtitles` non ancora rinfrescato
-            // dal core), che poi la selezione qui sotto sceglie per lingua e blocca
-            // col latch -> l'episodio nuovo si guarda coi sottotitoli del vecchio.
-            // Le URL di OpenSubtitles portano dentro l'id del video: se `subUrls`
-            // dice E08 mentre `selectedVideoId` dice E09, il meccanismo e' provato.
-            casaBeacon('/debug/player-event', {
-                ev: 'subs-add',
-                selectedVideoId: player.selected?.streamRequest?.path?.id ?? null,
-                count: externalSubtitles.length,
-                subUrls: externalSubtitles.slice(0, 3).map((s: { url?: string; id?: string }) =>
-                    String(s.url ?? s.id ?? '').slice(0, 140)),
-            });
-            video.addExtraSubtitlesTracks(externalSubtitles);
+        if (video.state.stream === null) {
+            return;
         }
+
+        const sig = externalSubtitles
+            .map((s: { url?: string; id?: string }) => String(s.url ?? s.id ?? ''))
+            .join('|');
+        const last = lastAddedRef.current;
+        const stale = last !== null && last.stream !== video.state.stream && last.sig === sig;
+
+        casaBeacon('/debug/player-event', {
+            ev: 'subs-add',
+            selectedVideoId: player.selected?.streamRequest?.path?.id ?? null,
+            count: externalSubtitles.length,
+            stale,   // true = scartate perche' del video precedente (il bug, ora tappato)
+            subUrls: externalSubtitles.slice(0, 3).map((s: { url?: string; id?: string }) =>
+                String(s.url ?? s.id ?? '').slice(0, 140)),
+        });
+
+        if (stale) {
+            return;
+        }
+
+        lastAddedRef.current = { stream: video.state.stream, sig };
+        video.addExtraSubtitlesTracks(externalSubtitles);
     }, [externalSubtitles, video.state.stream]);
 
     useEffect(() => {
