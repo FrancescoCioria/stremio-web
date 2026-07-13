@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+// @ts-expect-error — casaBackend e' un modulo JS (CommonJS) senza tipi
+import { casaBeacon } from 'stremio/common/casaBackend';
 import { CONSTANTS, languages, onFileDrop, onShortcut, useToast } from 'stremio/common';
 
 const withFallbackLabels = (tracks?: SubtitleTrack[] | null): SubtitleTrack[] => {
@@ -157,6 +159,19 @@ const useSubtitles = ({
 
     useEffect(() => {
         if (video.state.stream !== null) {
+            // Casa (2026-07-13): sospetto che al cambio episodio qui finiscano le
+            // tracce del video PRECEDENTE (`player.subtitles` non ancora rinfrescato
+            // dal core), che poi la selezione qui sotto sceglie per lingua e blocca
+            // col latch -> l'episodio nuovo si guarda coi sottotitoli del vecchio.
+            // Le URL di OpenSubtitles portano dentro l'id del video: se `subUrls`
+            // dice E08 mentre `selectedVideoId` dice E09, il meccanismo e' provato.
+            casaBeacon('/debug/player-event', {
+                ev: 'subs-add',
+                selectedVideoId: player.selected?.streamRequest?.path?.id ?? null,
+                count: externalSubtitles.length,
+                subUrls: externalSubtitles.slice(0, 3).map((s: { url?: string; id?: string }) =>
+                    String(s.url ?? s.id ?? '').slice(0, 140)),
+            });
             video.addExtraSubtitlesTracks(externalSubtitles);
         }
     }, [externalSubtitles, video.state.stream]);
