@@ -65,16 +65,21 @@ esatta**. Problemi concreti:
    tornano solo cambiando e rimettendo la traccia.
 
 4. **`src/HTMLVideo/casaHlsProbe.js`** (file NOSTRO) + 3 righe in `HTMLVideo.js` —
-   sonda **diagnostica temporanea** (2026-07-13) per lo stall da ~1s ogni 20-30s.
-   Sappiamo gia' che i segmenti **esistono** quando il player si ferma (TorrServer ha
-   i pieces in cache, ffmpeg copia il video ed e' ~10 min avanti, ed e' pure in
-   back-pressure). Quindi lo stall e' **dentro la pagina**, ma da fuori non si
-   distinguono due cause con fix opposti: **buffer pieno con un buco** (gap-controller
-   → si tara `maxBufferHole`) vs **buffer a zero** (rifornimento → la config di hls.js
-   non c'entra). La sonda logga in `~/.local/state/stremio-player-debug.log` il buffer
-   avanti alla testina **per SourceBuffer** (`video`/`audio` separati, o `audiovideo`
-   se muxato) a ogni `waiting`, i `bufferStalledError`/`bufferSeekOverHole`/
-   `bufferNudgeOnStall`, e un battito ogni 10s. **Da rimuovere a diagnosi conclusa.**
+   osservabilita' **PERMANENTE** del player (2026-07-13). **Non rimuoverla**: e' cio'
+   che impedisce di tornare ciechi sugli stall.
+   - Emette `hls-stall` (freeze CONCLUSO, con `durationMs` + `jumpMs` + il buco +
+     buffer per SourceBuffer), `hls-stall-open` (freeze ancora aperto oltre 8s: senza,
+     un player appeso per sempre non lascerebbe **nessuna** riga), `hls-error` (il
+     gap-controller colto sul fatto) e un battito `hls-buffer` ogni 30s.
+   - **Perche' `durationMs` e' il campo centrale**: il log che avevamo (`player-state`)
+     diceva `buffering: true` ma **mai se e per quanto l'immagine si era fermata**. Il
+     2026-07-13 questo ha prodotto due diagnosi sbagliate: eventi di buffering da ~0.8s
+     che l'utente NON vedeva (transizioni interne, nessun frame perso) contati come
+     hiccup; e gli stall attribuiti ai micro-gap dell'AAC quando i buchi erano nel
+     **VIDEO** e l'audio era 300s avanti e pulito. Un log che non separa "si e' visto"
+     da "non si e' visto" non e' osservabilita': e' rumore che sembra evidenza.
+   - **Perche' per-SourceBuffer**: `videoElement.buffered` e' l'**intersezione** di
+     video e audio → nasconde esattamente il caso "audio pieno, video bucato".
 
 ## `hls.js`: dal fork Stremio all'ufficiale (2026-07-11)
 
