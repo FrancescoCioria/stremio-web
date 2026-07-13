@@ -64,6 +64,18 @@ esatta**. Problemi concreti:
    (`rafId` resta non-null). Sintomo: i sottotitoli si spengono "dopo un po'" e
    tornano solo cambiando e rimettendo la traccia.
 
+4. **`src/HTMLVideo/casaHlsProbe.js`** (file NOSTRO) + 3 righe in `HTMLVideo.js` —
+   sonda **diagnostica temporanea** (2026-07-13) per lo stall da ~1s ogni 20-30s.
+   Sappiamo gia' che i segmenti **esistono** quando il player si ferma (TorrServer ha
+   i pieces in cache, ffmpeg copia il video ed e' ~10 min avanti, ed e' pure in
+   back-pressure). Quindi lo stall e' **dentro la pagina**, ma da fuori non si
+   distinguono due cause con fix opposti: **buffer pieno con un buco** (gap-controller
+   → si tara `maxBufferHole`) vs **buffer a zero** (rifornimento → la config di hls.js
+   non c'entra). La sonda logga in `~/.local/state/stremio-player-debug.log` il buffer
+   avanti alla testina **per SourceBuffer** (`video`/`audio` separati, o `audiovideo`
+   se muxato) a ogni `waiting`, i `bufferStalledError`/`bufferSeekOverHole`/
+   `bufferNudgeOnStall`, e un battito ogni 10s. **Da rimuovere a diagnosi conclusa.**
+
 ## `hls.js`: dal fork Stremio all'ufficiale (2026-07-11)
 
 Era `https://github.com/Stremio/hls.js/.../v1.5.4-patch2.tgz` — un **fork di Stremio

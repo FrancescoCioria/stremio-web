@@ -6,6 +6,7 @@ var Color = require('color');
 var ERROR = require('../error');
 var getContentType = require('./getContentType');
 var HLS_CONFIG = require('./hlsConfig');
+var casaHlsProbe = require('./casaHlsProbe');
 
 function HTMLVideo(options) {
     options = options || {};
@@ -107,6 +108,10 @@ function HTMLVideo(options) {
     videoElement.addEventListener('fullscreenchange', onFullscreenChanged);
 
     var hls = null;
+    // Casa: teardown della sonda diagnostica (casaHlsProbe). Va tenuto qui accanto
+    // a `hls`: la sonda vive quanto l'istanza hls, e il suo heartbeat sopravviverebbe
+    // al cambio episodio se non lo si spegnesse insieme.
+    var casaProbeDestroy = null;
     var events = new EventEmitter();
     var destroyed = false;
     var stream = null;
@@ -622,6 +627,7 @@ function HTMLVideo(options) {
                                 hls.on(Hls.Events.MANIFEST_LOADING, function() {
                                     hls.subtitleTrack = -1;
                                 });
+                                casaProbeDestroy = casaHlsProbe(hls, videoElement, Hls);
                                 hls.loadSource(stream.url);
                                 hls.attachMedia(videoElement);
                             } else {
@@ -648,6 +654,10 @@ function HTMLVideo(options) {
                 Array.from(videoElement.textTracks).forEach(function(track) {
                     track.oncuechange = null;
                 });
+                if (casaProbeDestroy !== null) {
+                    casaProbeDestroy();   // prima di removeAllListeners: spegne heartbeat + listener sul <video>
+                    casaProbeDestroy = null;
+                }
                 if (hls !== null) {
                     hls.removeAllListeners();
                     hls.detachMedia(videoElement);
