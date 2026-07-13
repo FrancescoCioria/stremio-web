@@ -1,6 +1,7 @@
 // Copyright (C) 2017-2023 Smart code 203358507
 
 const React = require('react');
+const { casaBeacon } = require('stremio/common/casaBackend');
 const { useParams, useNavigate } = require('react-router');
 const { useSearchParams } = require('react-router-dom');
 const classnames = require('classnames');
@@ -451,6 +452,29 @@ const Player = () => {
             // Casa: memorizzati per il watchdog anti-stallo (ricarica dallo
             // stesso punto senza rifare tutta questa derivazione).
             lastLoadRef.current = { loadArgs, loadOptions };
+
+            // Casa (2026-07-13): il "next episode" a volte fa partire l'episodio
+            // NUOVO alla posizione del VECCHIO e coi sottotitoli del VECCHIO. Il
+            // sospetto e' un race in questa transizione: `NextVideo` (core) +
+            // navigate() al deep-link avvengono insieme, e se il load parte mentre
+            // il core espone gia' il video_id nuovo ma ancora il timeOffset (e i
+            // subtitles) del precedente, la guardia qui sopra passa e riusa il
+            // vecchio tempo. Logga i pezzi che decidono, cosi' il prossimo caso
+            // si legge invece di dedurlo. urlVideoId = quello che l'URL CHIEDE.
+            casaBeacon('/debug/player-event', {
+                ev: 'player-load',
+                urlVideoId: urlParams.videoId ?? null,
+                selectedVideoId: player.selected.streamRequest?.path?.id ?? null,
+                libraryVideoId: player.libraryItem?.state?.video_id ?? null,
+                libraryTimeOffset: player.libraryItem?.state?.timeOffset ?? null,
+                loadTime: loadArgs.time,                       // != 0 su un episodio nuovo = IL BUG
+                subtitleCount: Array.isArray(streamSubtitles) ? streamSubtitles.length : null,
+                subtitleSample: Array.isArray(streamSubtitles) && streamSubtitles[0]
+                    ? String(streamSubtitles[0].url ?? streamSubtitles[0].id ?? '').slice(0, 120)
+                    : null,
+                seriesInfo: player.seriesInfo ?? null,
+            });
+
             video.load(loadArgs, loadOptions);
         }
     }, [streamingServer.baseUrl, player.selected, player.stream, streamSubtitles, forceTranscoding, casting]);
