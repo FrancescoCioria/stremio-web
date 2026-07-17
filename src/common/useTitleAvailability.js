@@ -19,7 +19,7 @@ const inflight = new Map(); // imdbId -> Promise
 const TTL_MS = 24 * 60 * 60 * 1000;
 const MAX_CACHE = 500;
 
-const NONE = { inCinema: false, onPrime: false };
+const NONE = { inCinema: false, onPrime: false, digitalRelease: null };
 
 const fetchAvailability = async (kind, imdbId) => {
     const r = await fetch(`${BACKEND_URL}/availability/${kind}/${encodeURIComponent(imdbId)}`);
@@ -29,6 +29,9 @@ const fetchAvailability = async (kind, imdbId) => {
     return {
         inCinema: j.in_cinema === true,
         onPrime: j.on_prime === true,
+        // ISO date della prima uscita digitale (o null). La riga "Digitale: ..."
+        // sul dettaglio film deriva recenza/wording da casaDigitalRelease.js.
+        digitalRelease: typeof j.digital_release_date === 'string' ? j.digital_release_date : null,
     };
 };
 
@@ -63,7 +66,7 @@ const useTitleAvailability = (type, id) => {
 
         const cached = getCached(imdbId);
         if (cached) {
-            setState({ inCinema: cached.inCinema, onPrime: cached.onPrime });
+            setState({ inCinema: cached.inCinema, onPrime: cached.onPrime, digitalRelease: cached.digitalRelease });
             return;
         }
 

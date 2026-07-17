@@ -10,6 +10,8 @@ const { withCoreSuspender } = require('stremio/common');
 // TV fork: niente HorizontalNavBar (nessuna top bar su TV).
 const { VerticalNavBar, DelayedRenderer, Image, MetaPreview, ModalDialog } = require('stremio/components');
 const useEpisodeRuntimes = require('stremio/common/useEpisodeRuntimes');
+const useTitleAvailability = require('stremio/common/useTitleAvailability');
+const { digitalReleaseLabel } = require('stremio/common/casaDigitalRelease');
 const StreamsList = require('./StreamsList');
 const VideosList = require('./VideosList');
 const useMetaDetails = require('./useMetaDetails');
@@ -76,6 +78,22 @@ const MetaDetails = () => {
         episodeRuntimes.runtimes[String(previewVideo.episode)] ?? null
         :
         null;
+
+    // TV Casa: data di uscita DIGITALE per i FILM (quando escono i primi rip
+    // buoni). id null per le serie -> l'hook non chiama il backend. La label
+    // (recenza/wording) e' calcolata da casaDigitalRelease.js; mostrata solo
+    // per film recenti/imminenti.
+    const movieAvailability = useTitleAvailability(type, type === 'movie' ? id : null);
+    const movieDigitalReleaseLabel = React.useMemo(() => {
+        if (type !== 'movie' || metaDetails.metaItem === null || metaDetails.metaItem.content.type !== 'Ready') {
+            return null;
+        }
+        return digitalReleaseLabel(
+            movieAvailability.digitalRelease,
+            metaDetails.metaItem.content.content.released,
+            Date.now()
+        );
+    }, [type, movieAvailability.digitalRelease, metaDetails.metaItem]);
     const addToLibrary = React.useCallback(() => {
         if (metaDetails.metaItem === null || metaDetails.metaItem.content.type !== 'Ready') {
             return;
@@ -222,6 +240,7 @@ const MetaDetails = () => {
                                             }
                                             focusedEpisode={previewVideo}
                                             focusedEpisodeRuntime={previewVideoRuntime}
+                                            movieDigitalReleaseLabel={movieDigitalReleaseLabel}
                                             /* Per i FILM la pagina streams e' anche la pagina
                                              * di dettaglio (non c'e' episode list prima), quindi
                                              * manteniamo visibili Trailer/Add to Lib/Mark as

@@ -26,7 +26,7 @@ const ALLOWED_LINK_REDIRECTS = [
     routesRegexp.metadetails.regexp
 ];
 
-const MetaPreview = React.forwardRef(({ className, compact, name, logo, background, runtime, releaseInfo, released, description, deepLinks, links, trailerStreams, inLibrary, toggleInLibrary, watched, toggleWatched, ratingInfo, focusedEpisode, focusedEpisodeRuntime, hideActions, showWatchedToggle }, ref) => {
+const MetaPreview = React.forwardRef(({ className, compact, name, logo, background, runtime, releaseInfo, released, description, deepLinks, links, trailerStreams, inLibrary, toggleInLibrary, watched, toggleWatched, ratingInfo, focusedEpisode, focusedEpisodeRuntime, movieDigitalReleaseLabel, hideActions, showWatchedToggle }, ref) => {
     const { t } = useTranslation();
     const [shareModalOpen, openShareModal, closeShareModal] = useBinaryState(false);
     const linksGroups = React.useMemo(() => {
@@ -182,7 +182,7 @@ const MetaPreview = React.forwardRef(({ className, compact, name, logo, backgrou
                             }
                         </div>
                         :
-                        (typeof releaseInfo === 'string' && releaseInfo.length > 0) || (released instanceof Date && !isNaN(released.getTime())) || (typeof runtime === 'string' && runtime.length > 0) || linksGroups.has(CONSTANTS.IMDB_LINK_CATEGORY) ?
+                        (typeof releaseInfo === 'string' && releaseInfo.length > 0) || (released instanceof Date && !isNaN(released.getTime())) || (typeof runtime === 'string' && runtime.length > 0) || (typeof movieDigitalReleaseLabel === 'string' && movieDigitalReleaseLabel.length > 0) || linksGroups.has(CONSTANTS.IMDB_LINK_CATEGORY) ?
                             <div className={styles['runtime-release-info-container']}>
                                 {
                                     typeof runtime === 'string' && runtime.length > 0 ?
@@ -198,6 +198,15 @@ const MetaPreview = React.forwardRef(({ className, compact, name, logo, backgrou
                                             <div className={styles['release-info-label']}>{released.getFullYear()}</div>
                                             :
                                             null
+                                }
+                                {
+                                /* TV Casa: data di uscita digitale del FILM (solo
+                                 * recenti/imminenti). Segnala quando compaiono i
+                                 * primi rip buoni. Vedi casaDigitalRelease.js. */
+                                    typeof movieDigitalReleaseLabel === 'string' && movieDigitalReleaseLabel.length > 0 ?
+                                        <div className={styles['release-info-label']}>{movieDigitalReleaseLabel}</div>
+                                        :
+                                        null
                                 }
                                 {
                                 /* TV: rating IMDb resta visibile come info,
@@ -334,6 +343,7 @@ MetaPreview.propTypes = {
     ratingInfo: PropTypes.object,
     focusedEpisode: PropTypes.object,
     focusedEpisodeRuntime: PropTypes.number,
+    movieDigitalReleaseLabel: PropTypes.string,
     hideActions: PropTypes.bool,
     showWatchedToggle: PropTypes.bool,
 };
