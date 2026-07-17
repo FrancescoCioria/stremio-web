@@ -156,13 +156,22 @@ const BoardHero = ({ meta: rawMeta }) => {
                         : null
                 }
                 {
-                    directorText ?
-                        <div className={styles['hero-cast']}>Regista: {directorText}</div>
-                        : null
-                }
-                {
-                    castText ?
-                        <div className={styles['hero-cast']}>{castText}</div>
+                    directorText || castText ?
+                        <div className={styles['hero-cast']}>
+                            {directorText ?
+                                <span className={styles['hero-credit']}>
+                                    <span className={styles['hero-credit-label']}>Regista</span> {directorText}
+                                </span>
+                                : null}
+                            {directorText && castText ?
+                                <span className={styles['hero-credit-sep']} aria-hidden={true} />
+                                : null}
+                            {castText ?
+                                <span className={styles['hero-credit']}>
+                                    <span className={styles['hero-credit-label']}>Cast</span> {castText}
+                                </span>
+                                : null}
+                        </div>
                         : null
                 }
             </div>
