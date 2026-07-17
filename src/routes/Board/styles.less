@@ -41,7 +41,11 @@
 
                 .board-row {
                     margin-top: 0;
-                    margin-bottom: 0.5rem;
+                    /* TV: piu' respiro tra una riga e la successiva. Era 0.5rem
+                     * (righe incollate); +~2.1rem = l'altezza del titolo riga
+                     * (.title-container 2.1rem) per un gap ben leggibile dal
+                     * divano (2026-07-17). */
+                    margin-bottom: 2.5rem;
                     padding: 0 1rem;
                 }
 
