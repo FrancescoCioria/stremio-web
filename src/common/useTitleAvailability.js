@@ -19,7 +19,13 @@ const inflight = new Map(); // imdbId -> Promise
 const TTL_MS = 24 * 60 * 60 * 1000;
 const MAX_CACHE = 500;
 
-const NONE = { inCinema: false, onPrime: false, digitalRelease: null };
+// loaded=false finche' la risposta backend non e' arrivata: serve a NON
+// mostrare label/pill dedotte dall'assenza di dati mentre stiamo ancora
+// caricando. Senza, la riga "Disponibile: data non nota" (che nasce proprio
+// dall'assenza di digitalRelease) LAMPEGGIAVA sul dettaglio film appena il
+// metaItem diventava Ready ma prima che /availability rispondesse, poi
+// spariva col dato vero (2026-07-17).
+const NONE = { inCinema: false, onPrime: false, digitalRelease: null, loaded: false };
 
 const fetchAvailability = async (kind, imdbId) => {
     const r = await fetch(`${BACKEND_URL}/availability/${kind}/${encodeURIComponent(imdbId)}`);
@@ -32,6 +38,7 @@ const fetchAvailability = async (kind, imdbId) => {
         // ISO date della prima uscita digitale (o null). La riga "Digitale: ..."
         // sul dettaglio film deriva recenza/wording da casaDigitalRelease.js.
         digitalRelease: typeof j.digital_release_date === 'string' ? j.digital_release_date : null,
+        loaded: true,
     };
 };
 
@@ -66,7 +73,7 @@ const useTitleAvailability = (type, id) => {
 
         const cached = getCached(imdbId);
         if (cached) {
-            setState({ inCinema: cached.inCinema, onPrime: cached.onPrime, digitalRelease: cached.digitalRelease });
+            setState({ inCinema: cached.inCinema, onPrime: cached.onPrime, digitalRelease: cached.digitalRelease, loaded: true });
             return;
         }
 

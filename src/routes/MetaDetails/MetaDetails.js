@@ -88,12 +88,19 @@ const MetaDetails = () => {
         if (type !== 'movie' || metaDetails.metaItem === null || metaDetails.metaItem.content.type !== 'Ready') {
             return null;
         }
+        // Aspetta che /availability abbia risposto: altrimenti su digitalRelease
+        // ancora null (fetch in volo) la label ripiega su "data non nota" e
+        // LAMPEGGIA prima di sparire col dato vero. Su cache-hit loaded e' subito
+        // true -> nessun ritardo percepito.
+        if (!movieAvailability.loaded) {
+            return null;
+        }
         return digitalReleaseLabel(
             movieAvailability.digitalRelease,
             metaDetails.metaItem.content.content.released,
             Date.now()
         );
-    }, [type, movieAvailability.digitalRelease, metaDetails.metaItem]);
+    }, [type, movieAvailability.digitalRelease, movieAvailability.loaded, metaDetails.metaItem]);
     const addToLibrary = React.useCallback(() => {
         if (metaDetails.metaItem === null || metaDetails.metaItem.content.type !== 'Ready') {
             return;
@@ -207,16 +214,23 @@ const MetaDetails = () => {
                         </DelayedRenderer>
                         :
                         metaDetails.metaItem === null ?
-                            <div className={styles['meta-message-container']}>
-                                <Image className={styles['image']} src={require('/assets/images/empty.png')} alt={' '} />
-                                <div className={styles['message-label']}>{t('ERR_NO_ADDONS_FOR_META')}</div>
-                            </div>
+                            // Durante la navigazione metaItem e' null per un
+                            // istante prima che il core emetta Loading: mostrare
+                            // subito l'errore "nessun addon" lo faceva LAMPEGGIARE
+                            // (dati rotti visti dall'utente). Nel nostro fork
+                            // Cinemeta e' sempre installato -> null e' SEMPRE lo
+                            // stato transitorio di caricamento: skeleton, non
+                            // errore (2026-07-17). Un fallimento vero dell'addon
+                            // arriva comunque come 'Err' (ramo sotto).
+                            <MetaPreview.Placeholder className={styles['meta-preview']} />
                             :
                             metaDetails.metaItem.content.type === 'Err' ?
-                                <div className={styles['meta-message-container']}>
-                                    <Image className={styles['image']} src={require('/assets/images/empty.png')} alt={' '} />
-                                    <div className={styles['message-label']}>{t('ERR_NO_META_FOUND')}</div>
-                                </div>
+                                <DelayedRenderer delay={1000}>
+                                    <div className={styles['meta-message-container']}>
+                                        <Image className={styles['image']} src={require('/assets/images/empty.png')} alt={' '} />
+                                        <div className={styles['message-label']}>{t('ERR_NO_META_FOUND')}</div>
+                                    </div>
+                                </DelayedRenderer>
                                 :
                                 metaDetails.metaItem.content.type === 'Loading' ?
                                     <MetaPreview.Placeholder className={styles['meta-preview']} />
