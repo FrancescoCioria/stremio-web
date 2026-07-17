@@ -7,7 +7,6 @@ var ERROR = require('../error');
 var getContentType = require('./getContentType');
 var HLS_CONFIG = require('./hlsConfig');
 var casaHlsProbe = require('./casaHlsProbe');
-var casaSubtitleWatchdog = require('./casaSubtitleWatchdog');
 
 function HTMLVideo(options) {
     options = options || {};
@@ -113,10 +112,6 @@ function HTMLVideo(options) {
     // a `hls`: la sonda vive quanto l'istanza hls, e il suo heartbeat sopravviverebbe
     // al cambio episodio se non lo si spegnesse insieme.
     var casaProbeDestroy = null;
-    // Casa: watchdog di supply dei sottotitoli embedded (auto-recovery del recovery
-    // manuale "cambia sottotitolo e torna indietro"). Vive quanto l'istanza hls,
-    // spento insieme alla sonda al cambio episodio/unload.
-    var casaSubtitleWatchdogDestroy = null;
     var events = new EventEmitter();
     var destroyed = false;
     var stream = null;
@@ -633,7 +628,6 @@ function HTMLVideo(options) {
                                     hls.subtitleTrack = -1;
                                 });
                                 casaProbeDestroy = casaHlsProbe(hls, videoElement, Hls);
-                                casaSubtitleWatchdogDestroy = casaSubtitleWatchdog(hls, videoElement);
                                 hls.loadSource(stream.url);
                                 hls.attachMedia(videoElement);
                             } else {
@@ -660,10 +654,6 @@ function HTMLVideo(options) {
                 Array.from(videoElement.textTracks).forEach(function(track) {
                     track.oncuechange = null;
                 });
-                if (casaSubtitleWatchdogDestroy !== null) {
-                    casaSubtitleWatchdogDestroy();   // spegne l'interval prima di distruggere hls
-                    casaSubtitleWatchdogDestroy = null;
-                }
                 if (casaProbeDestroy !== null) {
                     casaProbeDestroy();   // prima di removeAllListeners: spegne heartbeat + listener sul <video>
                     casaProbeDestroy = null;
