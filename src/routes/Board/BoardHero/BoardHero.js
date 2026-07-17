@@ -160,7 +160,7 @@ const BoardHero = ({ meta: rawMeta }) => {
                         <div className={styles['hero-cast']}>
                             {directorText ?
                                 <span className={styles['hero-credit']}>
-                                    <span className={styles['hero-credit-label']}>Regista</span> {directorText}
+                                    <span className={styles['hero-credit-label']}>Regista</span>{directorText}
                                 </span>
                                 : null}
                             {directorText && castText ?
@@ -168,7 +168,7 @@ const BoardHero = ({ meta: rawMeta }) => {
                                 : null}
                             {castText ?
                                 <span className={styles['hero-credit']}>
-                                    <span className={styles['hero-credit-label']}>Cast</span> {castText}
+                                    <span className={styles['hero-credit-label']}>Cast</span>{castText}
                                 </span>
                                 : null}
                         </div>
