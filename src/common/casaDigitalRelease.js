@@ -1,8 +1,10 @@
 // Copyright (C) 2017-2026 Smart code 203358507
 
-// Etichetta "Digitale: <data>" per il dettaglio FILM (Casa). Segnala quando
-// compaiono i primi rip di buona qualita' (WEB-DL/BluRay): un film ancora solo
-// al cinema ha solo cam/telesync, uscito in digitale ha rip affidabili.
+// Etichetta "Disponibile dal <data>" per il dettaglio FILM (Casa). E' la data
+// di uscita DIGITALE (WEB-DL): segnala quando compaiono i primi rip di buona
+// qualita'. Un film ancora solo al cinema ha solo cam/telesync, uscito in
+// digitale ha rip affidabili. "Disponibile dal" perche' "Digitale" da solo non
+// diceva niente all'utente (2026-07-17).
 //
 // Scelta utente: mostrare la data SOLO per film recenti o imminenti — i casi in
 // cui decide la qualita' dei torrent. Sui film vecchi (rip ovvi) niente rumore.
@@ -34,20 +36,20 @@ const digitalReleaseLabel = (digitalIso, movieReleased, now = Date.now()) => {
     if (Number.isFinite(dig)) {
         const daysAhead = (dig - now) / DAY_MS;
         if (daysAhead > 0.5) {
-            // Uscita digitale futura: sempre rilevante (torrent = cam finche' non esce).
+            // Uscita futura: sempre rilevante (torrent = cam finche' non esce).
             const inDays = Math.ceil(daysAhead);
             const countdown = inDays <= COUNTDOWN_MAX_DAYS ? ` (fra ${inDays}g)` : '';
-            return `Digitale: ${fmtDate(dig)}${countdown}`;
+            return `Disponibile dal ${fmtDate(dig)}${countdown}`;
         }
         // Uscita passata: mostra solo se recente, altrimenti e' rumore.
-        if (now - dig <= RECENT_WINDOW_MS) return `Digitale: ${fmtDate(dig)}`;
+        if (now - dig <= RECENT_WINDOW_MS) return `Disponibile dal ${fmtDate(dig)}`;
         return null;
     }
     // Nessuna data digitale nota: ha senso segnalarlo SOLO su un film recente o
     // imminente (in sala ora / uscito da poco), non su un catalogo vecchio.
     const rel = toMs(movieReleased);
     if (Number.isFinite(rel) && (rel > now || now - rel <= RECENT_WINDOW_MS)) {
-        return 'Digitale: data non ancora annunciata';
+        return 'Disponibile: data non nota';
     }
     return null;
 };

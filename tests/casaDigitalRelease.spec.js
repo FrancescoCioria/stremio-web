@@ -14,18 +14,18 @@ const iso = (ms) => new Date(ms).toISOString();
 describe('digitalReleaseLabel', () => {
     test('uscita digitale futura vicina -> data + countdown', () => {
         const label = digitalReleaseLabel(iso(NOW + 3 * DAY), null, NOW);
-        expect(label).toMatch(/^Digitale: /);
+        expect(label).toMatch(/^Disponibile dal /);
         expect(label).toMatch(/\(fra 3g\)/);
     });
 
     test('uscita digitale futura lontana -> data senza countdown', () => {
         const label = digitalReleaseLabel(iso(NOW + 120 * DAY), null, NOW);
-        expect(label).toMatch(/^Digitale: /);
+        expect(label).toMatch(/^Disponibile dal /);
         expect(label).not.toMatch(/fra/);
     });
 
     test('uscita digitale passata recente -> mostra data', () => {
-        expect(digitalReleaseLabel(iso(NOW - 30 * DAY), null, NOW)).toMatch(/^Digitale: /);
+        expect(digitalReleaseLabel(iso(NOW - 30 * DAY), null, NOW)).toMatch(/^Disponibile dal /);
     });
 
     test('uscita digitale vecchia (>1 anno) -> niente riga', () => {
@@ -34,14 +34,10 @@ describe('digitalReleaseLabel', () => {
         expect(digitalReleaseLabel('1998-09-10', '1997-12-19', NOW)).toBeNull();
     });
 
-    test('nessuna data digitale ma film recente/in sala -> "non ancora annunciata"', () => {
-        expect(digitalReleaseLabel(null, iso(NOW - 20 * DAY), NOW)).toBe(
-            'Digitale: data non ancora annunciata',
-        );
+    test('nessuna data digitale ma film recente/in sala -> "data non nota"', () => {
+        expect(digitalReleaseLabel(null, iso(NOW - 20 * DAY), NOW)).toBe('Disponibile: data non nota');
         // film futuro (annunciato, non ancora uscito)
-        expect(digitalReleaseLabel(null, iso(NOW + 10 * DAY), NOW)).toBe(
-            'Digitale: data non ancora annunciata',
-        );
+        expect(digitalReleaseLabel(null, iso(NOW + 10 * DAY), NOW)).toBe('Disponibile: data non nota');
     });
 
     test('nessuna data digitale + film vecchio -> niente riga', () => {
@@ -50,7 +46,7 @@ describe('digitalReleaseLabel', () => {
     });
 
     test('accetta Date oltre a stringa ISO', () => {
-        expect(digitalReleaseLabel(new Date(NOW - 10 * DAY), null, NOW)).toMatch(/^Digitale: /);
+        expect(digitalReleaseLabel(new Date(NOW - 10 * DAY), null, NOW)).toMatch(/^Disponibile dal /);
     });
 
     test('input malformati -> niente crash, niente riga', () => {
