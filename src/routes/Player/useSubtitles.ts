@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 // @ts-expect-error — casaBackend e' un modulo JS (CommonJS) senza tipi
 import { casaBeacon } from 'stremio/common/casaBackend';
+// @ts-expect-error — casaEmbeddedSubs e' un modulo JS (CommonJS) senza tipi
+import { resolveSavedExtraTrack } from 'stremio/common/casaEmbeddedSubs';
 import { CONSTANTS, languages, onFileDrop, onShortcut, useToast } from 'stremio/common';
 
 const withFallbackLabels = (tracks?: SubtitleTrack[] | null): SubtitleTrack[] => {
@@ -225,8 +227,13 @@ const useSubtitles = ({
             findTrackById(video.state.subtitlesTracks, savedTrackId)
             :
             findTrackByLanguage(video.state.subtitlesTracks, savedLanguage ?? settings.subtitlesLanguage);
+        // Casa: un id EMBEDDED_<n> salvato risolve anche alla controparte
+        // CASA_EMB_<n> (stesso sub del file, estratto intero). Senza questo
+        // alias il match-per-id-esatto non trova mai le nostre tracce, ricade
+        // sul ramo embedded qui sotto e CHIUDE il latch -> la traccia in-band
+        // rotta torna e non se ne esce piu'. Vedi casaEmbeddedSubs.js.
         const extraTrack = savedTrackId ?
-            findTrackById(video.state.extraSubtitlesTracks, savedTrackId)
+            resolveSavedExtraTrack(savedTrackId, video.state.extraSubtitlesTracks, savedLanguage, languages.toCode)
             :
             findTrackByLanguage(video.state.extraSubtitlesTracks, savedLanguage ?? settings.subtitlesLanguage);
 
@@ -267,6 +274,66 @@ const useSubtitles = ({
         video.state.extraSubtitlesTracks,
         video.state.selectedExtraSubtitlesTrackId,
         video.state.selectedSubtitlesTrackId,
+        video.state.subtitlesTracks,
+    ]);
+
+    // Casa: UPGRADE embedded -> Casa, indipendente dal latch.
+    //
+    // ⚠️ SERVE ANCHE CON L'ALIAS SOPRA, per una CORSA. L'alias risolve solo se le
+    // tracce Casa esistono NEL MOMENTO in cui l'auto-select gira. Ma le nostre
+    // arrivano async (probe /hlsv2 -> add), mentre le EMBEDDED_<n> compaiono man
+    // mano che hls.js aggancia le text track. Se le embedded vincono la corsa:
+    // l'auto-select prende il ramo embedded, e con una preferenza salvata
+    // `embedded:true` CHIUDE il latch -> quando 1s dopo arrivano le tracce Casa
+    // l'effetto esce subito e non le seleziona piu' NESSUNO. Stesso identico
+    // sintomo del bug che stiamo chiudendo, ma silenzioso e intermittente
+    // (dipende da chi arriva prima: su E02 il 2026-07-18 avevamo vinto noi).
+    //
+    // Non alziamo il latch nel ramo embedded per non riaccendere i sottotitoli
+    // che l'utente ha SPENTO col tasto (`toggleSubtitles` non tocca il latch:
+    // con l'auto-select ancora armato glieli rimetteremmo addosso). Qui invece
+    // agiamo solo se una traccia embedded e' DAVVERO selezionata.
+    //
+    // Una volta per stream: dopo l'upgrade il ref e' speso, quindi una scelta
+    // manuale successiva dell'utente non viene piu' scavalcata.
+    const upgradedForRef = useRef<unknown>(null);
+
+    useEffect(() => {
+        if (video.state.stream === null) {
+            return;
+        }
+
+        if (upgradedForRef.current === video.state.stream) {
+            return;
+        }
+
+        const selectedEmbeddedId = video.state.selectedSubtitlesTrackId;
+        if (!selectedEmbeddedId || video.state.selectedExtraSubtitlesTrackId !== null) {
+            return;
+        }
+
+        const embeddedTrack = findTrackById(video.state.subtitlesTracks, selectedEmbeddedId);
+        const casaTrack = resolveSavedExtraTrack(
+            selectedEmbeddedId,
+            video.state.extraSubtitlesTracks,
+            embeddedTrack?.lang,
+            languages.toCode,
+        );
+        if (!casaTrack?.id) {
+            return;
+        }
+
+        upgradedForRef.current = video.state.stream;
+        // `selectExtraTrack` (non `video.setExtraSubtitlesTrack`) perche' deve
+        // anche PERSISTERE la scelta: cosi' al prossimo episodio la preferenza
+        // salvata e' gia' un id Casa e l'alias non serve nemmeno.
+        selectExtraTrack(casaTrack);
+    }, [
+        selectExtraTrack,
+        video.state.extraSubtitlesTracks,
+        video.state.selectedExtraSubtitlesTrackId,
+        video.state.selectedSubtitlesTrackId,
+        video.state.stream,
         video.state.subtitlesTracks,
     ]);
 

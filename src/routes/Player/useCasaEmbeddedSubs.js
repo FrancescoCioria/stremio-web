@@ -10,10 +10,23 @@
 //
 // FIX: quando il file ha sottotitoli embedded, chiediamo al backend di estrarre
 // l'INTERA traccia in un VTT completo (subrip -> WebVTT, cache su disco, ~1s) e la
-// aggiungiamo come sottotitolo ESTERNO (overlay robusto, stesso path OpenSubtitles):
-// un file per tutto il film -> niente hls in-band, niente chunking, niente
-// congelamento. L'auto-select (useSubtitles) gia' preferisce gli EXTRA -> sceglie
-// da solo la traccia estratta al posto dell'embedded rotta.
+// aggiungiamo come sottotitolo ESTERNO `CASA_EMB_<n>` (overlay robusto, stesso
+// path OpenSubtitles): un file per tutto il film -> niente hls in-band, niente
+// chunking, niente congelamento.
+//
+// ⚠️ QUESTO HOOK NON SELEZIONA NIENTE — e non deve tornare a farlo.
+// La v4.31 ci aveva messo uno switch programmatico embedded->Casa. Perdeva sempre,
+// e il log del 2026-07-18 lo mostra col playhead ancora a 1.8s:
+//
+//     19:01:35  sel={embedded:null, extra:"CASA_EMB_0"}   <- lo switch
+//     19:01:39  sel={embedded:"EMBEDDED_0", extra:null}   <- auto-select, 4s dopo
+//
+// L'auto-select di `useSubtitles` rigira ad ogni cambio di `subtitlesTracks`, e
+// quella lista e' derivata LIVE da `videoElement.textTracks`: hls.js aggiunge le
+// tracce in-band man mano che parsa i segmenti, quindi l'effetto rifiora secondi
+// dopo il load e ha sempre l'ultima parola. La selezione giusta si ottiene
+// insegnandogli a risolvere `EMBEDDED_<n>` -> `CASA_EMB_<n>` (alias in
+// `casaEmbeddedSubs.js`, usato in `useSubtitles`), NON combattendolo da qui.
 //
 // Enumerazione: riusiamo il probe di stremio-server (`/hlsv2/probe`, gia' chiamato
 // da canPlayStream) -> nessun reader in piu' lato client. Ogni subtitle stream ha
@@ -21,23 +34,33 @@
 
 const React = require('react');
 const { casaBackendUrl } = require('stremio/common/casaBackend');
-const { languages } = require('stremio/common');
+const { streamUrlMatchesVideo } = require('stremio/common/casaEmbeddedSubs');
 
 // Solo i NOSTRI stream TorrServer (l'estrazione backend risolve hash+idx dall'url).
 const TS_URL_RE = /\/stremio-addon\/ts\//;
 
-const useCasaEmbeddedSubs = (video, streamUrl, streamingServerUrl) => {
+const useCasaEmbeddedSubs = (video, streamUrl, streamingServerUrl, selectedVideoId) => {
     // Evita di ri-aggiungere per lo stesso stream (l'effetto rifiora sui cambi di
     // dipendenza); si ri-arma al cambio episodio (streamUrl nuovo).
     const addedForRef = React.useRef(null);
-    // Lo switch embedded->Casa va fatto UNA volta per stream (poi non litighiamo
-    // con eventuali scelte manuali dell'utente).
-    const switchedForRef = React.useRef(null);
 
-    // 1) Enumera i sottotitoli embedded (probe) e aggiungili come ESTERNI Casa.
     React.useEffect(function() {
         if (!streamUrl || !streamingServerUrl) return;
         if (!TS_URL_RE.test(streamUrl)) return;          // non e' un nostro stream
+
+        // ⚠️ GUARDIA ANTI-STALE (incidente 2026-07-18, binge E02->E03).
+        // Al cambio episodio il core espone per ~1s uno stato incoerente:
+        // `selected` e' gia' l'episodio nuovo, `stream.url` e' ancora quello
+        // VECCHIO. Misurato allo stesso secondo (21:24:45):
+        //     ts            ... se=S1E3   <- il video: episodio giusto
+        //     embedded-subs ... -1x2-     <- i sub: episodio PRECEDENTE
+        // Senza guardia estraiamo (e mettiamo in CACHE) i sottotitoli
+        // dell'episodio sbagliato e armiamo `addedForRef` su una url che non
+        // verra' mai riprodotta -> il lavoro giusto non parte piu' e l'episodio
+        // resta sull'in-band rotta per tutta la durata. Si aspetta: l'effetto
+        // rifiora appena `streamUrl` si allinea (e' fra le dipendenze).
+        if (!streamUrlMatchesVideo(streamUrl, selectedVideoId)) return;
+
         if (addedForRef.current === streamUrl) return;   // gia' fatto per questo stream
 
         let cancelled = false;
@@ -60,6 +83,9 @@ const useCasaEmbeddedSubs = (video, streamUrl, streamingServerUrl) => {
                         '/stremio-addon/embedded-subs.vtt?media=' + encodeURIComponent(streamUrl) +
                         '&track=' + String(s.id));
                     return {
+                        // ⚠️ L'INDICE deve combaciare con quello dell'EMBEDDED_<n>
+                        // che rimpiazza: e' cosi' che l'auto-select risolve l'alias
+                        // (e distingue "Italian" da "Italian (SDH)", stessa lingua).
                         id: 'CASA_EMB_' + String(s.id),
                         url: backend,
                         lang: s.language || 'und',
@@ -74,51 +100,7 @@ const useCasaEmbeddedSubs = (video, streamUrl, streamingServerUrl) => {
             .catch(function() { /* best-effort: se il probe fallisce, resta il path in-band */ });
 
         return function() { cancelled = true; };
-    }, [video, streamUrl, streamingServerUrl]);
-
-    // 2) Se il player e' su un sottotitolo EMBEDDED (in-band, quello che si spegne)
-    // e la nostra traccia Casa dello stesso sub e' pronta, SWITCHA sull'esterno
-    // robusto. Serve perche' l'auto-select (useSubtitles) rispetta una scelta
-    // embedded SALVATA e ci si incolla sopra (cerca gli esterni per id, non per
-    // lingua -> non vede i nostri) -> senza questo, gli esterni Casa esistono ma
-    // non li usa nessuno. Lo switch e' un upgrade trasparente: STESSO sub, stessa
-    // lingua, solo consegnato in un file completo invece che a chunk in-band.
-    const selectedEmbeddedId = video.state.selectedSubtitlesTrackId;   // 'EMBEDDED_<i>' o null
-    const selectedExtraId = video.state.selectedExtraSubtitlesTrackId; // gia' su un esterno?
-    const embeddedTracks = video.state.subtitlesTracks;
-    const extraTracks = video.state.extraSubtitlesTracks;
-
-    React.useEffect(function() {
-        if (!streamUrl || !TS_URL_RE.test(streamUrl)) return;
-        if (switchedForRef.current === streamUrl) return;   // gia' switchato per questo stream
-        if (selectedExtraId) return;                        // gia' su un esterno: non toccare
-        if (!selectedEmbeddedId) return;                    // subs OFF o non ancora scelti: aspetta
-
-        // La lingua dell'embedded selezionato.
-        const emb = (embeddedTracks || []).find(function(t) { return t.id === selectedEmbeddedId; });
-        const embLang = emb ? emb.lang : null;
-        // L'indice del sub (EMBEDDED_<i> <-> CASA_EMB_<i>, stesso ordine dei
-        // subtitle stream del file) per disambiguare Italiano vs Italiano (SDH).
-        const idxMatch = /EMBEDDED_(\d+)/.exec(selectedEmbeddedId);
-        const sameIdxId = idxMatch ? 'CASA_EMB_' + idxMatch[1] : null;
-
-        const casaTracks = (extraTracks || []).filter(function(t) {
-            return typeof t.id === 'string' && t.id.indexOf('CASA_EMB_') === 0;
-        });
-        if (casaTracks.length === 0) return;   // le nostre tracce non sono ancora pronte
-
-        // Preferisci lo STESSO indice (stessa identica traccia); poi la stessa lingua.
-        let target = sameIdxId ? casaTracks.find(function(t) { return t.id === sameIdxId; }) : null;
-        if (!target && embLang) {
-            target = casaTracks.find(function(t) {
-                return t.lang === embLang || languages.toCode(t.lang) === languages.toCode(embLang);
-            });
-        }
-        if (!target) return;
-
-        switchedForRef.current = streamUrl;
-        video.setExtraSubtitlesTrack(target.id);   // spegne l'embedded, accende l'esterno Casa
-    }, [video, streamUrl, selectedEmbeddedId, selectedExtraId, embeddedTracks, extraTracks]);
+    }, [video, streamUrl, streamingServerUrl, selectedVideoId]);
 };
 
 module.exports = useCasaEmbeddedSubs;

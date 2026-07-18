@@ -81,6 +81,9 @@ const Player = () => {
         video,
         player.selected?.stream?.url ?? null,
         streamingServer.selected?.transportUrl ?? null,
+        // Serve alla guardia anti-stale: al binge N->N+1 lo stream.url resta per
+        // ~1s quello dell'episodio PRECEDENTE mentre questo id e' gia' il nuovo.
+        player.selected?.streamRequest?.path?.id ?? null,
     );
     const routeFocused = useRouteFocused();
     const platform = usePlatform();
