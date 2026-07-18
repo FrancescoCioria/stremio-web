@@ -324,9 +324,17 @@ const useSubtitles = ({
         }
 
         upgradedForRef.current = video.state.stream;
-        // `selectExtraTrack` (non `video.setExtraSubtitlesTrack`) perche' deve
-        // anche PERSISTERE la scelta: cosi' al prossimo episodio la preferenza
-        // salvata e' gia' un id Casa e l'alias non serve nemmeno.
+        // `selectExtraTrack` (non `video.setExtraSubtitlesTrack`) per chiudere il
+        // latch e registrare la scelta per la sessione.
+        //
+        // ⚠️ NON aspettarti che sopravviva all'episodio successivo: il core, nel
+        // carry-over, fa `subtitle_track.filter(|t| t.embedded)` -> una traccia
+        // ESTERNA (le nostre sono `embedded:false`) viene SEMPRE scartata,
+        // insieme alla sua lingua. Quindi l'episodio N+1 riparte o da una
+        // preferenza embedded ereditata (e questo effetto rifa' l'upgrade) o da
+        // nessuna preferenza (e l'auto-select sceglie per LINGUA fra gli esterni,
+        // che vanno comunque bene). E' anche il motivo per cui l'utente finiva
+        // sempre sull'in-band: l'embedded si tramanda, la nostra no.
         selectExtraTrack(casaTrack);
     }, [
         selectExtraTrack,
