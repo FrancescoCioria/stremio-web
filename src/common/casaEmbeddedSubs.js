@@ -36,12 +36,47 @@ const casaIdForEmbedded = (embeddedId) => {
 
 const isCasaEmbeddedId = (id) => CASA_RE.test(String(id ?? ''));
 
-// NB: le EMBEDDED_<n> rimpiazzate restano visibili nel menu (doppione
-// "Italian (SDH)" x2). E' voluto, per ora: sopprimerle e' un cambio UX a se'
-// stante e con un rischio suo — se l'estrazione backend fallisse, l'utente
-// resterebbe senza NESSUN sottotitolo invece che con uno che regge 5 minuti.
-// Si fa dopo, quando l'alias qui sotto avra' un po' di campo alle spalle: una
-// variabile per volta. Vedi TODO.md.
+// ─────────────────────────────────────────────────────────────────────────────
+// PER L'UTENTE ESISTE UN SOLO SOTTOTITOLO PER LINGUA. "Italiano". Punto.
+//
+// `EMBEDDED_<n>` e `CASA_EMB_<n>` NON sono due scelte: sono due modi di
+// consegnare LO STESSO sottotitolo (la stessa traccia dello stesso file). Che
+// dietro si passi dall'una all'altra e' un dettaglio di implementazione e non
+// deve MAI raggiungere lo schermo: niente doppioni nel menu, niente etichette
+// "Casa"/"Embedded", nessuna riga che compare o sparisce sotto il cursore,
+// nessun pallino che salta da una voce all'altra a meta' episodio.
+//
+// Percio':
+//   - dal menu le `CASA_EMB_*` si nascondono SEMPRE (`hideCasaTracks`);
+//   - la voce mostrata e' quella embedded, che porta label e lingua del file;
+//   - quando dentro siamo sulla `CASA_EMB_<n>`, il menu deve evidenziare la
+//     riga `EMBEDDED_<n>` (`displayedEmbeddedSelection`) — altrimenti l'utente
+//     vedrebbe la selezione sparire.
+//
+// ⚠️ Il precedente disegno ("mostra entrambe, nascondi l'embedded quando la
+// Casa e' pronta") era sbagliato per lo stesso motivo: era ancora una riga che
+// sparisce, cioe' uno switch visibile. Ragionare dall'ontologia del codice (due
+// oggetti-traccia) invece che da quella dell'utente (un sottotitolo).
+
+const CASA_ID_RE = /^CASA_EMB_(\d+)$/;
+
+// Le tracce Casa non si mostrano mai: sono il backing di una voce embedded.
+const hideCasaTracks = (extraTracks) =>
+    (Array.isArray(extraTracks) ? extraTracks : []).filter(
+        (t) => !(t && typeof t.id === 'string' && CASA_ID_RE.test(t.id))
+    );
+
+// Quale riga EMBEDDED il menu deve dare per selezionata. Se dentro siamo su una
+// Casa, e' la sua gemella; altrimenti la selezione embedded reale.
+const displayedEmbeddedSelection = (selectedEmbeddedId, selectedExtraId) => {
+    const m = CASA_ID_RE.exec(String(selectedExtraId ?? ''));
+    return m ? 'EMBEDDED_' + m[1] : (selectedEmbeddedId ?? null);
+};
+
+// La selezione EXTRA da mostrare: se siamo su una Casa (nascosta) il menu non
+// deve evidenziare nulla fra gli esterni — ci pensa la riga embedded sopra.
+const displayedExtraSelection = (selectedExtraId) =>
+    CASA_ID_RE.test(String(selectedExtraId ?? '')) ? null : (selectedExtraId ?? null);
 
 // Risolve la preferenza SALVATA verso gli esterni. Oltre al match esatto
 // (comportamento upstream), un id embedded salvato risolve alla sua controparte
@@ -132,6 +167,9 @@ const streamUrlMatchesVideo = (streamUrl, videoId) => {
 module.exports = {
     casaIdForEmbedded,
     isCasaEmbeddedId,
+    hideCasaTracks,
+    displayedEmbeddedSelection,
+    displayedExtraSelection,
     resolveSavedExtraTrack,
     episodeFromStreamUrl,
     episodeFromVideoId,

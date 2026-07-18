@@ -6,6 +6,9 @@
 
 const {
     casaIdForEmbedded,
+    displayedEmbeddedSelection,
+    displayedExtraSelection,
+    hideCasaTracks,
     isCasaEmbeddedId,
     resolveSavedExtraTrack,
     streamUrlMatchesVideo,
@@ -89,6 +92,51 @@ describe('resolveSavedExtraTrack', () => {
     test('senza normalizzatore confronta le stringhe grezze', () => {
         expect(resolveSavedExtraTrack('EMBEDDED_0', [casa(0, 'ita')], 'ita')).toBeTruthy();
         expect(resolveSavedExtraTrack('EMBEDDED_0', [casa(0, 'eng')], 'ita')).toBeUndefined();
+    });
+});
+
+// Il contratto qui non e' tecnico, e' di prodotto: PER L'UTENTE ESISTE UN SOLO
+// SOTTOTITOLO PER LINGUA. Embedded e Casa sono due consegne dello stesso sub;
+// se la differenza raggiunge lo schermo (doppioni, pallino che salta, riga che
+// sparisce a meta' episodio) abbiamo fallito, a prescindere da quale suoni.
+describe('menu: una voce sola per sottotitolo', () => {
+    const os = { id: 'os-999', lang: 'ita', label: 'Italiano' };
+    const casa0 = { id: 'CASA_EMB_0', lang: 'ita', label: 'Italian' };
+    const casa1 = { id: 'CASA_EMB_1', lang: 'ita', label: 'Italian (SDH)' };
+
+    test('le tracce Casa non compaiono MAI nel menu', () => {
+        expect(hideCasaTracks([os, casa0, casa1])).toEqual([os]);
+    });
+
+    test('gli esterni veri (OpenSubtitles) restano', () => {
+        expect(hideCasaTracks([os])).toEqual([os]);
+        expect(hideCasaTracks([])).toEqual([]);
+        expect(hideCasaTracks(null)).toEqual([]);
+    });
+
+    // Il caso che l'utente vedrebbe: a meta' episodio si passa da EMBEDDED_1 a
+    // CASA_EMB_1 e il pallino non deve muoversi di una riga.
+    test('su una Casa il pallino resta sulla riga embedded gemella', () => {
+        expect(displayedEmbeddedSelection(null, 'CASA_EMB_1')).toBe('EMBEDDED_1');
+        expect(displayedEmbeddedSelection(null, 'CASA_EMB_0')).toBe('EMBEDDED_0');
+    });
+
+    test('e non evidenzia nulla fra gli esterni (quella riga e nascosta)', () => {
+        expect(displayedExtraSelection('CASA_EMB_1')).toBeNull();
+    });
+
+    test('una selezione embedded normale passa intatta', () => {
+        expect(displayedEmbeddedSelection('EMBEDDED_2', null)).toBe('EMBEDDED_2');
+    });
+
+    test('un esterno vero resta selezionato fra gli esterni', () => {
+        expect(displayedExtraSelection('os-999')).toBe('os-999');
+        expect(displayedEmbeddedSelection(null, 'os-999')).toBeNull();
+    });
+
+    test('subs spenti -> niente selezione da nessuna parte', () => {
+        expect(displayedEmbeddedSelection(null, null)).toBeNull();
+        expect(displayedExtraSelection(null)).toBeNull();
     });
 });
 

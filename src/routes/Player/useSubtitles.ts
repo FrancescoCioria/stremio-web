@@ -4,8 +4,14 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 // @ts-expect-error — casaBackend e' un modulo JS (CommonJS) senza tipi
 import { casaBeacon } from 'stremio/common/casaBackend';
+import {
+    casaIdForEmbedded,
+    displayedEmbeddedSelection,
+    displayedExtraSelection,
+    hideCasaTracks,
+    resolveSavedExtraTrack,
 // @ts-expect-error — casaEmbeddedSubs e' un modulo JS (CommonJS) senza tipi
-import { resolveSavedExtraTrack } from 'stremio/common/casaEmbeddedSubs';
+} from 'stremio/common/casaEmbeddedSubs';
 import { CONSTANTS, languages, onFileDrop, onShortcut, useToast } from 'stremio/common';
 
 const withFallbackLabels = (tracks?: SubtitleTrack[] | null): SubtitleTrack[] => {
@@ -102,6 +108,11 @@ const useSubtitles = ({
         streamStateChanged({ subtitleTrack: null });
     }, [streamStateChanged, video]);
 
+    // Casa: la voce "Italiano" del menu e' UNA. Se il suo backing robusto
+    // (`CASA_EMB_<n>`, il VTT completo) e' gia' pronto, si va li' invece che
+    // sulla traccia in-band che si spegne a meta' episodio — l'utente ha
+    // scelto un SOTTOTITOLO, non un meccanismo di consegna. Se non e' ancora
+    // pronto si usa l'in-band e ci pensa l'upgrade qui sotto, in silenzio.
     const selectEmbeddedTrack = useCallback((track: SubtitleTrack | null) => {
         if (!track) {
             disableSubtitles();
@@ -109,6 +120,17 @@ const useSubtitles = ({
         }
 
         defaultTrackSelected.current = true;
+
+        const casaId = casaIdForEmbedded(track.id);
+        const casaTrack = casaId
+            ? video.state.extraSubtitlesTracks.find((t: { id: string }) => t.id === casaId)
+            : undefined;
+        if (casaTrack) {
+            video.setExtraSubtitlesTrack(casaTrack.id);
+            rememberTrack(casaTrack, false);
+            return;
+        }
+
         video.setSubtitlesTrack(track.id);
         rememberTrack(track, true);
     }, [disableSubtitles, rememberTrack, video]);
@@ -477,11 +499,21 @@ const useSubtitles = ({
         subtitlesLanguage: settings.subtitlesLanguage,
         interfaceLanguage: settings.interfaceLanguage,
         subtitlesTracks: video.state.subtitlesTracks,
-        selectedSubtitlesTrackId: video.state.selectedSubtitlesTrackId,
+        // Casa: per l'utente esiste UN sottotitolo per lingua. Le `CASA_EMB_*`
+        // sono il backing della voce embedded omonima, non una scelta a se':
+        // fuori dal menu (niente "Italiano" x2), e quando siamo su una di esse
+        // il pallino resta sulla riga embedded — altrimenti a meta' episodio la
+        // selezione salterebbe da sola a un'altra voce, sotto gli occhi.
+        selectedSubtitlesTrackId: displayedEmbeddedSelection(
+            video.state.selectedSubtitlesTrackId,
+            video.state.selectedExtraSubtitlesTrackId,
+        ),
         subtitlesOffset: video.state.subtitlesOffset,
         subtitlesSize: video.state.subtitlesSize,
-        extraSubtitlesTracks: video.state.extraSubtitlesTracks,
-        selectedExtraSubtitlesTrackId: video.state.selectedExtraSubtitlesTrackId,
+        extraSubtitlesTracks: hideCasaTracks(video.state.extraSubtitlesTracks),
+        selectedExtraSubtitlesTrackId: displayedExtraSelection(
+            video.state.selectedExtraSubtitlesTrackId,
+        ),
         extraSubtitlesOffset: video.state.extraSubtitlesOffset,
         extraSubtitlesDelay: video.state.extraSubtitlesDelay,
         extraSubtitlesSize: video.state.extraSubtitlesSize,
