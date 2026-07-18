@@ -54,6 +54,7 @@ const useSubtitles = ({
     closeMenus,
     closeSubtitlesMenu,
     toggleSubtitlesMenu,
+    onUserSubtitlesLanguage,
 }: UseSubtitlesArgs): UseSubtitlesResult => {
     const { t } = useTranslation();
     const toast = useToast();
@@ -90,8 +91,15 @@ const useSubtitles = ({
         currentVideo.setSubtitlesOutlineColor(currentSettings.subtitlesOutlineColor);
     }, []);
 
-    const rememberTrack = useCallback((track: SubtitleTrack, embedded: boolean) => {
+    // Casa: `byUser` distingue una scelta dell'utente dall'auto-select. Solo la
+    // prima diventa la preferenza del TITOLO (vale anche per le stagioni
+    // future); l'auto-select non deve scriverla, o il default si auto-
+    // promuoverebbe a scelta e non si tornerebbe piu' indietro.
+    const rememberTrack = useCallback((track: SubtitleTrack, embedded: boolean, byUser = false) => {
         lastSelectedTrack.current = { id: track.id, embedded };
+        if (byUser && track.lang) {
+            onUserSubtitlesLanguage?.(track.lang);
+        }
         streamStateChanged({
             subtitleTrack: {
                 id: track.id,
@@ -99,7 +107,7 @@ const useSubtitles = ({
                 lang: track.lang,
             },
         });
-    }, [streamStateChanged]);
+    }, [onUserSubtitlesLanguage, streamStateChanged]);
 
     const disableSubtitles = useCallback(() => {
         defaultTrackSelected.current = true;
@@ -127,12 +135,12 @@ const useSubtitles = ({
             : undefined;
         if (casaTrack) {
             video.setExtraSubtitlesTrack(casaTrack.id);
-            rememberTrack(casaTrack, false);
+            rememberTrack(casaTrack, false, true);
             return;
         }
 
         video.setSubtitlesTrack(track.id);
-        rememberTrack(track, true);
+        rememberTrack(track, true, true);
     }, [disableSubtitles, rememberTrack, video]);
 
     const selectExtraTrack = useCallback((track: SubtitleTrack | null) => {
@@ -143,7 +151,7 @@ const useSubtitles = ({
 
         defaultTrackSelected.current = true;
         video.setExtraSubtitlesTrack(track.id);
-        rememberTrack(track, false);
+        rememberTrack(track, false, true);
     }, [disableSubtitles, rememberTrack, video]);
 
     const changeDelay = useCallback((delay: number) => {
@@ -346,20 +354,26 @@ const useSubtitles = ({
         }
 
         upgradedForRef.current = video.state.stream;
-        // `selectExtraTrack` (non `video.setExtraSubtitlesTrack`) per chiudere il
-        // latch e registrare la scelta per la sessione.
+        // ⚠️ NON `selectExtraTrack`: quello e' il path delle scelte UTENTE e
+        // scriverebbe la preferenza di lingua del titolo (valida anche per le
+        // stagioni future). Questo e' un upgrade INTERNO — stesso identico
+        // sottotitolo, solo consegnato meglio — e deve restare invisibile: allo
+        // schermo, al menu e alla memoria delle preferenze. Da qui si chiude il
+        // latch e si registra la traccia per la sessione, niente di piu'.
         //
-        // ⚠️ NON aspettarti che sopravviva all'episodio successivo: il core, nel
-        // carry-over, fa `subtitle_track.filter(|t| t.embedded)` -> una traccia
-        // ESTERNA (le nostre sono `embedded:false`) viene SEMPRE scartata,
-        // insieme alla sua lingua. Quindi l'episodio N+1 riparte o da una
-        // preferenza embedded ereditata (e questo effetto rifa' l'upgrade) o da
-        // nessuna preferenza (e l'auto-select sceglie per LINGUA fra gli esterni,
-        // che vanno comunque bene). E' anche il motivo per cui l'utente finiva
-        // sempre sull'in-band: l'embedded si tramanda, la nostra no.
-        selectExtraTrack(casaTrack);
+        // NB: non sopravvive all'episodio successivo, per design del core:
+        // `adjusted_state` fa `subtitle_track.filter(|t| t.embedded)`, quindi
+        // una traccia esterna viene scartata insieme alla sua lingua. L'episodio
+        // N+1 riparte da una preferenza embedded ereditata (e questo effetto
+        // rifa' l'upgrade) o da nessuna (e l'auto-select sceglie per lingua fra
+        // gli esterni). E' anche il motivo per cui si finiva sempre sull'in-band:
+        // l'embedded si tramanda, la nostra no.
+        defaultTrackSelected.current = true;
+        video.setExtraSubtitlesTrack(casaTrack.id);
+        rememberTrack(casaTrack, false);
     }, [
-        selectExtraTrack,
+        rememberTrack,
+        video,
         video.state.extraSubtitlesTracks,
         video.state.selectedExtraSubtitlesTrackId,
         video.state.selectedSubtitlesTrackId,

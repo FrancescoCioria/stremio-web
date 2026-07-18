@@ -60,6 +60,10 @@ type UseSubtitlesArgs = {
     closeMenus: () => void,
     closeSubtitlesMenu: () => void,
     toggleSubtitlesMenu: () => void,
+    // Casa: chiamata SOLO quando e' l'utente a scegliere un sottotitolo dal
+    // menu (mai dall'auto-select) -> diventa la preferenza del titolo, valida
+    // anche per le stagioni future. Vedi useCasaTitleLanguage.js.
+    onUserSubtitlesLanguage?: (lang: string) => void,
 };
 
 type SubtitlesMenuProps = {

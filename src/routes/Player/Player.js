@@ -32,6 +32,7 @@ const usePlayerDebugLog = require('./usePlayerDebugLog');
 const useSubtitleDebugLog = require('./useSubtitleDebugLog');
 const useNextEpisodePrewarm = require('./useNextEpisodePrewarm');
 const useCasaEmbeddedSubs = require('./useCasaEmbeddedSubs');
+const useCasaTitleLanguage = require('./useCasaTitleLanguage');
 const useStallWatchdog = require('./useStallWatchdog');
 const useVideo = require('./useVideo');
 const { default: useSubtitles } = require('./useSubtitles');
@@ -85,6 +86,19 @@ const Player = () => {
         // ~1s quello dell'episodio PRECEDENTE mentre questo id e' gia' il nuovo.
         player.selected?.streamRequest?.path?.id ?? null,
     );
+    // Casa: lingua audio/sub decisa dalla lingua ORIGINALE del titolo e poi
+    // ricordata per SERIE (una serie italiana partiva in inglese). Vedi
+    // useCasaTitleLanguage.js.
+    const casaLanguage = useCasaTitleLanguage(player, type);
+    // Si sovrascrive SOLO il fallback per-lingua delle impostazioni: la
+    // selezione vera (audio qui sotto, sottotitoli in useSubtitles) resta una
+    // sola, e continua a dare la precedenza a una traccia gia' salvata.
+    const settingsWithCasaLanguage = React.useMemo(() => ({
+        ...settings,
+        audioLanguage: casaLanguage.audioLanguage ?? settings.audioLanguage,
+        subtitlesLanguage: casaLanguage.subtitlesLanguage ?? settings.subtitlesLanguage,
+    }), [settings, casaLanguage.audioLanguage, casaLanguage.subtitlesLanguage]);
+
     const routeFocused = useRouteFocused();
     const platform = usePlatform();
     const toast = useToast();
@@ -158,8 +172,9 @@ const Player = () => {
     } = useSubtitles({
         player,
         video,
-        settings,
+        settings: settingsWithCasaLanguage,
         streamStateChanged,
+        onUserSubtitlesLanguage: casaLanguage.rememberSubtitlesLanguage,
         menusOpen,
         closeMenus,
         closeSubtitlesMenu,
@@ -280,7 +295,12 @@ const Player = () => {
                 id,
             },
         });
-    }, [streamStateChanged]);
+        // Casa: e' una scelta dell'utente -> da qui in poi comanda lei su tutto
+        // il titolo (anche stagioni future). Si ricorda la LINGUA, non l'id:
+        // gli id delle tracce cambiano ad ogni rip.
+        const track = (video.state.audioTracks || []).find((t) => t && t.id === id);
+        if (track && track.lang) casaLanguage.rememberAudioLanguage(track.lang);
+    }, [streamStateChanged, video.state.audioTracks, casaLanguage.rememberAudioLanguage]);
 
     const onDismissNextVideoPopup = React.useCallback(() => {
         closeNextVideoPopup();
@@ -538,14 +558,14 @@ const Player = () => {
         if (!defaultAudioTrackSelected.current) {
             const savedTrackId = player.streamState?.audioTrack?.id;
             const savedTrack = savedTrackId ? findTrackById(video.state.audioTracks, savedTrackId) : null;
-            const audioTrack = savedTrack ?? findTrackByLang(video.state.audioTracks, settings.audioLanguage);
+            const audioTrack = savedTrack ?? findTrackByLang(video.state.audioTracks, settingsWithCasaLanguage.audioLanguage);
 
             if (audioTrack && audioTrack.id) {
                 video.setAudioTrack(audioTrack.id);
                 defaultAudioTrackSelected.current = true;
             }
         }
-    }, [video.state.audioTracks, player.streamState]);
+    }, [video.state.audioTracks, player.streamState, settingsWithCasaLanguage.audioLanguage]);
 
     React.useEffect(() => {
         defaultAudioTrackSelected.current = false;
