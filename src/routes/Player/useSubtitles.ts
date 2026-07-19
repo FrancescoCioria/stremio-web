@@ -1,7 +1,6 @@
 // Copyright (C) 2017-2026 Smart code 203358507
 
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { useTranslation } from 'react-i18next';
 // @ts-expect-error — casaBackend e' un modulo JS (CommonJS) senza tipi
 import { casaBeacon } from 'stremio/common/casaBackend';
 import {
@@ -12,7 +11,7 @@ import {
     resolveSavedExtraTrack,
 // @ts-expect-error — casaEmbeddedSubs e' un modulo JS (CommonJS) senza tipi
 } from 'stremio/common/casaEmbeddedSubs';
-import { CONSTANTS, languages, onFileDrop, onShortcut, useToast } from 'stremio/common';
+import { CONSTANTS, languages, onFileDrop, onShortcut } from 'stremio/common';
 
 const withFallbackLabels = (tracks?: SubtitleTrack[] | null): SubtitleTrack[] => {
     if (!Array.isArray(tracks)) {
@@ -56,8 +55,6 @@ const useSubtitles = ({
     toggleSubtitlesMenu,
     onUserSubtitlesLanguage,
 }: UseSubtitlesArgs): UseSubtitlesResult => {
-    const { t } = useTranslation();
-    const toast = useToast();
     const videoRef = useRef(video);
     const settingsRef = useRef(settings);
     const defaultTrackSelected = useRef(false);
@@ -225,7 +222,7 @@ const useSubtitles = ({
             ev: 'subs-add',
             selectedVideoId: player.selected?.streamRequest?.path?.id ?? null,
             count: externalSubtitles.length,
-            stale,   // true = scartate perche' del video precedente (il bug, ora tappato)
+            stale, // true = scartate perche' del video precedente (il bug, ora tappato)
             subUrls: externalSubtitles.slice(0, 3).map((s: { url?: string; id?: string }) =>
                 String(s.url ?? s.id ?? '').slice(0, 140)),
         });
@@ -414,48 +411,36 @@ const useSubtitles = ({
     }, [closeSubtitlesMenu, hasTracks]);
 
     useEffect(() => {
-        const onSubtitlesTrackLoaded = () => {
-            toast.show({
-                type: 'success',
-                title: t('PLAYER_SUBTITLES_LOADED'),
-                message: t('PLAYER_SUBTITLES_LOADED_EMBEDDED'),
-                timeout: 3000,
-            });
-        };
-
-        const onExtraSubtitlesTrackLoaded = (track: SubtitleTrack) => {
-            toast.show({
-                type: 'success',
-                title: t('PLAYER_SUBTITLES_LOADED'),
-                message: track.exclusive ?
-                    t('PLAYER_SUBTITLES_LOADED_EXCLUSIVE')
-                    :
-                    track.local ?
-                        t('PLAYER_SUBTITLES_LOADED_LOCAL')
-                        :
-                        t('PLAYER_SUBTITLES_LOADED_ORIGIN', { origin: track.origin }),
-                timeout: 3000,
-            });
-        };
-
+        // Casa: i toast "Sottotitoli caricati" (embedded + esterni) sono RIMOSSI.
+        //
+        // Erano rumore, non informazione: comparivano quando i sottotitoli non
+        // c'erano e restavano zitti quando c'erano, quindi in casa venivano
+        // ignorati a prescindere. Un avviso di cui non ti puoi fidare in nessuna
+        // delle due direzioni non vale l'interruzione sullo schermo.
+        //
+        // ⚠️ Ci sono anche due motivi NOSTRI, oltre al rumore. Un sottotitolo
+        // arriva in due consegne (in-band `EMBEDDED_<n>` e la `CASA_EMB_<n>`
+        // estratta in VTT completo): il toast annunciava la seconda a meta'
+        // episodio, cioe' esattamente lo switch che il design vuole invisibile
+        // (vedi `casaEmbeddedSubs.js`). E con l'estrazione a finestra il
+        // completamento subentra una seconda volta: senza toast non si vede.
+        //
+        // L'handler `extraSubtitlesTrackAdded` RESTA: non mostrava niente, ma
+        // auto-seleziona i sottotitoli aperti da file locale.
         const onExtraSubtitlesTrackAdded = (track: SubtitleTrack) => {
             if (track.local) {
                 videoRef.current.setExtraSubtitlesTrack(track.id);
             }
         };
 
-        video.events.on('subtitlesTrackLoaded', onSubtitlesTrackLoaded);
-        video.events.on('extraSubtitlesTrackLoaded', onExtraSubtitlesTrackLoaded);
         video.events.on('extraSubtitlesTrackAdded', onExtraSubtitlesTrackAdded);
         video.events.on('implementationChanged', applySubtitleStyle);
 
         return () => {
-            video.events.off('subtitlesTrackLoaded', onSubtitlesTrackLoaded);
-            video.events.off('extraSubtitlesTrackLoaded', onExtraSubtitlesTrackLoaded);
             video.events.off('extraSubtitlesTrackAdded', onExtraSubtitlesTrackAdded);
             video.events.off('implementationChanged', applySubtitleStyle);
         };
-    }, [applySubtitleStyle, t, toast, video.events]);
+    }, [applySubtitleStyle, video.events]);
 
     onShortcut('subtitlesDelay', (combo) => {
         combo === 1 ? increaseDelay() : decreaseDelay();

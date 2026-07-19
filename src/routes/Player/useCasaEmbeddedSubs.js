@@ -186,11 +186,19 @@ const useCasaEmbeddedSubs = (video, streamUrl, streamingServerUrl, selectedVideo
             '&track=' + idx);
         if (!url) return;
 
+        // ⚠️ ABORTIRE SUL SERIO, non solo ignorare il risultato. Chiudere la
+        // richiesta e' cio' che fa uccidere ffmpeg al backend: senza, cambiando
+        // episodio l'estrazione abbandonata continua a scaricare l'intero file
+        // (~1,5 GB per 44 KB di sub) rubando banda al film che stai guardando.
+        // Serata del 2026-07-19: 3 estrazioni, di cui 2 orfane in parallelo, per
+        // UN episodio guardato.
+        const ctrl = new AbortController();
+
         // A freddo puo' metterci ~1 minuto (ffmpeg deve leggere il container fino
         // all'ultimo pacchetto sub, e il torrent e' ancora indietro). Nel
         // frattempo l'utente sta guardando l'in-band: nessun buco.
         const startedAt = Date.now();
-        fetch(url)
+        fetch(url, { signal: ctrl.signal })
             .then(function(r) {
                 if (!r.ok) throw new Error('vtt non pronto (' + r.status + ')');
                 return r.text();
@@ -211,10 +219,22 @@ const useCasaEmbeddedSubs = (video, streamUrl, streamingServerUrl, selectedVideo
                 // Fallita: si riprova al prossimo giro (es. altro episodio) e
                 // intanto l'in-band resta a coprire. Nessun degrado visibile.
                 fetchingRef.current.delete(key);
-                report('vtt-failed', { idx: idx, err: String(err && err.message || err) });
+                // Un abort e' voluto (cambio episodio/traccia), non un guasto:
+                // loggarlo come fallimento sporcherebbe la diagnosi.
+                if (!cancelled) {
+                    report('vtt-failed', { idx: idx, err: String(err && err.message || err) });
+                }
             });
 
-        return function() { cancelled = true; };
+        return function() {
+            cancelled = true;
+            ctrl.abort();
+            // ⚠️ Liberare la chiave: altrimenti una traccia abbandonata e poi
+            // ri-selezionata (l'utente che va su "Italian (SDH)" e torna
+            // indietro) resterebbe marcata come "in corso" per sempre, con il
+            // suo fetch ormai abortito -> nessuno la riprova piu'.
+            fetchingRef.current.delete(key);
+        };
     }, [probed, streamUrl, selectedEmbeddedId]);
 
     // 3) REGISTRA la traccia e RESTA A GUARDIA che ci sia davvero.

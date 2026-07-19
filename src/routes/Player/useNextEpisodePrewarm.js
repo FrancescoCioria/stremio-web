@@ -25,6 +25,22 @@ const { hashFromUrl } = require('stremio/common/torrentRace');
 const ENDPOINT = '/stremio-addon/prewarm';
 const PREWARM_AFTER_MS = 120 * 1000; // video.state.time e' in ms
 
+// Indice della traccia sottotitoli INTERNA al file attualmente in uso.
+//
+// ⚠️ Vanno guardate ENTRAMBE le selezioni, non solo quella embedded. Lo stesso
+// sottotitolo viene consegnato in due modi — in-band `EMBEDDED_<n>` all'inizio,
+// poi la `CASA_EMB_<n>` estratta in VTT che subentra in silenzio — e il beacon
+// parte a 2 MINUTI, quando l'upgrade e' quasi sempre gia' avvenuto: guardando
+// solo `selectedSubtitlesTrackId` si troverebbe `null` praticamente sempre e il
+// prewarm dei sub non partirebbe MAI, senza un errore da nessuna parte.
+// OpenSubtitles o sub spenti -> null: li' non c'e' niente da estrarre.
+const EMBEDDED_RE = /^EMBEDDED_(\d+)$/;
+const CASA_RE = /^CASA_EMB_(\d+)$/;
+const embeddedTrackIndex = (embeddedId, extraId) => {
+    const m = EMBEDDED_RE.exec(String(embeddedId ?? '')) || CASA_RE.exec(String(extraId ?? ''));
+    return m ? Number(m[1]) : null;
+};
+
 const useNextEpisodePrewarm = (player, video, type) => {
     const sentFor = React.useRef(null);
 
@@ -52,9 +68,27 @@ const useNextEpisodePrewarm = (player, video, type) => {
             // Se il prossimo episodio finisse sullo STESSO torrent (season pack)
             // il backend salta il warm dei byte: un secondo reader sullo stesso
             // torrent fa thrashing sulla cache del film in corso.
-            currentHash: currentHash
+            currentHash: currentHash,
+            // La traccia sottotitoli in uso ORA. Il backend estrae in anticipo
+            // il VTT corrispondente del prossimo episodio, cosi' il binge non
+            // paga i ~70s di cold-start (l'estrazione costa quanto scaricare
+            // l'intero file: farla adesso, con 40 minuti di episodio davanti,
+            // e' gratis). Il prossimo episodio ha quasi sempre lo stesso layout
+            // di tracce; se non l'avesse, si ricade sull'estrazione a richiesta.
+            // Sub spenti o traccia non embedded -> null, non si prepara nulla.
+            subTrack: embeddedTrackIndex(
+                video.state.selectedSubtitlesTrackId,
+                video.state.selectedExtraSubtitlesTrackId,
+            )
         });
-    }, [player.nextVideo, player.selected, video.state.time, type]);
+    }, [
+        player.nextVideo,
+        player.selected,
+        video.state.time,
+        video.state.selectedSubtitlesTrackId,
+        video.state.selectedExtraSubtitlesTrackId,
+        type,
+    ]);
 };
 
 module.exports = useNextEpisodePrewarm;
