@@ -114,7 +114,7 @@ const resolveSavedExtraTrack = (savedTrackId, extraTracks, expectedLang, toCode)
 
     const candidate = tracks.find((t) => t && t.id === casaId);
     if (!candidate || !expectedLang || !candidate.lang) {
-        return candidate;   // niente con cui confrontare -> si fida dell'indice
+        return candidate; // niente con cui confrontare -> si fida dell'indice
     }
 
     const norm = typeof toCode === 'function' ? toCode : (x) => x;
@@ -164,9 +164,50 @@ const streamUrlMatchesVideo = (streamUrl, videoId) => {
     return fromUrl.season === fromId.season && fromUrl.episode === fromId.episode;
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Riconciliazione della traccia Casa: "e' DAVVERO registrata?".
+//
+// ⚠️ Regressione v4.40, provata sul campo il 2026-07-19: il fetch del VTT
+// riusciva (il backend logga di averlo servito) ma la traccia non entrava mai in
+// `extraSubtitlesTracks` — rimasto a 16 elementi per 30 minuti, `sel.extra` null,
+// sottotitoli morti a 22:23 di film. `addExtraSubtitlesTracks` puo' essere
+// scartato in SILENZIO (player non ancora caricato -> `loadArgs` null in
+// withStreamingServer) e un `unload`/reload azzera la lista gia' popolata.
+// Quindi il successo NON e' "la chiamata non ha lanciato" ma "la traccia si vede
+// nello stato", e finche' non si vede si riprova.
+//
+// Decisione pura, cosi' e' testabile senza player:
+//   'wait'       il VTT non e' pronto: non c'e' niente da registrare
+//   'registered' la traccia c'e' -> azzera i tentativi (un reload la puo'
+//                portare via: il budget deve ripartire pieno)
+//   'add'        manca e ci sono ancora tentativi -> (ri)dispatch
+//   'give-up'    manca ma il budget e' finito -> logga una volta e smetti
+//                (l'in-band resta a coprire: degradato, non nero)
+const nextRegistrationAction = ({ vttReady, present, attempts, maxAttempts }) => {
+    if (!vttReady) {
+        return 'wait';
+    }
+
+    if (present) {
+        return 'registered';
+    }
+
+    return (attempts || 0) < maxAttempts ? 'add' : 'give-up';
+};
+
+// La traccia Casa attesa e' presente fra gli esterni?
+const isCasaTrackPresent = (extraTracks, idx) => {
+    const id = CASA_PREFIX + idx;
+    return (Array.isArray(extraTracks) ? extraTracks : []).some(
+        (t) => t && t.id === id
+    );
+};
+
 module.exports = {
     casaIdForEmbedded,
     isCasaEmbeddedId,
+    nextRegistrationAction,
+    isCasaTrackPresent,
     hideCasaTracks,
     displayedEmbeddedSelection,
     displayedExtraSelection,

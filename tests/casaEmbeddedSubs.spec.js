@@ -10,6 +10,8 @@ const {
     displayedExtraSelection,
     hideCasaTracks,
     isCasaEmbeddedId,
+    isCasaTrackPresent,
+    nextRegistrationAction,
     resolveSavedExtraTrack,
     streamUrlMatchesVideo,
 } = require('../src/common/casaEmbeddedSubs');
@@ -168,5 +170,76 @@ describe('streamUrlMatchesVideo', () => {
 
     test('url nulla -> non blocca (ci pensa il chiamante)', () => {
         expect(streamUrlMatchesVideo(null, 'tt38821531:1:3')).toBe(true);
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Riconciliazione della registrazione (regressione v4.40, serata del 2026-07-19).
+//
+// Il fetch del VTT riusciva ma la traccia non entrava MAI in
+// `extraSubtitlesTracks` (16 elementi fissi per 30 minuti, `sel.extra` null,
+// sottotitoli morti a 22:23 di film). Il vecchio codice sparava l'add una volta
+// e lo dava per fatto. Questi test ancorano la regola: il successo e' "la
+// traccia si VEDE nello stato", e finche' non si vede si riprova.
+describe('registrazione: riconciliare, non sparare-e-sperare', () => {
+    const MAX = 10;
+    const act = (o) => nextRegistrationAction({ maxAttempts: MAX, ...o });
+
+    test('VTT non pronto -> non si registra nulla (niente buco iniziale a freddo)', () => {
+        expect(act({ vttReady: false, present: false, attempts: 0 })).toBe('wait');
+    });
+
+    test('VTT pronto e traccia assente -> si dispatcha', () => {
+        expect(act({ vttReady: true, present: false, attempts: 0 })).toBe('add');
+    });
+
+    test('IL CASO DELL INCIDENTE: add gia speso ma traccia ancora assente -> SI RIPROVA', () => {
+        // Prima il fetch riuscito marcava la chiave come "fatta" e non si
+        // ritentava mai piu': un add scartato in silenzio (player non ancora
+        // caricato) costava l'intero episodio senza sottotitoli.
+        expect(act({ vttReady: true, present: false, attempts: 1 })).toBe('add');
+        expect(act({ vttReady: true, present: false, attempts: 5 })).toBe('add');
+    });
+
+    test('traccia presente -> registrata, non si ri-dispatcha', () => {
+        expect(act({ vttReady: true, present: true, attempts: 3 })).toBe('registered');
+    });
+
+    test('un reload che azzera le tracce fa ripartire i tentativi', () => {
+        // `extraTracks` 16 -> 0 -> 16 visto in prod alle 21:23: la traccia
+        // registrata sparisce con l'unload e va rimessa.
+        expect(act({ vttReady: true, present: true, attempts: 4 })).toBe('registered');
+        // (l'hook azzera il contatore su 'registered', quindi il giro dopo:)
+        expect(act({ vttReady: true, present: false, attempts: 0 })).toBe('add');
+    });
+
+    test('budget finito -> si molla, l in-band resta a coprire (mai un loop)', () => {
+        expect(act({ vttReady: true, present: false, attempts: MAX })).toBe('give-up');
+        expect(act({ vttReady: true, present: false, attempts: MAX + 1 })).toBe('give-up');
+    });
+
+    test('give-up NON scavalca una traccia che nel frattempo e comparsa', () => {
+        expect(act({ vttReady: true, present: true, attempts: MAX + 3 })).toBe('registered');
+    });
+});
+
+describe('isCasaTrackPresent', () => {
+    const tracks = [
+        { id: 'https://opensubtitles-v3.strem.io/manifest.json_7', lang: 'ita' },
+        { id: 'CASA_EMB_2', lang: 'ita' },
+    ];
+
+    test('trova la traccia dell indice giusto', () => {
+        expect(isCasaTrackPresent(tracks, '2')).toBe(true);
+    });
+
+    test('un altro indice NON conta come presente (era la lingua sbagliata in silenzio)', () => {
+        expect(isCasaTrackPresent(tracks, '0')).toBe(false);
+    });
+
+    test('lista vuota o non valida -> assente, senza esplodere', () => {
+        expect(isCasaTrackPresent([], '0')).toBe(false);
+        expect(isCasaTrackPresent(null, '0')).toBe(false);
+        expect(isCasaTrackPresent(undefined, '0')).toBe(false);
     });
 });
