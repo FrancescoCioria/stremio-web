@@ -181,9 +181,14 @@ const useCasaEmbeddedSubs = (video, streamUrl, streamingServerUrl, selectedVideo
         fetchingRef.current.add(key);
 
         let cancelled = false;
+        // La lingua che il probe dichiara per QUESTA traccia: il backend la usa
+        // come sanity check dell'estrazione sparsa (se il file ne dichiara
+        // un'altra, gli indici non corrispondono e si ripiega su ffmpeg invece
+        // di consegnare la lingua sbagliata in silenzio).
+        const langQs = sub.language ? '&lang=' + encodeURIComponent(sub.language) : '';
         const url = casaBackendUrl(
             '/stremio-addon/embedded-subs.vtt?media=' + encodeURIComponent(streamUrl) +
-            '&track=' + idx);
+            '&track=' + idx + langQs);
         if (!url) return;
 
         // ⚠️ ABORTIRE SUL SERIO, non solo ignorare il risultato. Chiudere la
