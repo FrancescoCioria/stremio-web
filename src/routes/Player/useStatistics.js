@@ -69,9 +69,26 @@ const useStatistics = (player, streamingServer) => {
         return bps ? parseFloat((bps / 1000 / 1000).toFixed(2)) : 0;
     }, [ts, tsStats, coreStats]);
 
-    // % = frazione di file gia' in cache (preloaded/size). Coerente col Buffer di
-    // Player.js (completed% * durata = secondi bufferizzati). Piccola perche' e'
-    // streaming a finestra (non scarica tutto il file), ma il Buffer resta corretto.
+    // Byte davvero scaricati DALLO SWARM (utili, cioe' non duplicati) in QUESTA
+    // sessione del torrent. E' la risposta a "Torr sta scaricando e quanto".
+    // ⚠️ Per-sessione, NON un totale storico: quando TorrServer sgancia il torrent
+    // (stat_string "Torrent in db", 30s dopo l'ultimo lettore) azzera i contatori.
+    // ⚠️ Puo' restare a 0 mentre il film va benissimo: con `UseDisk` +
+    // `RemoveCacheOnDrop:false` i pezzi restano su disco fra una sessione e
+    // l'altra, quindi riguardare una parte gia' vista non scarica NIENTE.
+    // Zero qui NON significa "TorrServer e' rotto".
+    const downloaded = React.useMemo(() => {
+        if (ts) return tsStats ? (+tsStats.bytes_read_useful_data || 0) : 0;
+        return coreStats?.downloaded ? coreStats.downloaded : 0;
+    }, [ts, tsStats, coreStats]);
+
+    // % = frazione di file gia' in cache (preloaded/size).
+    // ⚠️ NON e' progresso di download e NON e' una finestra davanti alla testina:
+    // `preloaded_bytes` e' inchiodato alla dimensione della cache (6 GiB), quindi
+    // su un film piu' grande resta COSTANTE (61,46% su 10,5 GB). Fino alla v4.46
+    // Player.js ci derivava il "Buffer" mostrato all'utente: diceva 67m 54s mentre
+    // il client aveva 18 secondi. Oggi il Buffer viene dal browser; questo campo
+    // resta solo perche' e' il progresso vero per gli stream infoHash del core.
     const completed = React.useMemo(() => {
         if (ts) {
             const size = tsStats && +tsStats.torrent_size;
@@ -138,6 +155,7 @@ const useStatistics = (player, streamingServer) => {
         infoHash,
         peers,
         speed,
+        downloaded,
         completed,
         progress,
     };

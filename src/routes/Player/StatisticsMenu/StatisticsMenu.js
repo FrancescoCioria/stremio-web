@@ -21,7 +21,15 @@ const formatBuffer = (ms) => {
     return `${m}m ${('0' + (s % 60)).slice(-2)}s`;
 };
 
-const StatisticsMenu = React.memo(React.forwardRef(({ className, peers, speed, buffer, infoHash }, ref) => {
+// Byte scaricati dallo swarm. Totale: mai NaN sullo schermo, e 0 si vede
+// (e' informazione: TorrServer sta servendo dalla cache su disco).
+const formatBytes = (bytes) => {
+    if (typeof bytes !== 'number' || !isFinite(bytes) || bytes < 0) return '--';
+    if (bytes >= 1000 * 1000 * 1000) return `${(bytes / 1000 / 1000 / 1000).toFixed(2)} GB`;
+    return `${Math.round(bytes / 1000 / 1000)} MB`;
+};
+
+const StatisticsMenu = React.memo(React.forwardRef(({ className, peers, speed, downloaded, buffer, infoHash }, ref) => {
     const { t } = useTranslation();
     const onMouseDown = React.useCallback((event) => {
         event.nativeEvent.statisticsMenuClosePrevented = true;
@@ -57,6 +65,14 @@ const StatisticsMenu = React.memo(React.forwardRef(({ className, peers, speed, b
                     Ora e' il buffer vero del browser (casaClientBuffer.js). */}
                 <div className={styles['stat']}>
                     <div className={styles['label']}>
+                        {'Scaricato'}
+                    </div>
+                    <div className={styles['value']}>
+                        { formatBytes(downloaded) }
+                    </div>
+                </div>
+                <div className={styles['stat']}>
+                    <div className={styles['label']}>
                         {'Buffer'}
                     </div>
                     <div className={styles['value']}>
@@ -80,6 +96,7 @@ StatisticsMenu.propTypes = {
     className: PropTypes.string,
     peers: PropTypes.number,
     speed: PropTypes.number,
+    downloaded: PropTypes.number,
     buffer: PropTypes.number,
     infoHash: PropTypes.string,
 };
