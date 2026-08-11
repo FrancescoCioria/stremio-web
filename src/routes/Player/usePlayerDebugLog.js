@@ -52,7 +52,12 @@ const usePlayerDebugLog = (video, streamingServer, statistics) => {
             // STATO TORRENT (la domanda: stop a 100%?)
             infoHash: statistics.infoHash,
             streamProgress: stats ? stats.streamProgress : null, // 0..1 (1 = 100%)
-            completedPct: statistics.completed,                   // streamProgress * 100
+            // ⚠️ Su TorrServer NON e' progresso di download: e'
+            // preloaded_bytes/torrent_size, con preloaded_bytes inchiodato alla
+            // dimensione della cache => COSTANTE (61,46% su un film da 10,5 GB).
+            // Non dedurne "il torrent non avanza". La scorta del client sta in
+            // `hls-buffer` (tracks.video.ahead).
+            completedPct: statistics.completed,
             downloaded: stats ? stats.downloaded : null,
             streamLen: stats ? stats.streamLen : null,
             peers: statistics.peers,

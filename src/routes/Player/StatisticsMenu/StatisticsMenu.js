@@ -50,9 +50,11 @@ const StatisticsMenu = React.memo(React.forwardRef(({ className, peers, speed, b
                 </div>
                 {/* "Completed %" rimosso: con TorrServer (streaming a finestra)
                     e' preloaded_bytes/torrent_size -> resta ~2% per sempre e non
-                    sale mai a 100% (non e' un download cumulativo). "Buffer" sotto
-                    (secondi davanti alla testina) e' la metrica utile. `completed`
-                    resta come prop perche' Player.js ci deriva il Buffer. */}
+                    sale mai a 100% (non e' un download cumulativo).
+                    ⚠️ Dal 12/08/2026 "Buffer" NON si deriva piu' da `completed`:
+                    `preloaded_bytes` e' inchiodato alla dimensione della cache, e
+                    la riga mostrava "67m 54s" mentre il client aveva 18 secondi.
+                    Ora e' il buffer vero del browser (casaClientBuffer.js). */}
                 <div className={styles['stat']}>
                     <div className={styles['label']}>
                         {'Buffer'}
