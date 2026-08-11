@@ -34,6 +34,7 @@ const useNextEpisodePrewarm = require('./useNextEpisodePrewarm');
 const useCasaEmbeddedSubs = require('./useCasaEmbeddedSubs');
 const useCasaTitleLanguage = require('./useCasaTitleLanguage');
 const useStallWatchdog = require('./useStallWatchdog');
+const { decodeRecoveryStep, initialMemory: initialDecodeRecoveryMemory } = require('./casaDecodeRecovery');
 const useVideo = require('./useVideo');
 const { default: useSubtitles } = require('./useSubtitles');
 const styles = require('./styles');
@@ -195,6 +196,15 @@ const Player = () => {
     const [error, setError] = React.useState(null);
     const lastLoadRef = React.useRef(null);
 
+    // Casa: recupero dall'errore di decodifica del browser. Vedi casaDecodeRecovery.js.
+    // `lastGoodTimeRef` va tenuto aggiornato PRIMA del crash: quando l'errore
+    // arriva, stremio-video ha gia' fatto unload e `video.state.time` e' null.
+    const decodeRecoveryMemory = React.useRef(initialDecodeRecoveryMemory());
+    const lastGoodTimeRef = React.useRef(null);
+    // Ref e non closure diretta: `reloadStream` e' definita piu' sotto, e
+    // `onError` ha deps [] — cosi' l'ordine di dichiarazione non conta.
+    const reloadStreamRef = React.useRef(null);
+
     const playbackSpeed = React.useRef(video.state.playbackSpeed || 1);
     const pressTimer = React.useRef(null);
     const longPress = React.useRef(false);
@@ -238,6 +248,28 @@ const Player = () => {
     const onError = React.useCallback((error) => {
         console.error('Player', error);
         if (error.critical) {
+            // Casa: il decoder del browser che molla a meta' film e' un incidente
+            // transitorio, non un vicolo cieco: ricarica dallo stesso punto invece
+            // di mostrare l'errore e costringere a uscire e rientrare a mano.
+            // ⚠️ Il tentativo si consuma SOLO se c'e' davvero un load da
+            // ripetere: senza questa guardia `reloadStream` sarebbe un no-op e
+            // l'utente resterebbe senza video E senza il messaggio d'errore.
+            if (lastLoadRef.current !== null && typeof reloadStreamRef.current === 'function') {
+                const recovery = decodeRecoveryStep(error, decodeRecoveryMemory.current);
+                decodeRecoveryMemory.current = recovery.memory;
+
+                if (recovery.recover) {
+                    casaBeacon('/debug/player-event', {
+                        ev: 'decode-recovery',
+                        attempt: recovery.attempt,
+                        code: error.code,
+                        time: lastGoodTimeRef.current,
+                    });
+                    reloadStreamRef.current(lastGoodTimeRef.current);
+                    return;
+                }
+            }
+
             setError(error);
         } else {
             toast.show({
@@ -526,6 +558,26 @@ const Player = () => {
     }, []);
 
     useStallWatchdog(video.state, reloadStream);
+    reloadStreamRef.current = reloadStream;
+
+    // Casa: ultimo tempo BUONO, per il recupero dall'errore di decodifica.
+    // All'arrivo dell'errore `video.state.time` e' gia' null (stremio-video fa
+    // unload da solo, e l'unload azzera `currentTime`) -> senza questo ref si
+    // ricaricherebbe dall'inizio del film.
+    React.useEffect(() => {
+        if (typeof video.state.time === 'number' && isFinite(video.state.time)) {
+            lastGoodTimeRef.current = video.state.time;
+        }
+    }, [video.state.time]);
+
+    // Stream diverso = incidente diverso: il cap dei recuperi riparte.
+    // ⚠️ La chiave viene da `player.stream` (il core, guidato dalla rotta) e NON
+    // da `video.state.stream`, che durante un recupero passa per null e farebbe
+    // azzerare il conto proprio mentre serve a fermare un loop.
+    const decodeRecoveryStreamKey = player.stream ? JSON.stringify(player.stream).slice(0, 200) : null;
+    React.useEffect(() => {
+        decodeRecoveryMemory.current = initialDecodeRecoveryMemory();
+    }, [decodeRecoveryStreamKey]);
 
     React.useEffect(() => {
         !seeking && timeChanged(video.state.time, video.state.duration, video.state.manifest?.name);
