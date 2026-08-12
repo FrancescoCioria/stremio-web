@@ -182,13 +182,33 @@ function casaHlsProbe(hls, videoElement, Hls) {
     };
     hls.on(Hls.Events.ERROR, onError);
 
+    // Chi sta bufferizzando: NOI o il sistema operativo? Con `ManagedMediaSource`
+    // (default di hls.js su Safari) decide WebKit via startstreaming/endstreaming,
+    // e il nostro `maxMaxBufferLength` non conta nulla — senza questa riga la cosa
+    // e' invisibile, perche' MMS non emette errori di quota: smette e basta.
+    // Il tell diretto e' `disableRemotePlayback`: hls.js lo forza a true SOLO
+    // quando usa MMS (altrimenti su Safari il sourceopen non scatterebbe).
+    function onMediaAttached() {
+        beacon({
+            ev: 'hls-mediasource',
+            managed: videoElement.disableRemotePlayback === true,
+            mmsAvailable: typeof self !== 'undefined' && typeof self.ManagedMediaSource !== 'undefined',
+            preferManaged: !!(hls.config && hls.config.preferManagedMediaSource)
+        });
+    }
+    hls.on(Hls.Events.MEDIA_ATTACHED, onMediaAttached);
+
     heartbeat = setInterval(function() {
-        if (videoElement.paused || videoElement.ended) return;
+        if (videoElement.ended) return;
         var t = videoElement.currentTime;
         var b = buffers(t);
         beacon({
             ev: 'hls-buffer',
             time: +t.toFixed(3),
+            // In PAUSA il buffer continua a crescere ed e' l'unico momento in cui
+            // si misura quanto il player riesce davvero ad accumulare: saltare il
+            // battito qui (com'era prima) rendeva cieca proprio quella misura.
+            paused: videoElement.paused === true,
             readyState: videoElement.readyState,
             media: b.media,
             tracks: b.tracks,
@@ -205,6 +225,7 @@ function casaHlsProbe(hls, videoElement, Hls) {
         try {
             hls.off(Hls.Events.BUFFER_APPENDED, onBufferAppended);
             hls.off(Hls.Events.ERROR, onError);
+            hls.off(Hls.Events.MEDIA_ATTACHED, onMediaAttached);
         } catch (_e) { /* hls gia' distrutto */ }
     };
 }

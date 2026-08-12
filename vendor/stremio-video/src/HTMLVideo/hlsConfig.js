@@ -13,6 +13,25 @@ module.exports = {
     // quasi un passacarte. Spegnendolo il comportamento e' lo stesso, ma
     // deterministico e senza errore. 2026-07-11.
     enableWorker: false,
+    // Casa: false (default hls.js = true). Su Safari hls.js sceglie
+    // `ManagedMediaSource` invece di `MediaSource` quando c'e' — e con MMS **e' il
+    // sistema operativo a decidere quanto bufferizzare**: manda `startstreaming`/
+    // `endstreaming` e hls.js smette di scaricare quando glielo dice. MMS nasce per
+    // non far accumulare 60s di buffer a un iPhone con poca memoria; su un Mac che
+    // guarda un film da fuori casa e' esattamente il contrario di cio' che serve.
+    // Misurato 2026-08-12, stesso film 4K HEVC (~11,5 Mbps) via Tailscale:
+    //   Safari  (MMS)        max  30,8s e  30,6s in due sessioni — 252 campioni
+    //   Chromium (MSE)       max  91,4s e 156,8s
+    // ⚠️ La firma che inchioda MMS: su Safari **zero `bufferFullError`** in 252
+    // campioni, mentre Chromium ne emette a raffica. MMS non lancia errori di
+    // quota — dice "smetti", e hls.js obbedisce in silenzio. Quindi il nostro
+    // `maxMaxBufferLength: 300` li' non e' mai stato al comando.
+    // NON e' la quota di WebKit a mordere: il budget e' ~290MB per il video
+    // (318.767.104 byte totali, 95% video / 5% audio), cioe' 7x i ~42MB misurati.
+    // Costo: si perde l'AirPlay dal player (con la MSE classica non c'era comunque)
+    // e il risparmio memoria/batteria di MMS, che su un Mac alla spina non serve.
+    // Verifica: evento `hls-mediasource` nel player-debug log (casaHlsProbe.js).
+    preferManagedMediaSource: false,
     lowLatencyMode: false,
     backBufferLength: 30,
     maxBufferLength: 50,
