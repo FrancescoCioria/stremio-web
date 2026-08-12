@@ -355,6 +355,33 @@ function HTMLVideo(options) {
             });
         });
     }
+    // Casa: in PAUSA il <video> non emette NIENTE (`timeupdate` e' fermo, e
+    // `playing`/`seeked`/`canplay` non scattano) -> `buffered` restava congelato e
+    // il pannello statistiche mostrava un valore vecchio finche' non facevi un
+    // play/pausa rapido. Ma il buffer in pausa CRESCE, ed e' esattamente li' che lo
+    // si guarda (e' il gesto con cui si misura quanto si riesce ad accumulare).
+    // Chi sa davvero quando `buffered` cambia e' hls.js, che scrive nel
+    // SourceBuffer: BUFFER_APPENDED e' il momento esatto, senza polling.
+    // ⚠️ Filtro al SECONDO: `onPropChanged` non deduplica (emette ad ogni chiamata)
+    // e un append puo' arrivare piu' volte al secondo -> senza, ogni chunk
+    // scatenerebbe un re-render dell'intero player mentre banca 5 minuti di video.
+    // Il secondo e' la granularita' che si vede davvero (il pannello mostra "5m 01s",
+    // e sulla barra un secondo e' una frazione di pixel).
+    var lastBufferedSec = null;
+    function onHlsBufferAppended() {
+        if (destroyed) {
+            return;
+        }
+
+        var buffered = getProp('buffered');
+        var sec = typeof buffered === 'number' ? Math.floor(buffered / 1000) : null;
+        if (sec === lastBufferedSec) {
+            return;
+        }
+
+        lastBufferedSec = sec;
+        onPropChanged('buffered');
+    }
     function onVideoError() {
         if (destroyed) {
             return;
@@ -628,6 +655,7 @@ function HTMLVideo(options) {
                                     hls.subtitleTrack = -1;
                                 });
                                 casaProbeDestroy = casaHlsProbe(hls, videoElement, Hls);
+                                hls.on(Hls.Events.BUFFER_APPENDED, onHlsBufferAppended);
                                 hls.loadSource(stream.url);
                                 hls.attachMedia(videoElement);
                             } else {
@@ -651,6 +679,7 @@ function HTMLVideo(options) {
             }
             case 'unload': {
                 stream = null;
+                lastBufferedSec = null;   // stream nuovo = storia nuova (il vecchio filtro zittirebbe il primo aggiornamento)
                 Array.from(videoElement.textTracks).forEach(function(track) {
                     track.oncuechange = null;
                 });
