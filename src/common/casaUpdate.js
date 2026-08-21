@@ -105,6 +105,7 @@ module.exports = {
 let state = { status: 'idle', deployed: null, checkedAt: null };
 const listeners = new Set();
 let lastCheckAt = 0;
+let reportedAlive = false;
 
 const getState = () => state;
 
@@ -152,7 +153,16 @@ const check = async () => {
         if (deployed === null) throw new Error('hash non trovato in index.html');
         const isNew = isNewBuild(deployed, currentHash());
         setState({ status: isNew ? 'available' : 'current', deployed, checkedAt: Date.now() });
-        if (isNew) report({ step: 'available', deployed, current: currentHash() });
+        if (isNew) {
+            report({ step: 'available', deployed, current: currentHash() });
+        } else if (!reportedAlive) {
+            // Controllo POSITIVO, una volta per caricamento: senza, un
+            // controllore morto produce lo stesso log di un controllore che non
+            // trova niente da fare — cioe' nessuna riga. Il silenzio va potuto
+            // distinguere dall'assenza.
+            reportedAlive = true;
+            report({ step: 'check-ok', current: currentHash() });
+        }
     } catch (e) {
         setState({ status: 'error', checkedAt: Date.now() });
         report({ step: 'check-failed', error: String((e && e.message) || e) });
