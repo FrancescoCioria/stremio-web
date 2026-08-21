@@ -3,6 +3,7 @@
 const React = require('react');
 const { useCore } = require('stremio/core');
 const { useToast, useFileDrop } = require('stremio/common');
+const { casaBeacon } = require('stremio/common/casaBackend');
 
 const ServicesToaster = () => {
     const core = useCore();
@@ -43,6 +44,19 @@ const ServicesToaster = () => {
             if (source.event === 'LibrarySyncWithAPIPlanned' && source.args.uid === null) return;
             if (error.type === 'Other' && error.code === 3 && source.event === 'AddonInstalled' && source.args.transport_url.startsWith('https://www.strem.io/trakt/addon')) return;
 
+            // Casa: un toast d'errore dura 4 secondi e poi non esiste piu' in
+            // nessun posto — ne' nel log JS (questo ramo non passa da
+            // console.error) ne' lato server. Chi lo vede puo' solo
+            // parafrasarlo, e una parafrasi non basta per capire quale
+            // chiamata e' fallita. Qui lo mettiamo per iscritto.
+            casaBeacon('/debug/player-event', {
+                ev: 'casa-toast',
+                event: source.event,
+                message: error && error.message,
+                type: error && error.type,
+                code: error && error.code,
+                route: window.location.hash,
+            });
             toast.show({
                 type: 'error',
                 title: source.event,
