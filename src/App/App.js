@@ -10,6 +10,7 @@ const { Chromecast, ServicesProvider, GamepadProvider } = require('stremio/servi
 const { FullscreenProvider, ToastProvider, TooltipProvider, ShortcutsProvider, DiscordProvider, CONSTANTS, useBinaryState, useProfile, withCoreSuspender, onFileDrop, usePlatform } = require('stremio/common');
 const ServicesToaster = require('./ServicesToaster');
 const SearchParamsHandler = require('./SearchParamsHandler');
+const CasaAutoSetup = require('./CasaAutoSetup');
 const DeepLinkHandler = require('./DeepLinkHandler');
 const { default: UpdaterBanner } = require('./UpdaterBanner');
 const { default: ShortcutsModal } = require('./ShortcutsModal');
@@ -233,6 +234,7 @@ const App = () => {
                                     }
                                     <ServicesToaster />
                                     <SearchParamsHandler />
+                                    <CasaAutoSetup />
                                     <DeepLinkHandler />
                                     <UpdaterBanner className={styles['updater-banner-container']} />
                                     <ProtectedRoutes />
