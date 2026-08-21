@@ -9,6 +9,7 @@ import Player from './Player';
 import Streaming from './Streaming';
 import Shortcuts from './Shortcuts';
 import Info from './Info';
+import Update from './Update';
 import { CASA_VERSION } from 'stremio/casaVersion';
 import styles from './Settings.less';
 
@@ -62,6 +63,7 @@ const Settings = () => {
         <MainNavBars className={styles['settings-container']} route={'settings'}>
             <div className={classnames(styles['settings-content'], 'animation-fade-in')} onKeyDown={onContentKeyDown}>
                 <div ref={sectionsContainerRef} className={styles['sections-container']} onFocus={onSectionFocus}>
+                    <Update />
                     <Interface profile={profile} />
                     <Player profile={profile} />
                     <Streaming

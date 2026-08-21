@@ -11,6 +11,7 @@ const { FullscreenProvider, ToastProvider, TooltipProvider, ShortcutsProvider, D
 const ServicesToaster = require('./ServicesToaster');
 const SearchParamsHandler = require('./SearchParamsHandler');
 const CasaAutoSetup = require('./CasaAutoSetup');
+const CasaUpdater = require('./CasaUpdater');
 const DeepLinkHandler = require('./DeepLinkHandler');
 const { default: UpdaterBanner } = require('./UpdaterBanner');
 const { default: ShortcutsModal } = require('./ShortcutsModal');
@@ -235,6 +236,7 @@ const App = () => {
                                     <ServicesToaster />
                                     <SearchParamsHandler />
                                     <CasaAutoSetup />
+                                    <CasaUpdater />
                                     <DeepLinkHandler />
                                     <UpdaterBanner className={styles['updater-banner-container']} />
                                     <ProtectedRoutes />
