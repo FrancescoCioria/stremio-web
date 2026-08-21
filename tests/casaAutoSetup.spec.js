@@ -53,3 +53,32 @@ describe('serverUrlUpdate', () => {
         expect(serverUrlUpdate(undefined, 'localhost')).toBe('http://127.0.0.1:11470/');
     });
 });
+
+// --- Preferenze di casa che il login azzera --------------------------------
+// Il caso che conta e' il terzo: dopo un reset il valore corrente E' il default
+// di Stremio, e se lo si prendesse per buono la scelta dell'utente sparirebbe
+// proprio quando va ripristinata.
+const { CASA_SETTING_DEFAULTS, desiredSettings, settingsPatch } = require('../src/common/casaAutoSetup');
+
+describe('preferenze di casa', () => {
+    test('senza nulla salvato vale il default di casa (blur acceso)', () => {
+        expect(desiredSettings(null)).toEqual({ hideSpoilers: true });
+        expect(CASA_SETTING_DEFAULTS.hideSpoilers).toBe(true);
+    });
+
+    test('la scelta esplicita dell utente vince sul default di casa', () => {
+        expect(desiredSettings({ hideSpoilers: false })).toEqual({ hideSpoilers: false });
+    });
+
+    test('settings appena azzerate dal login -> patch che rimette il blur', () => {
+        expect(settingsPatch({ hideSpoilers: false }, { hideSpoilers: true })).toEqual({ hideSpoilers: true });
+    });
+
+    test('gia a posto -> nessuna scrittura', () => {
+        expect(settingsPatch({ hideSpoilers: true }, { hideSpoilers: true })).toBe(null);
+    });
+
+    test('chi ha scelto di spegnerlo non se lo vede riaccendere', () => {
+        expect(settingsPatch({ hideSpoilers: false }, desiredSettings({ hideSpoilers: false }))).toBe(null);
+    });
+});

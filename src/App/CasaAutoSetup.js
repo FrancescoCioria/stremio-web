@@ -11,7 +11,9 @@
 //   1. login, se non c'e' auth: token coniato dal backend (mai la chiave del
 //      .env, vedi stremio_auth.ts) + `Authenticate/LoginWithToken`, la stessa
 //      azione che il core espone per il login via token;
-//   2. streaming server URL derivato dall'host della pagina.
+//   2. streaming server URL derivato dall'host della pagina, e le preferenze
+//      che la casa vuole diverse dal default di Stremio (blur degli episodi non
+//      visti): il login le azzera insieme all'URL, quindi si rimettono insieme.
 //
 // ⚠️ Una volta per caricamento, non "in continuo": chi apre Settings e cambia
 // l'URL a mano deve poterlo fare senza che questo glielo riscriva sotto le dita.
@@ -28,7 +30,7 @@ const React = require('react');
 const { useCore } = require('stremio/core');
 const { withCoreSuspender, useProfile } = require('stremio/common');
 const { casaBackendUrl, casaBeacon } = require('stremio/common/casaBackend');
-const { serverUrlUpdate } = require('stremio/common/casaAutoSetup');
+const { serverUrlUpdate, desiredSettings, settingsPatch, readStoredSettings } = require('stremio/common/casaAutoSetup');
 
 const TOKEN_PATH = '/stremio-auth/token';
 // Il backend puo' non essere ancora su quando la tile parte al boot del box.
@@ -71,28 +73,30 @@ const CasaAutoSetup = () => {
     const profileRef = React.useRef(profile);
     profileRef.current = profile;
 
-    const applyServerUrl = React.useCallback((phase) => {
+    // Un solo UpdateSettings per fase: streaming server URL e preferenze di casa
+    // si perdono nello stesso momento (il login azzera le settings) e vanno
+    // rimesse insieme, non con due scritture che si rincorrono.
+    const applyCasaPreferences = React.useCallback((phase) => {
         const settings = profileRef.current.settings;
-        const target = serverUrlUpdate(settings, window.location.hostname);
-        if (target === null) return;
-        core.transport.dispatch({
-            action: 'Ctx',
-            args: {
-                action: 'UpdateSettings',
-                args: Object.assign({}, settings, { streamingServerUrl: target }),
-            },
-        });
-        core.transport.dispatch({
-            action: 'Ctx',
-            args: { action: 'AddServerUrl', args: target },
-        });
-        report({ step: 'server-url-set', phase, url: target, was: settings && settings.streamingServerUrl });
+        const url = serverUrlUpdate(settings, window.location.hostname);
+        const patch = settingsPatch(settings, desiredSettings(readStoredSettings()));
+        if (url === null && patch === null) return;
+
+        const args = Object.assign({}, settings, patch || {});
+        if (url !== null) args.streamingServerUrl = url;
+        core.transport.dispatch({ action: 'Ctx', args: { action: 'UpdateSettings', args } });
+
+        if (url !== null) {
+            core.transport.dispatch({ action: 'Ctx', args: { action: 'AddServerUrl', args: url } });
+            report({ step: 'server-url-set', phase, url, was: settings && settings.streamingServerUrl });
+        }
+        if (patch !== null) report({ step: 'settings-restored', phase, patch });
     }, []);
 
     React.useEffect(() => {
         if (urlPhaseRef.current === 0) {
             urlPhaseRef.current = 1;
-            applyServerUrl(1);
+            applyCasaPreferences(1);
         }
     }, []);
 
@@ -124,7 +128,7 @@ const CasaAutoSetup = () => {
         report({ step: 'authenticated' });
         if (urlPhaseRef.current < 2) {
             urlPhaseRef.current = 2;
-            applyServerUrl(2);
+            applyCasaPreferences(2);
         }
     }, [profile.auth]);
 

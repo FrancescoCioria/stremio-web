@@ -41,9 +41,55 @@ const serverUrlUpdate = (settings, hostname) => {
     return sameServerUrl(current, target) ? null : target;
 };
 
+// --- Impostazioni che la casa vuole diverse dal default di Stremio ---------
+//
+// Non e' una preferenza qualunque: il login RIMETTE le settings al default
+// (misurato), quindi ogni reset del profilo le riporta indietro. Tenerne una
+// copia nostra e' l'unico modo perche' sopravvivano.
+//
+// ⚠️ Si scrive SOLO quando l'utente tocca l'interruttore (rememberSetting dal
+// toggle in Settings), MAI osservando il valore corrente: il valore corrente
+// subito dopo un reset e' il default di Stremio, e registrarlo cancellerebbe la
+// scelta dell'utente proprio nel momento in cui va ripristinata. Stesso
+// principio del flag `byUser` dei sottotitoli.
+const CASA_SETTING_DEFAULTS = { hideSpoilers: true };
+const SETTINGS_KEY = 'casa:settings';
+
+const desiredSettings = (stored, defaults) =>
+    Object.assign({}, defaults || CASA_SETTING_DEFAULTS, stored && typeof stored === 'object' ? stored : {});
+
+// Solo le chiavi che NON combaciano: senza, ogni avvio dispatcherebbe una
+// UpdateSettings identica (una scrittura e un render per nulla).
+const settingsPatch = (current, desired) => {
+    const patch = {};
+    Object.keys(desired || {}).forEach((k) => {
+        if (!current || current[k] !== desired[k]) patch[k] = desired[k];
+    });
+    return Object.keys(patch).length > 0 ? patch : null;
+};
+
+const readStoredSettings = () => {
+    try { return JSON.parse(window.localStorage.getItem(SETTINGS_KEY)) || null; } catch (_e) { return null; }
+};
+
+// Chiamata dal toggle in Settings: da qui in poi comanda l'utente.
+const rememberSetting = (key, value) => {
+    try {
+        const next = Object.assign({}, readStoredSettings());
+        next[key] = value;
+        window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
+    } catch (_e) { /* best-effort */ }
+};
+
 module.exports = {
     STREAMING_SERVER_PORT,
     streamingServerUrlForHost,
     sameServerUrl,
     serverUrlUpdate,
+    CASA_SETTING_DEFAULTS,
+    SETTINGS_KEY,
+    desiredSettings,
+    settingsPatch,
+    readStoredSettings,
+    rememberSetting,
 };
