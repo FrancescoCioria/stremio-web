@@ -36,8 +36,22 @@
     }
 
     /* Focus TV: scale 1.16 + ombra dark AMPLIFICATA (elevation piu' alta)
-     * piu' alone bianco per attrarre il focus. */
-    &:focus-visible {
+     * piu' alone bianco per attrarre il focus.
+     *
+     * ⚠️ `:focus` E `:focus-visible`, non solo il secondo. Su WebKit (Safari =
+     * la web app installata sul Mac) `:focus-visible` NON matcha quando il
+     * focus e' spostato via script — ed e' esattamente cio' che fa Board.js a
+     * ogni freccia (`focusTarget.focus({preventScroll:true})`). Risultato sul
+     * Mac: niente scale E, al suo posto, l'outline bianco 2px del Button
+     * (`.button-container:focus { outline-style: solid }`) attorno a tutta la
+     * card, titolo compreso. Un solo meccanismo, i due sintomi insieme.
+     * Verificato sul CSS costruito: le due regole hanno la STESSA specificita'
+     * (0,2,0) e vince MetaItem solo perche' viene dopo (offset 24953 contro
+     * 182) — ma solo se il selettore matcha, e su WebKit non matcha.
+     * `:focus` e' un SOVRAINSIEME di `:focus-visible`: dove il secondo gia'
+     * agganciava (Firefox della TV, Chromium) non cambia nulla. Sulle card e'
+     * sicuro anche col mouse, perche' il click naviga via subito. */
+    &:focus, &:focus-visible {
         outline: none;
         transform: scale(1.16);
         z-index: 2;
