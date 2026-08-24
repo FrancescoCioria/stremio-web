@@ -298,13 +298,7 @@ const MetaPreview = React.forwardRef(({ className, compact, name, logo, backgrou
                             tabIndex={compact ? -1 : 0}
                             onClick={toggleNotifications}
                         >
-                            {/* Etichetta CORTA di proposito: la stringa piena
-                              * ("Receive notifications for new episodes") manda
-                              * il toggle a capo appena la colonna si stringe —
-                              * misurato a 1008px di viewport, cioe' la tile allo
-                              * zoom con cui si usa dal Mac. Il senso lo da' la
-                              * riga in cui vive (azioni sul titolo). */}
-                            {'Notifications'}
+                            {t('DETAIL_RECEIVE_NOTIF_SERIES')}
                         </Toggle>
                         :
                         null
