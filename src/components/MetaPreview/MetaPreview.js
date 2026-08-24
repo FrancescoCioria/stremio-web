@@ -15,6 +15,7 @@ const CONSTANTS = require('stremio/common/CONSTANTS');
 const routesRegexp = require('stremio/common/routesRegexp');
 const useBinaryState = require('stremio/common/useBinaryState');
 const ActionButton = require('./ActionButton');
+const { default: Toggle } = require('stremio/components/Toggle');
 const MetaLinks = require('./MetaLinks');
 const MetaPreviewPlaceholder = require('./MetaPreviewPlaceholder');
 const styles = require('./styles');
@@ -26,7 +27,7 @@ const ALLOWED_LINK_REDIRECTS = [
     routesRegexp.metadetails.regexp
 ];
 
-const MetaPreview = React.forwardRef(({ className, compact, name, logo, background, runtime, releaseInfo, released, description, deepLinks, links, trailerStreams, inLibrary, toggleInLibrary, watched, toggleWatched, ratingInfo, focusedEpisode, focusedEpisodeRuntime, movieDigitalReleaseLabel, hideActions, showWatchedToggle }, ref) => {
+const MetaPreview = React.forwardRef(({ className, compact, name, logo, background, runtime, releaseInfo, released, description, deepLinks, links, trailerStreams, inLibrary, toggleInLibrary, watched, toggleWatched, ratingInfo, focusedEpisode, focusedEpisodeRuntime, movieDigitalReleaseLabel, hideActions, showWatchedToggle, showNotificationsToggle, notificationsEnabled, toggleNotifications }, ref) => {
     const { t } = useTranslation();
     const [shareModalOpen, openShareModal, closeShareModal] = useBinaryState(false);
     const linksGroups = React.useMemo(() => {
@@ -286,6 +287,23 @@ const MetaPreview = React.forwardRef(({ className, compact, name, logo, backgrou
                         : null
                 }
                 {
+                    /* TV/Casa: le notifiche nuovi episodi stanno QUI, in linea
+                     * con Trailer / Add-Remove Library / voti, non dentro il box
+                     * degli episodi: e' un'azione sul TITOLO come le altre, e li'
+                     * dentro era un elemento estraneo sopra il rail. */
+                    !hideActions && showNotificationsToggle && typeof toggleNotifications === 'function' ?
+                        <Toggle
+                            className={styles['notifications-toggle']}
+                            checked={notificationsEnabled}
+                            tabIndex={compact ? -1 : 0}
+                            onClick={toggleNotifications}
+                        >
+                            {t('DETAIL_RECEIVE_NOTIF_SERIES')}
+                        </Toggle>
+                        :
+                        null
+                }
+                {
                     typeof showHref === 'string' && compact ?
                         <ActionButton
                             className={classnames(styles['action-button'], styles['show-button'])}
@@ -346,6 +364,9 @@ MetaPreview.propTypes = {
     movieDigitalReleaseLabel: PropTypes.string,
     hideActions: PropTypes.bool,
     showWatchedToggle: PropTypes.bool,
+    showNotificationsToggle: PropTypes.bool,
+    notificationsEnabled: PropTypes.bool,
+    toggleNotifications: PropTypes.func,
 };
 
 module.exports = MetaPreview;

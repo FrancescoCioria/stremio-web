@@ -252,6 +252,12 @@ const MetaDetails = () => {
                                                     ? previewVideo.overview
                                                     : metaDetails.metaItem.content.content.description
                                             }
+                                            showNotificationsToggle={
+                                                !!metaDetails.metaItem.content.content.inLibrary &&
+                                                !!metaDetails.metaItem.content.content.videos?.length
+                                            }
+                                            notificationsEnabled={!metaDetails.libraryItem?.state?.noNotif}
+                                            toggleNotifications={metaDetails.libraryItem ? toggleNotifications : null}
                                             focusedEpisode={previewVideo}
                                             focusedEpisodeRuntime={previewVideoRuntime}
                                             movieDigitalReleaseLabel={movieDigitalReleaseLabel}
@@ -292,7 +298,6 @@ const MetaDetails = () => {
                                 season={season}
                                 selectedVideoId={metaDetails.libraryItem?.state?.video_id}
                                 seasonOnSelect={seasonOnSelect}
-                                toggleNotifications={toggleNotifications}
                                 onFocusedVideoChange={setFocusedVideoId}
                             />
                             :

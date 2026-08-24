@@ -6,7 +6,7 @@ const classnames = require('classnames');
 const { t } = require('i18next');
 const { useCore } = require('stremio/core');
 const { useProfile } = require('stremio/common');
-const { Image, SearchBar, Toggle, Video } = require('stremio/components');
+const { Image, SearchBar, Video } = require('stremio/components');
 const SeasonsBar = require('./SeasonsBar');
 const { default: EpisodePicker } = require('../EpisodePicker');
 const styles = require('./styles');
@@ -15,7 +15,7 @@ const styles = require('./styles');
 // e il ritorno alla lista (bugfix upstream: keep scroll position).
 let savedScrollTop = 0;
 
-const VideosList = ({ className, metaItem, libraryItem, season, seasonOnSelect, selectedVideoId, toggleNotifications, onFocusedVideoChange }) => {
+const VideosList = ({ className, metaItem, libraryItem, season, seasonOnSelect, selectedVideoId, onFocusedVideoChange }) => {
     const core = useCore();
     const profile = useProfile();
 
@@ -116,9 +116,6 @@ const VideosList = ({ className, metaItem, libraryItem, season, seasonOnSelect, 
         focusable.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
     }, []);
 
-    const showNotificationsToggle = React.useMemo(() => {
-        return metaItem?.content?.content?.inLibrary && metaItem?.content?.content?.videos?.length;
-    }, [metaItem]);
     const videos = React.useMemo(() => {
         return metaItem && metaItem.content.type === 'Ready' ?
             metaItem.content.content.videos
@@ -294,14 +291,6 @@ const VideosList = ({ className, metaItem, libraryItem, season, seasonOnSelect, 
                         :
                         <React.Fragment>
                             {
-                                showNotificationsToggle && libraryItem ?
-                                    <Toggle className={styles['notifications-toggle']} checked={!libraryItem.state.noNotif} onClick={toggleNotifications}>
-                                        {t('DETAIL_RECEIVE_NOTIF_SERIES')}
-                                    </Toggle>
-                                    :
-                                    null
-                            }
-                            {
                                 seasons.length > 0 ?
                                     <SeasonsBar
                                         className={styles['seasons-bar']}
@@ -367,7 +356,6 @@ VideosList.propTypes = {
     season: PropTypes.number,
     selectedVideoId: PropTypes.string,
     seasonOnSelect: PropTypes.func,
-    toggleNotifications: PropTypes.func,
     onFocusedVideoChange: PropTypes.func,
 };
 
