@@ -133,9 +133,9 @@ const Popup = ({ open, direction, renderLabel, renderMenu, dataset, onCloseReque
                 // contenitore posizionato del menu (`.label-container` e' relative)
                 const top = Math.min(Math.max(labelRect.bottom, clip.top), clip.bottom - height);
                 setClampedStyle({
-                    top: Math.round(top - labelRect.top),
+                    top: Math.floor(top - labelRect.top),
                     bottom: 'auto',
-                    maxHeight: Math.round(maxHeight),
+                    maxHeight: Math.floor(maxHeight),
                     overflowY: 'auto',
                 });
             } else {
