@@ -48,6 +48,9 @@ const Popup = ({ open, direction, renderLabel, renderMenu, dataset, onCloseReque
     const [autoDirection, setAutoDirection] = React.useState(null);
     // Posizione forzata: valorizzata SOLO quando il menu non entra ne' sopra ne'
     // sotto la label dentro l'area non ritagliata. null = comportamento storico.
+    // ⚠️ Va passata da `lockProps`, NON come prop `style` di FocusLock: quello
+    // inoltra `className` al wrapper ma NON `style`, che sparisce senza un
+    // errore — il menu resta tagliato e sembra che il fix non funzioni.
     const [clampedStyle, setClampedStyle] = React.useState(null);
     const menuOnMouseDown = React.useCallback((event) => {
         event.nativeEvent.closePopupPrevented = true;
@@ -160,7 +163,7 @@ const Popup = ({ open, direction, renderLabel, renderMenu, dataset, onCloseReque
         ref: labelRef,
         className: classnames(styles['label-container'], props.className, { 'active': open }),
         children: open ?
-            <FocusLock ref={menuRef} style={clampedStyle || undefined} className={classnames(styles['menu-container'], { [styles[`menu-direction-${autoDirection}`]]: !direction }, { [styles[`menu-direction-${direction}`]]: direction })} autoFocus={false} lockProps={{ onMouseDown: menuOnMouseDown }}>
+            <FocusLock ref={menuRef} className={classnames(styles['menu-container'], { [styles[`menu-direction-${autoDirection}`]]: !direction }, { [styles[`menu-direction-${direction}`]]: direction })} autoFocus={false} lockProps={{ onMouseDown: menuOnMouseDown, style: clampedStyle || undefined }}>
                 {renderMenu()}
             </FocusLock>
             :
