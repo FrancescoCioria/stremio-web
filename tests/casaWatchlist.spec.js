@@ -31,9 +31,19 @@ describe('toRowItem', () => {
 });
 
 describe('mergeWatchlist', () => {
-    it('mette "Watchlist" DOPO il continue watching vero', () => {
+    it('mette "Watchlist" PRIMA del continue watching vero', () => {
+        // In coda non si vedrebbero: la riga del core contiene anche le serie
+        // con notifiche di nuovi episodi (25+ in casa) e MetaRow taglia a 25.
         const out = mergeWatchlist([cwItem('tt_cw')], [entry('tt_wl')]);
-        expect(out.map((i) => i._id)).toEqual(['tt_cw', 'tt_wl']);
+        expect(out.map((i) => i._id)).toEqual(['tt_wl', 'tt_cw']);
+    });
+
+    it('resta visibile anche con la riga del core gia\' oltre il taglio di MetaRow', () => {
+        // Caso REALE: 25 item nel continue watching -> un item accodato finirebbe
+        // in posizione 26 e non verrebbe mai disegnato.
+        const cw = Array.from({ length: 25 }, (_, i) => cwItem('tt_cw' + i));
+        const out = mergeWatchlist(cw, [entry('tt_wl')]);
+        expect(out.slice(0, 25).map((i) => i._id)).toContain('tt_wl');
     });
 
     it('NON duplica un titolo presente in entrambe le liste', () => {

@@ -63,8 +63,17 @@ const toRowItem = (entry) => ({
 // comparirebbe due volte nella stessa riga. Vince sempre la copia del core:
 // e' quella con il progresso vero.
 //
-// I nostri vanno DOPO: chi ha qualcosa a meta' vuole riprenderlo, non scorrere
-// oltre le intenzioni.
+// ⚠️ I nostri vanno PRIMA, e non e' una preferenza estetica: in coda non si
+// vedono proprio. La riga Continue Watching del core non contiene solo cio' che
+// hai iniziato — ci finiscono anche le serie con NOTIFICHE di nuovi episodi
+// (`is_in_continue_watching() || library_notification.is_some()`), e in casa
+// sono 25+. `MetaRow` taglia a `TV_PREVIEW_SIZE` (25) con uno `slice`, quindi
+// un item accodato finisce in posizione 26 e non viene MAI disegnato: fetch ok,
+// merge ok, DOM vuoto. Misurato sul Board vero il 2026-08-24 (due titoli
+// aggiunti dall'utente, invisibili).
+// E' anche il posto giusto a prescindere dal taglio: prima di questa lista
+// l'unico modo di segnarsi un titolo era farlo partire e fermarlo subito, che
+// lo mandava in CIMA alla riga. Li' l'utente li cerca.
 const mergeWatchlist = (continueWatchingItems, watchlistEntries) => {
     const cw = Array.isArray(continueWatchingItems) ? continueWatchingItems : [];
     const wl = Array.isArray(watchlistEntries) ? watchlistEntries : [];
@@ -73,7 +82,7 @@ const mergeWatchlist = (continueWatchingItems, watchlistEntries) => {
     const extra = wl
         .filter((e) => e && typeof e.id === 'string' && !seen.has(e.id))
         .map(toRowItem);
-    return extra.length > 0 ? [...cw, ...extra] : cw;
+    return extra.length > 0 ? [...extra, ...cw] : cw;
 };
 
 const fetchWatchlist = async () => {
