@@ -127,11 +127,20 @@ const Popup = ({ open, direction, renderLabel, renderMenu, dataset, onCloseReque
             // stava gia', il posizionamento resta quello di prima, invariato.
             const fitsSomewhere = menuRect.height <= Math.max(labelPosition.top, labelPosition.bottom);
             if (!fitsSomewhere) {
-                const maxHeight = Math.max(0, clip.bottom - clip.top);
+                // ⚠️ Margine di sicurezza, non estetica: l'offset e' relativo alla
+                // LABEL, e fra la misura e il render la label puo' spostarsi di
+                // un paio di px (misurato: menu 2px oltre il bordo a 1512x860).
+                // Appoggiato esattamente sul bordo, un menu sembra tagliato anche
+                // quando non lo e'.
+                const INSET = 4;
+                const maxHeight = Math.max(0, (clip.bottom - clip.top) - INSET * 2);
                 const height = Math.min(menuRect.height, maxHeight);
                 // coordinate viewport -> offset rispetto alla label, che e' il
                 // contenitore posizionato del menu (`.label-container` e' relative)
-                const top = Math.min(Math.max(labelRect.bottom, clip.top), clip.bottom - height);
+                const top = Math.min(
+                    Math.max(labelRect.bottom, clip.top + INSET),
+                    clip.bottom - INSET - height
+                );
                 setClampedStyle({
                     top: Math.floor(top - labelRect.top),
                     bottom: 'auto',
