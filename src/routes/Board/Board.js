@@ -5,9 +5,12 @@ const classnames = require('classnames');
 const debounce = require('lodash.debounce');
 const useTranslate = require('stremio/common/useTranslate');
 const { useStreamingServer, useNotifications, withCoreSuspender, getVisibleChildrenRange, useProfile } = require('stremio/common');
-const { ContinueWatchingItem, EventModal, MainNavBars, MetaItem, MetaRow } = require('stremio/components');
+const { EventModal, MainNavBars, MetaItem, MetaRow } = require('stremio/components');
 const useBoard = require('./useBoard');
 const useContinueWatchingPreview = require('./useContinueWatchingPreview');
+const useCasaWatchlist = require('./useCasaWatchlist');
+const ContinueWatchingRowItem = require('./ContinueWatchingRowItem');
+const { mergeWatchlist } = require('stremio/common/casaWatchlist');
 const BoardHero = require('./BoardHero');
 const styles = require('./styles');
 const { default: StreamingServerWarning } = require('./StreamingServerWarning');
@@ -57,7 +60,19 @@ const Board = () => {
     const [board, loadBoardRows] = useBoard();
     const notifications = useNotifications();
     const profile = useProfile();
-    const boardCatalogsOffset = continueWatchingPreview.items.length > 0 ? 1 : 0;
+    // "Guarda dopo" vive DENTRO Continue Watching, non in una riga sua: e' la
+    // stessa domanda ("cosa guardo adesso?") e due righe separate la
+    // spezzerebbero in due. Prima l'unico modo di metterci un titolo era farlo
+    // partire e fermarlo subito — l'unica azione che scrive `time_offset > 0`,
+    // che e' cio' che il core richiede per considerarlo "in continue watching".
+    const casaWatchlist = useCasaWatchlist();
+    const continueWatchingItems = React.useMemo(() => {
+        return mergeWatchlist(continueWatchingPreview.items, casaWatchlist);
+    }, [continueWatchingPreview.items, casaWatchlist]);
+    const continueWatchingCatalog = React.useMemo(() => {
+        return { ...continueWatchingPreview, items: continueWatchingItems };
+    }, [continueWatchingPreview, continueWatchingItems]);
+    const boardCatalogsOffset = continueWatchingItems.length > 0 ? 1 : 0;
     const scrollContainerRef = React.useRef();
     const containerRef = React.useRef();
     // Catalog renderizzati = board.catalogs meno Featured. `originalIdx` ci
@@ -213,10 +228,10 @@ const Board = () => {
     // l'identita' di board.catalogs cambia senza che il contenuto sia mosso.
     const catalogsStateKey = React.useMemo(() => {
         return (
-            continueWatchingPreview.items.length + ':' +
+            continueWatchingItems.length + ':' +
             board.catalogs.map((c) => c.content?.type || 'pending').join(',')
         );
-    }, [board.catalogs, continueWatchingPreview.items.length]);
+    }, [board.catalogs, continueWatchingItems.length]);
     const initialFocusDoneRef = React.useRef(false);
     React.useEffect(() => {
         if (initialFocusDoneRef.current) return;
@@ -281,12 +296,12 @@ const Board = () => {
                     <BoardHero meta={focusedMeta} />
                     <div ref={scrollContainerRef} className={styles['board-content']} onScroll={onScroll} onKeyDown={onBoardKeyDown}>
                         {
-                            continueWatchingPreview.items.length > 0 ?
+                            continueWatchingItems.length > 0 ?
                                 <MetaRow
                                     className={classnames(styles['board-row'], styles['continue-watching-row'], 'animation-fade-in')}
                                     title={t.string('BOARD_CONTINUE_WATCHING')}
-                                    catalog={continueWatchingPreview}
-                                    itemComponent={ContinueWatchingItem}
+                                    catalog={continueWatchingCatalog}
+                                    itemComponent={ContinueWatchingRowItem}
                                     notifications={notifications}
                                 />
                                 :

@@ -7,6 +7,8 @@ const { useTranslation } = require('react-i18next');
 const filterInvalidDOMProps = require('filter-invalid-dom-props').default;
 const { default: Icon } = require('@stremio/stremio-icons/react');
 const { useNavigateWithOrigin } = require('stremio-router');
+const { useCore } = require('stremio/core');
+const { CASA_WATCHLIST, addToWatchlist, removeFromWatchlist } = require('stremio/common/casaWatchlist');
 const { default: Button } = require('stremio/components/Button');
 const { default: Image } = require('stremio/components/Image');
 const Multiselect = require('stremio/components/Multiselect');
@@ -16,7 +18,7 @@ const { ICON_FOR_TYPE } = require('stremio/common/CONSTANTS');
 const styles = require('./styles');
 
 // TV/Casa: azioni "distruttive" evidenziate in rosso nel menu contestuale.
-const CASA_DANGER_OPTIONS = ['remove'];
+const CASA_DANGER_OPTIONS = ['remove', 'casa-watchlist-remove'];
 
 // TV/Casa: menu contestuale della card, apribile da telecomando (tasto Menu =
 // Ctrl+Shift+F13, stessa gesture delle tile del launcher). La "X" di dismiss
@@ -130,7 +132,71 @@ const MetaItem = React.memo(({ className, type, id, name, poster, posterShape, p
     const [menuOpen, onMenuOpen, onMenuClose] = useBinaryState(false);
     const cardRef = React.useRef(null);
     const [ctxMenuOpen, openCtxMenu, closeCtxMenu] = useBinaryState(false);
-    const hasOptions = Array.isArray(options) && options.length > 0;
+    const core = useCore();
+    const inWatchlist = props[CASA_WATCHLIST] === true;
+    // Opzioni del MENU CONTESTUALE. Diverse da `options`:
+    //
+    // `options` lo costruisce LibItem e ce l'hanno solo le card della library
+    // (Continue Watching + pagina Library): play/details/dismiss/watched/remove.
+    // Le card dei cataloghi — cioe' la stragrande maggioranza della home — non
+    // ne avevano NESSUNA, quindi il menu non si apriva proprio.
+    //
+    // ⚠️ Restano due variabili distinte di proposito: il Multiselect (i tre
+    // pallini nella barra del titolo) continua a leggere `options`, cosi' non
+    // spunta un pulsante nuovo su ogni card della home. Il menu contestuale
+    // (tasto Menu del telecomando / click destro) legge queste.
+    const ctxOptions = React.useMemo(() => {
+        if (Array.isArray(options) && options.length > 0) return options;
+        if (typeof id !== 'string' || typeof type !== 'string') return [];
+        return [
+            inWatchlist ?
+                { label: 'Togli da Guarda dopo', value: 'casa-watchlist-remove' }
+                :
+                { label: 'Guarda dopo', value: 'casa-watchlist-add' },
+            { label: 'Segna come visto', value: 'casa-mark-watched' },
+        ];
+    }, [options, inWatchlist, id, type]);
+    const hasOptions = Array.isArray(ctxOptions) && ctxOptions.length > 0;
+    // Azioni Casa. Ritorna true se ha gestito il valore, cosi' il chiamante sa
+    // di non doverlo passare a `optionOnSelect` (che sulle card di catalogo non
+    // esiste nemmeno).
+    const casaOnSelect = React.useCallback((value) => {
+        // Payload minimo di MetaItemPreview: il core richiede solo id/type/name
+        // (tutto il resto e' Option/Vec con default, via MetaItemPreviewLegacy).
+        // Volutamente NON si rigira l'intero oggetto props: dentro ci sono
+        // className/notifications/key, roba che non c'entra col core.
+        const metaItemPreview = {
+            id,
+            type,
+            name: typeof name === 'string' ? name : '',
+            poster: typeof poster === 'string' ? poster : null,
+            posterShape: typeof posterShape === 'string' ? posterShape : null,
+        };
+        switch (value) {
+            case 'casa-watchlist-add':
+                void addToWatchlist(metaItemPreview);
+                return true;
+            case 'casa-watchlist-remove':
+                void removeFromWatchlist(id);
+                return true;
+            case 'casa-mark-watched':
+                core.transport.dispatch({
+                    action: 'Ctx',
+                    args: {
+                        action: 'MetaItemMarkAsWatched',
+                        args: { meta_item: metaItemPreview, is_watched: true }
+                    }
+                });
+                // Un titolo appena segnato visto non ha nulla da fare in
+                // "Guarda dopo". La riconciliazione del backend ci arriverebbe
+                // da sola, ma solo al prossimo giro (library in cache 1h): qui
+                // il gesto e' esplicito, quindi l'effetto dev'essere immediato.
+                if (inWatchlist) void removeFromWatchlist(id);
+                return true;
+            default:
+                return false;
+        }
+    }, [core, id, type, name, poster, posterShape, inWatchlist]);
     const href = React.useMemo(() => {
         return deepLinks ?
             typeof deepLinks.metaDetailsStreams === 'string' ?
@@ -208,7 +274,7 @@ const MetaItem = React.memo(({ className, type, id, name, poster, posterShape, p
         // altrimenti il focus cade sul body e le frecce del Board smettono di
         // muoversi (target=body -> nessuna riga trovata).
         const card = cardRef.current;
-        if (value === 'dismiss' || value === 'remove') {
+        if (value === 'dismiss' || value === 'remove' || value === 'casa-watchlist-remove') {
             const row = card && card.closest('[class*="meta-row-container"]');
             const cards = row ? [...row.querySelectorAll('[class*="meta-item-container"]')] : [];
             const idx = cards.indexOf(card);
@@ -225,8 +291,12 @@ const MetaItem = React.memo(({ className, type, id, name, poster, posterShape, p
         } else {
             ctxMenuOnClose();
         }
-        menuOnSelect({ value, reactEvent: event, nativeEvent: event.nativeEvent });
-    }, [menuOnSelect, closeCtxMenu, ctxMenuOnClose]);
+        // Le azioni Casa non passano da `optionOnSelect`: le card di catalogo
+        // non ne hanno uno, e su quelle della library significherebbe un'altra cosa.
+        if (!casaOnSelect(value)) {
+            menuOnSelect({ value, reactEvent: event, nativeEvent: event.nativeEvent });
+        }
+    }, [menuOnSelect, closeCtxMenu, ctxMenuOnClose, casaOnSelect]);
     const { inCinema, onPrime } = useTitleAvailability(type, id);
     const renderPosterFallback = React.useCallback(() => (
         <Icon
@@ -311,7 +381,7 @@ const MetaItem = React.memo(({ className, type, id, name, poster, posterShape, p
                 {
                     ctxMenuOpen && hasOptions ?
                         <CasaContextMenu
-                            options={options}
+                            options={ctxOptions}
                             onSelect={ctxMenuOnSelect}
                             onClose={ctxMenuOnClose}
                         />
