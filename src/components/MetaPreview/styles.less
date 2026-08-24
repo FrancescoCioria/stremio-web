@@ -188,17 +188,28 @@
         overflow: visible;
 
         /* Casa: il toggle notifiche vive in questa riga, non dentro il box
-         * episodi. `align-items: flex-end` allinea i pulsanti sul fondo, ma il
-         * toggle non ha la loro etichetta sotto -> `align-self: center` per non
-         * farlo galleggiare rispetto alle pill. */
+         * episodi.
+         *
+         * ⚠️ `align-self: stretch`, NON `center`: la riga e' `align-items:
+         * flex-end` e i pulsanti sono alti 56px col testo centrato nel box, cioe'
+         * il centro del testo COINCIDE col centro del box. Centrando un elemento
+         * alto 24px si finiva 7px piu' in basso del loro testo (misurato: centro
+         * toggle 84 contro 77) e la riga sembrava abbozzata. Con `stretch` il
+         * toggle prende l'altezza della riga e `align-items: center` centra il
+         * contenuto: stesso centro dei pulsanti, senza numeri magici da
+         * ritarare se cambia l'altezza delle pill.
+         *
+         * `margin-right` come i pulsanti: senza, il gruppo voti gli finisce
+         * appiccicato al testo. */
         .notifications-toggle {
             flex: none;
-            align-self: center;
+            align-self: stretch;
             display: flex;
             flex-direction: row;
             align-items: center;
             gap: 0.75rem;
             margin-left: 1rem;
+            margin-right: 1rem;
             color: @color-surface-light5-90;
         }
 
