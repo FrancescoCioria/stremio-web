@@ -2,14 +2,14 @@
 //
 // La riga Continue Watching contiene due popolazioni diverse:
 //  - gli item del core (hanno un progresso vero e un libraryItem dietro)
-//  - quelli di "Guarda dopo" (nostri, mai iniziati)
+//  - quelli di "Watchlist" (nostri, mai iniziati)
 //
 // ⚠️ Non si possono rendere con lo stesso componente. `ContinueWatchingItem`
 // attacca alla card la "X" di dismiss, che dispatcha `RewindLibraryItem` +
 // `DismissNotificationItem` su `_id`: sui nostri item quell'id nella library
 // NON esiste, quindi il gesto piu' ovvio della card non farebbe nulla — in
 // silenzio. Meglio non offrirlo: i nostri usano il menu contestuale
-// ("Togli da Guarda dopo"), che passa dal backend giusto.
+// ("Togli da Watchlist"), che passa dal backend giusto.
 
 const React = require('react');
 // ⚠️ I due componenti si leggono AL RENDER, non si destrutturano qui.

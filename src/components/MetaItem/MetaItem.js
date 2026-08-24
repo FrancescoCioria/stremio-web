@@ -150,9 +150,9 @@ const MetaItem = React.memo(({ className, type, id, name, poster, posterShape, p
         if (typeof id !== 'string' || typeof type !== 'string') return [];
         return [
             inWatchlist ?
-                { label: 'Togli da Guarda dopo', value: 'casa-watchlist-remove' }
+                { label: 'Togli da Watchlist', value: 'casa-watchlist-remove' }
                 :
-                { label: 'Guarda dopo', value: 'casa-watchlist-add' },
+                { label: 'Watchlist', value: 'casa-watchlist-add' },
             { label: 'Segna come visto', value: 'casa-mark-watched' },
         ];
     }, [options, inWatchlist, id, type]);
@@ -188,7 +188,7 @@ const MetaItem = React.memo(({ className, type, id, name, poster, posterShape, p
                     }
                 });
                 // Un titolo appena segnato visto non ha nulla da fare in
-                // "Guarda dopo". La riconciliazione del backend ci arriverebbe
+                // "Watchlist". La riconciliazione del backend ci arriverebbe
                 // da sola, ma solo al prossimo giro (library in cache 1h): qui
                 // il gesto e' esplicito, quindi l'effetto dev'essere immediato.
                 if (inWatchlist) void removeFromWatchlist(id);

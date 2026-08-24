@@ -1,6 +1,6 @@
 // Copyright (C) 2017-2026 Smart code 203358507
 //
-// Lista "Guarda dopo" per la riga Continue Watching della home.
+// Lista "Watchlist" per la riga Continue Watching della home.
 // Sorgente: launcher-backend (`/stremio-addon/watchlist`), non il core.
 // Il perche' sta in src/common/casaWatchlist.js.
 

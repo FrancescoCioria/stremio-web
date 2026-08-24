@@ -1,6 +1,6 @@
 // Copyright (C) 2017-2026 Smart code 203358507
 //
-// "Guarda dopo" — client della lista servita dal launcher-backend
+// "Watchlist" — client della lista servita dal launcher-backend
 // (`/stremio-addon/watchlist`, vedi launcher/backend/src/watchlist.ts).
 //
 // ⚠️ NON e' la library Stremio, ed e' deliberato. Misurato sull'account reale:
@@ -16,7 +16,7 @@
 
 const { casaBackendUrl } = require('./casaBackend');
 
-// Gli item di "Guarda dopo" vivono nella riga Continue Watching insieme a
+// Gli item di "Watchlist" vivono nella riga Continue Watching insieme a
 // quelli del core: questo flag e' l'unico modo di distinguerli a valle (il
 // dismiss del core dispatcha RewindLibraryItem su un id che nella library non
 // esiste, quindi NON va usato sui nostri).
@@ -54,7 +54,7 @@ const toRowItem = (entry) => ({
     [CASA_WATCHLIST]: true,
 });
 
-// Fonde "Guarda dopo" in coda a Continue Watching, senza duplicati.
+// Fonde "Watchlist" in coda a Continue Watching, senza duplicati.
 //
 // ⚠️ La de-duplica non e' teorica: appena si guarda un secondo di un titolo il
 // core lo mette in Continue Watching da solo, mentre il backend se ne accorge

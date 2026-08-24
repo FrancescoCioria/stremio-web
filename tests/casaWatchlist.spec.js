@@ -31,7 +31,7 @@ describe('toRowItem', () => {
 });
 
 describe('mergeWatchlist', () => {
-    it('mette "Guarda dopo" DOPO il continue watching vero', () => {
+    it('mette "Watchlist" DOPO il continue watching vero', () => {
         const out = mergeWatchlist([cwItem('tt_cw')], [entry('tt_wl')]);
         expect(out.map((i) => i._id)).toEqual(['tt_cw', 'tt_wl']);
     });

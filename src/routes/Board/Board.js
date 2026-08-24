@@ -60,7 +60,7 @@ const Board = () => {
     const [board, loadBoardRows] = useBoard();
     const notifications = useNotifications();
     const profile = useProfile();
-    // "Guarda dopo" vive DENTRO Continue Watching, non in una riga sua: e' la
+    // "Watchlist" vive DENTRO Continue Watching, non in una riga sua: e' la
     // stessa domanda ("cosa guardo adesso?") e due righe separate la
     // spezzerebbero in due. Prima l'unico modo di metterci un titolo era farlo
     // partire e fermarlo subito — l'unica azione che scrive `time_offset > 0`,
