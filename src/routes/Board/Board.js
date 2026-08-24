@@ -288,6 +288,49 @@ const Board = () => {
         io.observe(el);
         return () => io.disconnect();
     }, []);
+    // TV: prima freccia quando NIENTE e' in focus.
+    //
+    // `onBoardKeyDown` sta sullo scroller e riceve solo i tasti partiti da
+    // dentro la lista: col focus sul BODY non viene invocato, e la freccia
+    // finisce allo spatial-navigation-polyfill (keydown su window). Quello fa
+    // un `focus()` NUDO, senza `preventScroll` -> il browser scrolla la card in
+    // vista col minimo movimento, cioe' allineandone il bordo: il TITOLO della
+    // riga finisce sopra il viewport e la prima riga si vede tagliata.
+    // ⚠️ Peggiora con lo ZOOM del browser, che e' come si usa la tile dal Mac:
+    // `html { font-size }` scala solo sui breakpoint di LARGHEZZA, l'altezza no
+    // -> piu' zoom, meno spazio verticale, e la prima riga finisce sotto la
+    // piega. Misurato: a 175% e 200% la freccia giu' da focus vuoto non faceva
+    // proprio NULLA (il polyfill non raggiungeva la card, focus fermo su body).
+    // Qui si fa la stessa cosa dell'auto-focus iniziale: `preventScroll` +
+    // scroll della RIGA con `block:'start'`, che tiene il titolo in vista.
+    React.useEffect(() => {
+        const onKeyDown = (e) => {
+            if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp' &&
+                e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+            // Solo "niente in focus": se il focus e' sulla sidebar o in un menu
+            // e' roba loro, non gliela si ruba.
+            const ae = document.activeElement;
+            if (ae && ae !== document.body) return;
+            // ⚠️ Le rotte restano MONTATE (il router mette display:none): senza
+            // questa guardia il Board si mangerebbe le frecce di Settings.
+            // `offsetParent` e' null proprio quando un antenato e' display:none.
+            if (!containerRef.current || containerRef.current.offsetParent === null) return;
+            const root = scrollContainerRef.current;
+            const firstCard = root && root.querySelector('[class*="meta-item-container"]');
+            if (!firstCard) return;
+            e.preventDefault();
+            e.stopPropagation();
+            root.scrollTop = 0;
+            firstCard.focus({ preventScroll: true });
+            const row = firstCard.closest('[class*="meta-row-container"]');
+            if (row) row.scrollIntoView({ block: 'start' });
+        };
+        // Capture: il polyfill ascolta su window in bubble e si tira indietro se
+        // l'evento e' gia' `defaultPrevented`, quindi va intercettato prima.
+        document.addEventListener('keydown', onKeyDown, true);
+        return () => document.removeEventListener('keydown', onKeyDown, true);
+    }, []);
+
     return (
         <div ref={containerRef} className={styles['board-container']}>
             <EventModal />
