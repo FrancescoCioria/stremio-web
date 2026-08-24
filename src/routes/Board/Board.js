@@ -67,7 +67,7 @@ const Board = () => {
     // che e' cio' che il core richiede per considerarlo "in continue watching".
     const casaWatchlist = useCasaWatchlist();
     const continueWatchingItems = React.useMemo(() => {
-        return mergeWatchlist(continueWatchingPreview.items, casaWatchlist);
+        return mergeWatchlist(continueWatchingPreview.items, casaWatchlist.items, casaWatchlist.activity);
     }, [continueWatchingPreview.items, casaWatchlist]);
     const continueWatchingCatalog = React.useMemo(() => {
         return { ...continueWatchingPreview, items: continueWatchingItems };

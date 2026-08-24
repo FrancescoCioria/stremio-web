@@ -7,12 +7,17 @@
 const React = require('react');
 const { EVENT, fetchWatchlist } = require('stremio/common/casaWatchlist');
 
+const EMPTY = { items: [], activity: {} };
+
 const useCasaWatchlist = () => {
-    const [items, setItems] = React.useState([]);
+    // `items` = la lista; `activity` = ultima visione per titolo della library,
+    // che serve a INSERIRE gli item al posto giusto nella riga (vedi
+    // mergeWatchlist). Un oggetto solo: arrivano insieme e si usano insieme.
+    const [state, setState] = React.useState(EMPTY);
 
     const reload = React.useCallback(async () => {
         try {
-            setItems(await fetchWatchlist());
+            setState(await fetchWatchlist());
         } catch (_e) {
             // Backend giu' o non raggiungibile: la riga resta quella del core.
             // Mai svuotare cio' che si sta gia' mostrando per un errore di rete:
@@ -40,7 +45,7 @@ const useCasaWatchlist = () => {
         };
     }, [reload]);
 
-    return items;
+    return state;
 };
 
 module.exports = useCasaWatchlist;

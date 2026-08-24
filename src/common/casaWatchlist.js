@@ -52,6 +52,9 @@ const toRowItem = (entry) => ({
             encodeURIComponent(entry.type) + '/' + encodeURIComponent(entry.id),
     },
     [CASA_WATCHLIST]: true,
+    // La data di aggiunta vale come "ultimo aggiornamento": e' con questa che
+    // l'item si posiziona nella riga, e con cui poi scende.
+    casaAddedAt: entry.addedAt || 0,
 });
 
 // Fonde "Watchlist" in coda a Continue Watching, senza duplicati.
@@ -63,35 +66,75 @@ const toRowItem = (entry) => ({
 // comparirebbe due volte nella stessa riga. Vince sempre la copia del core:
 // e' quella con il progresso vero.
 //
-// ⚠️ I nostri vanno PRIMA, e non e' una preferenza estetica: in coda non si
-// vedono proprio. La riga Continue Watching del core non contiene solo cio' che
-// hai iniziato — ci finiscono anche le serie con NOTIFICHE di nuovi episodi
-// (`is_in_continue_watching() || library_notification.is_some()`), e in casa
-// sono 25+. `MetaRow` taglia a `TV_PREVIEW_SIZE` (25) con uno `slice`, quindi
-// un item accodato finisce in posizione 26 e non viene MAI disegnato: fetch ok,
-// merge ok, DOM vuoto. Misurato sul Board vero il 2026-08-24 (due titoli
-// aggiunti dall'utente, invisibili).
-// E' anche il posto giusto a prescindere dal taglio: prima di questa lista
-// l'unico modo di segnarsi un titolo era farlo partire e fermarlo subito, che
-// lo mandava in CIMA alla riga. Li' l'utente li cerca.
-const mergeWatchlist = (continueWatchingItems, watchlistEntries) => {
+// Fonde la watchlist dentro Continue Watching.
+//
+// La data in cui un titolo entra in lista vale come **ultimo aggiornamento**:
+// appena aggiunto sta in cima, e se lo si ignora scende da solo man mano che si
+// guardano altre cose. Nessuna posizione privilegiata a vita.
+//
+// ⚠️ L'ordine del core NON viene toccato: si INSERISCE soltanto. Riordinare la
+// riga per `lastWatched` la cambierebbe sotto gli occhi, e comunque il core non
+// la ordina cosi' (le serie con notifiche di nuovi episodi le mette per data di
+// uscita, non per ultima visione — es. Silo, 7 notifiche, sta al 3o posto con
+// lastWatched di luglio).
+//
+// ⚠️ I timestamp del core arrivano dal BACKEND (`activity`), non dagli item:
+// quelli serializzati per la UI espongono solo `{videoId}`, nessuna data
+// (verificato a runtime sul Board vero). Senza `activity` utilizzabile si
+// PREPENDE — mai accodare: la riga del core ha 25+ item e `MetaRow` taglia a
+// `TV_PREVIEW_SIZE` (25), quindi un item in coda non verrebbe MAI disegnato
+// (e' esattamente il bug del 2026-08-24: fetch ok, merge ok, DOM vuoto).
+//
+// ⚠️ La de-duplica non e' teorica: appena si guarda un secondo di un titolo il
+// core lo mette in Continue Watching da solo, mentre il backend se ne accorge
+// solo alla riconciliazione successiva (library in cache 1h). In quella
+// finestra sta in ENTRAMBE le liste. Vince la copia del core: ha il progresso vero.
+const mergeWatchlist = (continueWatchingItems, watchlistEntries, activity) => {
     const cw = Array.isArray(continueWatchingItems) ? continueWatchingItems : [];
     const wl = Array.isArray(watchlistEntries) ? watchlistEntries : [];
     if (wl.length === 0) return cw;
     const seen = new Set(cw.map((i) => i && (i._id || i.id)).filter(Boolean));
-    const extra = wl
+    const ours = wl
         .filter((e) => e && typeof e.id === 'string' && !seen.has(e.id))
-        .map(toRowItem);
-    return extra.length > 0 ? [...extra, ...cw] : cw;
+        .map(toRowItem)
+        .sort((a, b) => b.casaAddedAt - a.casaAddedAt);
+    if (ours.length === 0) return cw;
+
+    const ts = (item) => {
+        const v = activity && activity[item && (item._id || item.id)];
+        return typeof v === 'number' && isFinite(v) ? v : null;
+    };
+    // Nessun timestamp usabile (backend vecchio, fetch fallita, library non
+    // pronta) -> in cima, che e' l'unica posizione sicuramente visibile.
+    if (!cw.some((i) => ts(i) !== null)) return [...ours, ...cw];
+
+    const merged = [];
+    let next = 0;
+    for (const item of cw) {
+        const t = ts(item);
+        // Timestamp sconosciuto = non confrontabile: si tira dritto invece di
+        // scaricargli davanti tutta la watchlist.
+        if (t !== null) {
+            while (next < ours.length && ours[next].casaAddedAt > t) merged.push(ours[next++]);
+        }
+        merged.push(item);
+    }
+    while (next < ours.length) merged.push(ours[next++]);
+    return merged;
 };
+
+const EMPTY_LIST = { items: [], activity: {} };
 
 const fetchWatchlist = async () => {
     const url = casaBackendUrl('/stremio-addon/watchlist');
-    if (!url) return [];
+    if (!url) return EMPTY_LIST;
     const r = await fetch(url, { cache: 'no-store' });
-    if (!r.ok) return [];
+    if (!r.ok) return EMPTY_LIST;
     const j = await r.json();
-    return Array.isArray(j && j.items) ? j.items : [];
+    return {
+        items: Array.isArray(j && j.items) ? j.items : [],
+        activity: j && j.activity && typeof j.activity === 'object' ? j.activity : {},
+    };
 };
 
 // `item` = una card qualunque (catalogo, ricerca, library): servono id e type,
