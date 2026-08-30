@@ -184,7 +184,7 @@ const MetaPreview = React.forwardRef(({ className, compact, name, logo, backgrou
                         </div>
                         :
                         (typeof releaseInfo === 'string' && releaseInfo.length > 0) || (released instanceof Date && !isNaN(released.getTime())) || (typeof runtime === 'string' && runtime.length > 0) || (typeof movieDigitalReleaseLabel === 'string' && movieDigitalReleaseLabel.length > 0) || typeof letterboxdRating === 'number' || linksGroups.has(CONSTANTS.IMDB_LINK_CATEGORY) ?
-                            <div className={styles['runtime-release-info-container']}>
+                            <div className={classnames(styles['runtime-release-info-container'], styles['title-info-row'])}>
                                 {
                                     typeof runtime === 'string' && runtime.length > 0 ?
                                         <div className={styles['runtime-label']}>{runtime}</div>
@@ -205,7 +205,7 @@ const MetaPreview = React.forwardRef(({ className, compact, name, logo, backgrou
                                  * recenti/imminenti). Segnala quando compaiono i
                                  * primi rip buoni. Vedi casaDigitalRelease.js. */
                                     typeof movieDigitalReleaseLabel === 'string' && movieDigitalReleaseLabel.length > 0 ?
-                                        <div className={styles['release-info-label']}>{movieDigitalReleaseLabel}</div>
+                                        <div className={classnames(styles['release-info-label'], styles['digital-release-label'])}>{movieDigitalReleaseLabel}</div>
                                         :
                                         null
                                 }

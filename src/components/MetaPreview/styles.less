@@ -119,6 +119,25 @@
                 color: var(--primary-foreground-color);
             }
 
+            /* Casa: la riga info del TITOLO (non quella dell'episodio focus-ato,
+             * che condivide le stesse classi e puo' avere un titolo lungo).
+             * ⚠️ Con `margin-right: 3rem` su ogni etichetta i figli chiedevano
+             * 709px in un contenitore di 592: il flexbox li restringeva TUTTI e
+             * "100 min", "2025" e i due voti diventavano "10…", "2…", ".".
+             * Qui le voci corte non si restringono e a cedere spazio resta solo
+             * l'etichetta lunga, che e' nostra ed e' la piu' sacrificabile. */
+            &.title-info-row {
+                .runtime-label, .release-info-label {
+                    flex: none;
+                    margin-right: 1.5rem;
+                }
+
+                .digital-release-label {
+                    flex: 0 1 auto;
+                    min-width: 4rem;
+                }
+            }
+
             .imdb-button-container {
                 // ⚠️ `flex: none`, non `0 1 auto`: sono 3-4 caratteri, e con un
                 // secondo chip accanto (Letterboxd) il flexbox li restringeva
