@@ -173,25 +173,11 @@ const Library = ({ model }) => {
         first.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }, []);
 
-    // Menu key (Ctrl+Shift+F13 chord da gamepad/remote, vedi CLAUDE.md):
-    // apre il menu contestuale 3-pallini sulla card focusata. I dots in
-    // Library sono nascosti visualmente; qui li clicchiamo programmatic.
-    React.useEffect(() => {
-        const handler = (e) => {
-            if (e.code !== 'F13' || !e.ctrlKey || !e.shiftKey) return;
-            const ae = document.activeElement;
-            const card = ae && ae.closest && ae.closest('[class*="meta-item-container"]');
-            const container = scrollContainerRef.current;
-            if (!card || !container || !container.contains(card)) return;
-            const trigger = card.querySelector('[class*="menu-label-container"]');
-            if (!trigger) return;
-            e.preventDefault();
-            e.stopPropagation();
-            trigger.click();
-        };
-        window.addEventListener('keydown', handler, true);
-        return () => window.removeEventListener('keydown', handler, true);
-    }, []);
+    // Il tasto Menu del telecomando NON e' piu' gestito qui. Apriva il menu
+    // 3-pallini (Multiselect), mentre il tasto destro sulla stessa card apriva
+    // quello della card (CasaContextMenu): stesso gesto, due menu diversi a
+    // seconda del dispositivo. Ora il chord diventa un `contextmenu` standard
+    // (casaRemoteInput.js) e le due strade coincidono, qui come altrove.
 
     // TV: default focus sulla prima card all'apertura, dopo che il
     // catalog ha avuto modo di stabilizzarsi. Stesso pattern Board.

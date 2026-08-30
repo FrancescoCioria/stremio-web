@@ -20,8 +20,9 @@ const styles = require('./styles');
 // TV/Casa: azioni "distruttive" evidenziate in rosso nel menu contestuale.
 const CASA_DANGER_OPTIONS = ['remove', 'casa-watchlist-remove'];
 
-// TV/Casa: menu contestuale della card, apribile da telecomando (tasto Menu =
-// Ctrl+Shift+F13, stessa gesture delle tile del launcher). La "X" di dismiss
+// TV/Casa: menu contestuale della card. UNA sola strada di apertura, l'evento
+// `contextmenu`: tasto destro del mouse, oppure tasto Menu del telecomando che
+// `common/casaRemoteInput.js` traduce nello stesso evento. La "X" di dismiss
 // non e' focusabile col telecomando; questo menu da' un modo raggiungibile per
 // eliminare/gestire un item (dismiss, watched, remove, ...). Nav propria a
 // frecce con preventDefault+stopPropagation cosi' ne' lo spatial-navigation
@@ -73,13 +74,6 @@ const CasaContextMenu = ({ options, onSelect, onClose }) => {
             }
             case 'Escape':
                 event.preventDefault(); event.stopPropagation(); onClose(); break;
-            case 'F13':
-                // Tasto Menu di nuovo = chiudi (toggle). stopPropagation evita
-                // che risalga alla card e la riapra subito.
-                if (event.ctrlKey && event.shiftKey) {
-                    event.preventDefault(); event.stopPropagation(); onClose();
-                }
-                break;
             default:
                 break;
         }
@@ -97,8 +91,15 @@ const CasaContextMenu = ({ options, onSelect, onClose }) => {
         event.stopPropagation();
         event.nativeEvent.buttonBlurPrevented = true;
     }, []);
+    // Secondo "menu" (tasto del telecomando o destro) a menu aperto = chiudi.
+    // stopPropagation evita che risalga alla card e lo riapra subito.
+    const onContextMenu = React.useCallback((event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        onClose();
+    }, [onClose]);
     return (
-        <div ref={containerRef} className={styles['casa-context-menu']} onKeyDown={onKeyDown}>
+        <div ref={containerRef} className={styles['casa-context-menu']} onKeyDown={onKeyDown} onContextMenu={onContextMenu}>
             {options.map((option) => (
                 <div
                     key={option.value}
@@ -252,17 +253,11 @@ const MetaItem = React.memo(({ className, type, id, name, poster, posterShape, p
         // body e la nav a frecce del Board si bloccherebbe.
         if (cardRef.current) cardRef.current.focus({ preventScroll: true });
     }, [closeCtxMenu]);
-    const cardOnKeyDown = React.useCallback((event) => {
-        // Tasto Menu del telecomando / Options del gamepad = Ctrl+Shift+F13.
-        if (event.key === 'F13' && event.ctrlKey && event.shiftKey && hasOptions) {
-            event.preventDefault();
-            event.stopPropagation();
-            if (ctxMenuOpen) ctxMenuOnClose(); else openCtxMenu();
-        }
-    }, [hasOptions, ctxMenuOpen, openCtxMenu, ctxMenuOnClose]);
     const cardOnContextMenu = React.useCallback((event) => {
-        // Tasto destro (mouse, es. test dal Mac): apre lo stesso menu e
-        // sopprime il menu nativo del browser. Sulla TV non c'e' mouse.
+        // UNICA strada del menu contestuale: tasto destro del mouse E tasto Menu
+        // del telecomando/gamepad, che `casaRemoteInput.js` traduce in un
+        // `contextmenu` sintetico sull'elemento a fuoco. Cosi' cio' che si prova
+        // col mouse sul Mac e' letteralmente lo stesso codice che gira in salotto.
         if (!hasOptions) return;
         event.preventDefault();
         event.stopPropagation();
@@ -308,7 +303,7 @@ const MetaItem = React.memo(({ className, type, id, name, poster, posterShape, p
         <Icon className={styles['icon']} name={'more-vertical'} />
     ), []);
     return (
-        <Button ref={cardRef} title={name} href={href} {...filterInvalidDOMProps(props)} className={classnames(className, styles['meta-item-container'], styles['poster-shape-poster'], styles[`poster-shape-${posterShape}`], { 'active': menuOpen || ctxMenuOpen })} onClick={metaItemOnClick} onKeyDown={cardOnKeyDown} onContextMenu={cardOnContextMenu}>
+        <Button ref={cardRef} title={name} href={href} {...filterInvalidDOMProps(props)} className={classnames(className, styles['meta-item-container'], styles['poster-shape-poster'], styles[`poster-shape-${posterShape}`], { 'active': menuOpen || ctxMenuOpen })} onClick={metaItemOnClick} onContextMenu={cardOnContextMenu}>
             <div className={classnames(styles['poster-container'], { 'poster-change-cursor': posterChangeCursor })}>
                 {
                     onDismissClick ?

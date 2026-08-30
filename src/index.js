@@ -21,10 +21,15 @@ const App = require('./App');
 const { CoreProvider } = require('./core');
 const { FileDropProvider, PlatformProvider } = require('./common');
 const { installCasaErrorLog } = require('./common/casaErrorLog');
+const { installCasaRemoteInput } = require('./common/casaRemoteInput');
 
 // Casa: errori JS della tile -> ~/.local/state/stremio-js-errors.log. Prima di
 // tutto il resto, cosi' becca anche gli errori di boot.
 installCasaErrorLog();
+
+// Casa: il tasto Menu del telecomando diventa un `contextmenu` standard, cosi'
+// telecomando e tasto destro percorrono lo STESSO codice. Vedi casaRemoteInput.js.
+installCasaRemoteInput();
 
 const translations = Object.fromEntries(Object.entries(stremioTranslations()).map(([key, value]) => [key, {
     translation: value
