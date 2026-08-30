@@ -150,6 +150,17 @@ const MetaPreview = React.forwardRef(({ className, compact, name, logo, backgrou
                          * torna quando il focus esce dal rail. */
                         <div className={styles['runtime-release-info-container']}>
                             {
+                            /* Casa: anche qui. ⚠️ Su una SERIE il dettaglio
+                             * mostra sempre questo ramo (l'episodio parte gia'
+                             * a fuoco), quindi senza l'etichetta la parola
+                             * "serie" non compariva da nessuna parte — che era
+                             * proprio il caso segnalato. */
+                                typeof typeLabel === 'string' && typeLabel.length > 0 ?
+                                    <div className={styles['type-label']}>{typeLabel}</div>
+                                    :
+                                    null
+                            }
+                            {
                                 typeof focusedEpisode.season === 'number' && typeof focusedEpisode.episode === 'number' ?
                                     <div className={styles['runtime-label']}>
                                         S{String(focusedEpisode.season).padStart(2, '0')}E{String(focusedEpisode.episode).padStart(2, '0')}
