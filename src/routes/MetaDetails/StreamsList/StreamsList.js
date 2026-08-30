@@ -18,11 +18,21 @@ const { decideStreamFocus } = require('stremio/common/streamFocus');
 const qualityBuckets = require('stremio/common/qualityBuckets');
 
 const ALL_ADDONS_KEY = 'ALL';
-// Modalita' "Auto" (default): niente lista di torrent da scegliere a mano, ma 3
-// card 4K/1080p/720p con recap (n. torrent + size media). Al click parte la race
+// Modalita' "Auto": niente lista di torrent da scegliere a mano, ma 3 card
+// 4K/1080p/720p con recap (n. torrent + size media). Al click parte la race
 // (torrentRace.js) che scalda i piu' seedati in parallelo, sonda lo swarm reale e
 // apre il player sul migliore. Vedi qualityBuckets.js + torrentRace.js.
 const AUTO_KEY = 'AUTO';
+// ⚠️ AUTO SPENTA (2026-08-30, richiesta utente): si torna alla lista manuale dei
+// torrent in fila. Da quando il download passa da TorrServer i primi torrent —
+// quelli con piu' seeder, cioe' i primi della lista — partono sempre; scegliere
+// una qualita' prima di vedere la lista era uno step in piu' che non decideva
+// nulla. E il default a fuoco era 4K, che da fuori casa e' proprio la scelta
+// peggiore (li' il collo e' la banda, ~21 Mbps: docs/stremio-remote-playback.md).
+// `false` -> la pill "Auto" sparisce, si entra su ALL_ADDONS_KEY, le card
+// qualita' non si montano. Il codice (card, race, qualityBuckets) resta AL SUO
+// POSTO e riacceso da questa riga: e' spento, non buttato.
+const AUTO_MODE_ENABLED = false;
 const DEFAULT_STREAMING_SERVER_URL = 'http://127.0.0.1:11470';
 
 // Codec VIDEO incompatibili (HEVC/x265/10-bit).
@@ -157,7 +167,7 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
     const routeFocused = useRouteFocused(); // true quando questa lista e' in primo piano (non il player)
     const streamsContainerRef = React.useRef(null);
     const autoCardsRef = React.useRef(null);
-    const [selectedAddon, setSelectedAddon] = React.useState(AUTO_KEY);
+    const [selectedAddon, setSelectedAddon] = React.useState(AUTO_MODE_ENABLED ? AUTO_KEY : ALL_ADDONS_KEY);
     // Race in corso: { bucketKey } mentre selezioniamo il torrent migliore per una qualita'.
     const [racing, setRacing] = React.useState(null);
     // Progress per-candidato della race (uno step per torrent): [{hash, state}].
@@ -347,11 +357,11 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
     const selectableOptions = React.useMemo(() => {
         return {
             options: [
-                {
+                ...(AUTO_MODE_ENABLED ? [{
                     value: AUTO_KEY,
                     label: 'Auto',
                     title: 'Auto'
-                },
+                }] : []),
                 {
                     value: ALL_ADDONS_KEY,
                     label: t('ALL_ADDONS'),
@@ -436,7 +446,7 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
     // delle pill seleziona AUTO -> altrimenti gli scippammo il focus, come
     // l'incidente Settings 2026-06-24).
     React.useEffect(() => {
-        if (selectedAddon !== AUTO_KEY || !routeFocused) return;
+        if (!AUTO_MODE_ENABLED || selectedAddon !== AUTO_KEY || !routeFocused) return;
         const container = autoCardsRef.current;
         if (!container) return;
         const ae = document.activeElement;
@@ -626,7 +636,7 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
                             }
                         </div>
                         :
-                        (selectedAddon === AUTO_KEY && hasAutoCandidates) ?
+                        (AUTO_MODE_ENABLED && selectedAddon === AUTO_KEY && hasAutoCandidates) ?
                             autoCards
                             :
                             filteredStreams.length === 0 ?
