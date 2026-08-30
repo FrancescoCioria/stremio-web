@@ -27,7 +27,7 @@ const ALLOWED_LINK_REDIRECTS = [
     routesRegexp.metadetails.regexp
 ];
 
-const MetaPreview = React.forwardRef(({ className, compact, name, logo, background, runtime, releaseInfo, released, description, deepLinks, links, trailerStreams, inLibrary, toggleInLibrary, watched, toggleWatched, ratingInfo, focusedEpisode, focusedEpisodeRuntime, movieDigitalReleaseLabel, letterboxdRating, letterboxdSlug, hideActions, showWatchedToggle, showNotificationsToggle, notificationsEnabled, toggleNotifications }, ref) => {
+const MetaPreview = React.forwardRef(({ className, compact, name, logo, background, runtime, releaseInfo, released, description, deepLinks, links, trailerStreams, inLibrary, toggleInLibrary, watched, toggleWatched, ratingInfo, focusedEpisode, focusedEpisodeRuntime, movieDigitalReleaseLabel, typeLabel, letterboxdRating, letterboxdSlug, hideActions, showWatchedToggle, showNotificationsToggle, notificationsEnabled, toggleNotifications }, ref) => {
     const { t } = useTranslation();
     const [shareModalOpen, openShareModal, closeShareModal] = useBinaryState(false);
     const linksGroups = React.useMemo(() => {
@@ -183,8 +183,18 @@ const MetaPreview = React.forwardRef(({ className, compact, name, logo, backgrou
                             }
                         </div>
                         :
-                        (typeof releaseInfo === 'string' && releaseInfo.length > 0) || (released instanceof Date && !isNaN(released.getTime())) || (typeof runtime === 'string' && runtime.length > 0) || (typeof movieDigitalReleaseLabel === 'string' && movieDigitalReleaseLabel.length > 0) || typeof letterboxdRating === 'number' || linksGroups.has(CONSTANTS.IMDB_LINK_CATEGORY) ?
+                        (typeof releaseInfo === 'string' && releaseInfo.length > 0) || (released instanceof Date && !isNaN(released.getTime())) || (typeof runtime === 'string' && runtime.length > 0) || (typeof movieDigitalReleaseLabel === 'string' && movieDigitalReleaseLabel.length > 0) || typeof letterboxdRating === 'number' || (typeof typeLabel === 'string' && typeLabel.length > 0) || linksGroups.has(CONSTANTS.IMDB_LINK_CATEGORY) ?
                             <div className={classnames(styles['runtime-release-info-container'], styles['title-info-row'])}>
+                                {
+                                /* Casa: film o serie. Sta per PRIMO e in
+                                 * maiuscoletto perche' e' una categoria, non un
+                                 * dato come la durata: si scorre con l'occhio
+                                 * senza leggerla ogni volta. */
+                                    typeof typeLabel === 'string' && typeLabel.length > 0 ?
+                                        <div className={styles['type-label']}>{typeLabel}</div>
+                                        :
+                                        null
+                                }
                                 {
                                     typeof runtime === 'string' && runtime.length > 0 ?
                                         <div className={styles['runtime-label']}>{runtime}</div>
@@ -386,6 +396,7 @@ MetaPreview.propTypes = {
     focusedEpisode: PropTypes.object,
     focusedEpisodeRuntime: PropTypes.number,
     movieDigitalReleaseLabel: PropTypes.string,
+    typeLabel: PropTypes.string,
     letterboxdRating: PropTypes.number,
     letterboxdSlug: PropTypes.string,
     hideActions: PropTypes.bool,

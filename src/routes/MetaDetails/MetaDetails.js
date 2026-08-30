@@ -88,6 +88,9 @@ const MetaDetails = () => {
     // Voto Letterboxd, accanto a quello IMDb. Solo film: Letterboxd non ha le
     // serie (li' il chip non compare proprio, invece di comparire vuoto).
     const letterboxd = useLetterboxdRating(type, type === 'movie' ? id : null);
+    // Film o serie: dalla pagina di dettaglio non si capiva. Il `type` ce
+    // l'abbiamo nell'URL, non serve dedurlo da niente.
+    const typeLabel = type === 'movie' ? 'Film' : type === 'series' ? 'Serie' : null;
     const movieDigitalReleaseLabel = React.useMemo(() => {
         if (type !== 'movie' || metaDetails.metaItem === null || metaDetails.metaItem.content.type !== 'Ready') {
             return null;
@@ -265,6 +268,7 @@ const MetaDetails = () => {
                                             focusedEpisode={previewVideo}
                                             focusedEpisodeRuntime={previewVideoRuntime}
                                             movieDigitalReleaseLabel={movieDigitalReleaseLabel}
+                                            typeLabel={typeLabel}
                                             letterboxdRating={letterboxd.rating10}
                                             letterboxdSlug={letterboxd.slug}
                                             /* Per i FILM la pagina streams e' anche la pagina

@@ -126,6 +126,20 @@
              * "100 min", "2025" e i due voti diventavano "10…", "2…", ".".
              * Qui le voci corte non si restringono e a cedere spazio resta solo
              * l'etichetta lunga, che e' nostra ed e' la piu' sacrificabile. */
+            /* Casa: "Film" / "Serie". Maiuscoletto e un filo smorzato: e' la
+             * categoria del titolo, non un dato da leggere ogni volta. */
+            .type-label {
+                flex: none;
+                margin-right: 1.5rem;
+                font-size: 1.1rem;
+                font-weight: 700;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+                opacity: 0.72;
+                white-space: nowrap;
+                color: var(--primary-foreground-color);
+            }
+
             &.title-info-row {
                 .runtime-label, .release-info-label {
                     flex: none;
