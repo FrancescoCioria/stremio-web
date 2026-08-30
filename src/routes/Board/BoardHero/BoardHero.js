@@ -8,6 +8,8 @@ const React = require('react');
 const PropTypes = require('prop-types');
 const classnames = require('classnames');
 const { Image } = require('stremio/components');
+const useLetterboxdRating = require('stremio/common/useLetterboxdRating');
+const useTitleAvailability = require('stremio/common/useTitleAvailability');
 const styles = require('./styles');
 
 // Cache meta arricchiti da cinemeta (CW items hanno solo poster+name+id,
@@ -86,13 +88,41 @@ const useEnrichedMeta = (meta) => {
     return { meta: enriched, done };
 };
 
+// Data compatta dell'uscita DIGITALE, o null se non la sappiamo / non e' un
+// film. Formato uguale al resto della UI (`toLocaleDateString` senza locale
+// forzata), cosi' la riga non mescola due lingue.
+const digitalDateLabel = (type, availability) => {
+    if (type !== 'movie' || !availability || !availability.loaded) return null;
+    const iso = availability.digitalRelease;
+    if (typeof iso !== 'string' || iso.length === 0) return null;
+    const t = Date.parse(iso);
+    if (!isFinite(t)) return null;
+    return new Date(t).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+};
+
 const BoardHero = ({ meta: rawMeta }) => {
     const { meta, done: enrichmentDone } = useEnrichedMeta(rawMeta);
+    // ⚠️ Prima delle uscite anticipate: gli hook non possono stare sotto un
+    // `return`. Con `meta` nullo passa (null, null) e non chiede niente.
+    const letterboxd = useLetterboxdRating(meta?.type, meta?.type === 'movie' ? meta?.id : null);
+    const availability = useTitleAvailability(meta?.type, meta?.type === 'movie' ? meta?.id : null);
     if (!meta) {
         return <div className={styles['board-hero-container']} />;
     }
 
     const rating = meta.imdbRating ? `${meta.imdbRating}` : null;
+    // ⚠️ Il voto Letterboxd sta ANCHE qui, non solo nel dettaglio: questa e' la
+    // riga che si legge dalla home, ed e' quella che l'utente guarda per
+    // decidere. Su tanti film nuovi Cinemeta non ha ancora l'imdbRating (torna
+    // stringa vuota) — senza Letterboxd l'hero non mostrava NESSUN voto, e la
+    // riga sotto sembrava ordinata a caso.
+    const lbRating = typeof letterboxd.rating === 'number' ? letterboxd.rating.toFixed(1) : null;
+    // ⚠️ `releaseInfo` di Cinemeta e' il solo ANNO ("2026"), che su una riga di
+    // NOVITA' non dice niente: fra "uscito tre giorni fa" e "uscito a gennaio"
+    // c'e' tutta la differenza. Quando conosciamo la data DIGITALE del film
+    // (quella da cui lo si puo' guardare davvero) mostriamo quella, che l'anno
+    // ce l'ha dentro. Serie e film senza data: resta l'anno, come prima.
+    const releaseText = digitalDateLabel(meta.type, availability) ?? meta.releaseInfo;
     const genresText = Array.isArray(meta.genres) ? meta.genres.slice(0, 3).join(' · ') : null;
     const castText = Array.isArray(meta.cast) ? meta.cast.slice(0, 3).join(', ') : null;
     const directorText = Array.isArray(meta.director) ? meta.director.slice(0, 2).join(', ') : null;
@@ -140,8 +170,15 @@ const BoardHero = ({ meta: rawMeta }) => {
                 <div className={styles['hero-subline']}>
                     {typeof meta.runtime === 'string' && meta.runtime.length > 0 ?
                         <span className={styles['sub-item']}>{meta.runtime}</span> : null}
-                    {typeof meta.releaseInfo === 'string' && meta.releaseInfo.length > 0 ?
-                        <span className={styles['sub-item']}>{meta.releaseInfo}</span> : null}
+                    {typeof releaseText === 'string' && releaseText.length > 0 ?
+                        <span className={styles['sub-item']}>{releaseText}</span> : null}
+                    {lbRating ?
+                        <span className={classnames(styles['sub-item'], styles['rating'])}>
+                            {lbRating}
+                            <span className={styles['letterboxd-mark']}>
+                                <span /><span /><span />
+                            </span>
+                        </span> : null}
                     {rating ?
                         <span className={classnames(styles['sub-item'], styles['rating'])}>
                             {rating}

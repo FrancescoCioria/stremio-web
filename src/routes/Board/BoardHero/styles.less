@@ -117,6 +117,26 @@
                 align-items: center;
                 gap: 0.55rem;
 
+                /* Casa: il marchio Letterboxd (tre pallini) accanto al voto,
+                 * come il badge IMDb qui sotto. Disegnato, non un logo caricato
+                 * da fuori: l'icon-set di Stremio non ha Letterboxd. */
+                .letterboxd-mark {
+                    display: inline-flex;
+                    flex-direction: row;
+                    align-items: center;
+                    gap: 0.2rem;
+
+                    span {
+                        display: block;
+                        width: 0.85rem;
+                        height: 0.85rem;
+                        border-radius: 50%;
+                    }
+                    span:nth-child(1) { background-color: #00e054; }
+                    span:nth-child(2) { background-color: #40bcf4; }
+                    span:nth-child(3) { background-color: #ff8000; }
+                }
+
                 .imdb-badge {
                     font-size: 0.95rem;
                     font-weight: 800;
