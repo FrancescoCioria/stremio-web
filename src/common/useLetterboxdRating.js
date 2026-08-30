@@ -2,6 +2,7 @@
 
 const React = require('react');
 const { casaBackendUrl } = require('./casaBackend');
+const { PersistentCache } = require('./casaPersistentCache');
 
 // Hook: voto Letterboxd di un FILM, dal launcher-backend `/letterboxd/:imdbId`
 // (vedi letterboxd.ts). Sta accanto a quello IMDb nel dettaglio: sono due
@@ -21,10 +22,12 @@ const BACKEND_URL = casaBackendUrl('');
 // doppia vive SOLO qui, dove si stampa.
 const onTen = (rating) => (typeof rating === 'number' ? rating * 2 : null);
 
-const cache = new Map(); // imdbId -> { rating, slug, ts }
+// ⚠️ Persistente: il voto di un film non cambia in una settimana, e una Map di
+// modulo moriva ad ogni ricarica del bundle — cioe' l'utente rivedeva il
+// caricamento al focus su titoli gia' visti. Il backend ha la sua cache (3
+// giorni), questa toglie anche il giro di rete.
+const cache = new PersistentCache('letterboxd', { ttlMs: 3 * 24 * 60 * 60 * 1000, maxEntries: 500 });
 const inflight = new Map();
-const TTL_MS = 24 * 60 * 60 * 1000;
-const MAX_CACHE = 500;
 
 // `loaded` distingue "non ancora chiesto" da "chiesto e non c'e'": senza,
 // il chip lampeggerebbe (stesso inciampo della riga "Disponibile dal").
@@ -44,6 +47,27 @@ const fetchRating = async (imdbId) => {
     };
 };
 
+// Scalda la cache senza montare niente: lo usa il prefetch della home.
+const warmLetterboxd = (imdbId) => {
+    if (!/^tt\d+$/.test(imdbId || '')) return Promise.resolve(null);
+    const hit = cache.get(imdbId);
+    if (hit) return Promise.resolve({ ...hit, rating10: onTen(hit.rating), loaded: true });
+    const running = inflight.get(imdbId);
+    if (running) return running;
+    const p = fetchRating(imdbId)
+        .then((res) => {
+            // ⚠️ Si mette in cache anche il "non c'e' voto" (rating null): senza,
+            // ogni film senza Letterboxd verrebbe richiesto ad ogni focus per
+            // sempre. Il backend distingue gia' "non lo so" da "non risponde".
+            if (res) cache.set(imdbId, { rating: res.rating, slug: res.slug });
+            return res;
+        })
+        .catch(() => null)
+        .finally(() => inflight.delete(imdbId));
+    inflight.set(imdbId, p);
+    return p;
+};
+
 const useLetterboxdRating = (type, id) => {
     const [state, setState] = React.useState(NONE);
 
@@ -55,27 +79,13 @@ const useLetterboxdRating = (type, id) => {
         const imdbId = m[1];
 
         const cached = cache.get(imdbId);
-        if (cached && Date.now() - cached.ts <= TTL_MS) {
+        if (cached) {
             setState({ rating: cached.rating, rating10: onTen(cached.rating), slug: cached.slug, loaded: true });
             return;
         }
 
         let cancelled = false;
-        let p = inflight.get(imdbId);
-        if (!p) {
-            p = fetchRating(imdbId)
-                .then((res) => {
-                    if (res) {
-                        cache.set(imdbId, { ...res, ts: Date.now() });
-                        if (cache.size > MAX_CACHE) cache.delete(cache.keys().next().value);
-                    }
-                    return res;
-                })
-                .catch(() => null)
-                .finally(() => inflight.delete(imdbId));
-            inflight.set(imdbId, p);
-        }
-        p.then((res) => {
+        warmLetterboxd(imdbId).then((res) => {
             if (!cancelled && res) setState(res);
         });
         return () => { cancelled = true; };
@@ -85,3 +95,4 @@ const useLetterboxdRating = (type, id) => {
 };
 
 module.exports = useLetterboxdRating;
+module.exports.warmLetterboxd = warmLetterboxd;

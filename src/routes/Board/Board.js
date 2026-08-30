@@ -8,6 +8,7 @@ const { useStreamingServer, useNotifications, withCoreSuspender, getVisibleChild
 const { EventModal, MainNavBars, MetaItem, MetaRow } = require('stremio/components');
 const useBoard = require('./useBoard');
 const useContinueWatchingPreview = require('./useContinueWatchingPreview');
+const useCasaPrefetch = require('./useCasaPrefetch');
 const useCasaWatchlist = require('./useCasaWatchlist');
 const ContinueWatchingRowItem = require('./ContinueWatchingRowItem');
 const { mergeWatchlist } = require('stremio/common/casaWatchlist');
@@ -84,6 +85,10 @@ const Board = () => {
             return acc;
         }, []);
     }, [board.catalogs]);
+    // Casa: scalda in anticipo le info dell'hero per la testa di ogni riga,
+    // invece di aspettare che l'utente ci passi sopra. Vedi useCasaPrefetch.js.
+    useCasaPrefetch(board.catalogs, continueWatchingItems);
+
     const showStreamingServerWarning = React.useMemo(() => {
         return streamingServer.settings !== null && streamingServer.settings.type === 'Err' && (
             isNaN(profile.settings.streamingServerWarningDismissed.getTime()) ||

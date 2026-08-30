@@ -10,14 +10,15 @@ const classnames = require('classnames');
 const { Image } = require('stremio/components');
 const useLetterboxdRating = require('stremio/common/useLetterboxdRating');
 const useTitleAvailability = require('stremio/common/useTitleAvailability');
+const { warmMeta, getCached: getCachedMeta, baseIdOf } = require('stremio/common/casaMetaCache');
 const styles = require('./styles');
 
-// Cache meta arricchiti da cinemeta (CW items hanno solo poster+name+id,
-// mancano description/genres/cast/rating). Modulo-level = sopravvive
-// tra focus switch, evita re-fetch. Max 50 entry ruotate FIFO.
-const metaCache = new Map();
-const MAX_CACHE = 50;
-const CINEMETA = 'https://v3-cinemeta.strem.io/meta/';
+// Cache meta arricchiti da Cinemeta (CW items hanno solo poster+name+id,
+// mancano description/genres/cast/rating). ⚠️ Vive in `common/casaMetaCache.js`
+// e PERSISTE fra i reload: era una Map di modulo, quindi ogni ricarica del
+// bundle ricominciava da zero e l'hero tornava a caricare al focus su titoli
+// gia' visti. Lo stesso modulo espone `warmMeta`, che il Board usa per
+// scaldarli in anticipo.
 
 // Enrichment se manca almeno uno dei campi mostrati dall'hero. Le rail
 // Featured (Cinemeta) mandano tutto inline; altri addon spesso mandano
@@ -43,45 +44,30 @@ const useEnrichedMeta = (meta) => {
             setDone(true);
             return undefined;
         }
-        // Continue Watching items hanno `_id` invece di `id`. Per gli
-        // episodi di serie il formato e' `tt12345:1:1` (imdbId:season:ep)
-        // — Cinemeta vuole solo il parent. Estraggo la base imdb/kitsu.
+        // Continue Watching items hanno `_id` invece di `id`. Per gli episodi di
+        // serie il formato e' `tt12345:1:1` — Cinemeta vuole solo il parent, e
+        // se ne occupa casaMetaCache.
         const fullId = meta.id || meta._id;
-        const idMatch = fullId ? String(fullId).match(/^(tt\d+|kitsu:\d+)/) : null;
-        if (!idMatch) {
+        const cached = getCachedMeta(meta.type, fullId);
+        if (cached) {
+            // Colpo di cache: nessun fetch, nessun `done: false` -> l'hero non
+            // passa mai dallo stato "sto caricando". E' tutto il punto del
+            // prefetch: al focus l'informazione c'e' gia'.
+            setEnriched({ ...meta, ...cached });
             setDone(true);
             return undefined;
         }
-        const baseId = idMatch[1];
-        const cacheKey = meta.type + ':' + baseId;
-        if (metaCache.has(cacheKey)) {
-            setEnriched({ ...meta, ...metaCache.get(cacheKey) });
+        if (!baseIdOf(fullId)) {
             setDone(true);
             return undefined;
         }
         setDone(false);
         let cancelled = false;
-        fetch(CINEMETA + encodeURIComponent(meta.type) + '/' + encodeURIComponent(baseId) + '.json')
-            .then((r) => r.ok ? r.json() : null)
-            .then((data) => {
-                if (cancelled) return;
-                if (data && data.meta) {
-                    const { description, genres, cast, director, imdbRating, releaseInfo, runtime, background, logo, videos } = data.meta;
-                    // Filtra undefined/null cosi' campi gia' presenti
-                    // nell'item originale non vengono blankerati dal merge.
-                    const enrichment = Object.fromEntries(
-                        Object.entries({ description, genres, cast, director, imdbRating, releaseInfo, runtime, background, logo, videos })
-                            .filter(([, v]) => v !== undefined && v !== null)
-                    );
-                    metaCache.set(cacheKey, enrichment);
-                    if (metaCache.size > MAX_CACHE) {
-                        const first = metaCache.keys().next().value;
-                        metaCache.delete(first);
-                    }
-                    setEnriched({ ...meta, ...enrichment });
-                }
+        warmMeta(meta.type, fullId)
+            .then((enrichment) => {
+                if (cancelled || !enrichment) return;
+                setEnriched({ ...meta, ...enrichment });
             })
-            .catch(() => {})
             .finally(() => { if (!cancelled) setDone(true); });
         return () => { cancelled = true; };
     }, [meta]);

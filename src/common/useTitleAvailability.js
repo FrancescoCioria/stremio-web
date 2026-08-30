@@ -2,6 +2,7 @@
 
 const React = require('react');
 const { casaBackendUrl } = require('./casaBackend');
+const { PersistentCache } = require('./casaPersistentCache');
 
 // Hook: due segnali per un titolo (film o serie), dal launcher-backend
 // /availability/:type/:imdbId (TMDB-backed, vedi availability.ts):
@@ -14,10 +15,11 @@ const { casaBackendUrl } = require('./casaBackend');
 // vive in casaBackend.js (un solo punto per tutti i chiamanti).
 const BACKEND_URL = casaBackendUrl('');
 
-const cache = new Map(); // imdbId -> { inCinema, onPrime, ts }
+// ⚠️ Persistente (vedi casaPersistentCache.js): erano dati ri-scaricati ad ogni
+// ricarica del bundle. TTL corto rispetto agli altri: "al cinema" e "su Prime"
+// cambiano davvero, e una pill sbagliata e' peggio di una pill assente.
+const cache = new PersistentCache('availability', { ttlMs: 24 * 60 * 60 * 1000, maxEntries: 500 });
 const inflight = new Map(); // imdbId -> Promise
-const TTL_MS = 24 * 60 * 60 * 1000;
-const MAX_CACHE = 500;
 
 // loaded=false finche' la risposta backend non e' arrivata: serve a NON
 // mostrare label/pill dedotte dall'assenza di dati mentre stiamo ancora
@@ -42,22 +44,22 @@ const fetchAvailability = async (kind, imdbId) => {
     };
 };
 
-const getCached = (imdbId) => {
-    const c = cache.get(imdbId);
-    if (!c) return null;
-    if (Date.now() - c.ts > TTL_MS) {
-        cache.delete(imdbId);
-        return null;
-    }
-    return c;
-};
-
-const putCache = (imdbId, res) => {
-    cache.set(imdbId, { ...res, ts: Date.now() });
-    if (cache.size > MAX_CACHE) {
-        const oldest = cache.keys().next().value;
-        cache.delete(oldest);
-    }
+// Scalda la cache senza montare niente: lo usa il prefetch della home.
+const warmAvailability = (kind, imdbId) => {
+    if (!kind || !/^tt\d+$/.test(imdbId || '')) return Promise.resolve(null);
+    const hit = cache.get(imdbId);
+    if (hit) return Promise.resolve(hit);
+    const running = inflight.get(imdbId);
+    if (running) return running;
+    const p = fetchAvailability(kind, imdbId)
+        .then((res) => {
+            if (res) cache.set(imdbId, res);
+            return res;
+        })
+        .catch(() => null)
+        .finally(() => inflight.delete(imdbId));
+    inflight.set(imdbId, p);
+    return p;
 };
 
 const useTitleAvailability = (type, id) => {
@@ -71,25 +73,14 @@ const useTitleAvailability = (type, id) => {
         if (!m) return;
         const imdbId = m[1];
 
-        const cached = getCached(imdbId);
+        const cached = cache.get(imdbId);
         if (cached) {
-            setState({ inCinema: cached.inCinema, onPrime: cached.onPrime, digitalRelease: cached.digitalRelease, loaded: true });
+            setState({ ...cached, loaded: true });
             return;
         }
 
         let cancelled = false;
-        let p = inflight.get(imdbId);
-        if (!p) {
-            p = fetchAvailability(kind, imdbId)
-                .then((res) => {
-                    if (res) putCache(imdbId, res);
-                    return res;
-                })
-                .catch(() => null)
-                .finally(() => inflight.delete(imdbId));
-            inflight.set(imdbId, p);
-        }
-        p.then((res) => {
+        warmAvailability(kind, imdbId).then((res) => {
             if (!cancelled && res) setState(res);
         });
         return () => { cancelled = true; };
@@ -99,3 +90,4 @@ const useTitleAvailability = (type, id) => {
 };
 
 module.exports = useTitleAvailability;
+module.exports.warmAvailability = warmAvailability;
