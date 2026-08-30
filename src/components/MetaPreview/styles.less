@@ -120,7 +120,12 @@
             }
 
             .imdb-button-container {
-                flex: 0 1 auto;
+                // ⚠️ `flex: none`, non `0 1 auto`: sono 3-4 caratteri, e con un
+                // secondo chip accanto (Letterboxd) il flexbox li restringeva
+                // fino a stampare un solo punto — il voto spariva e nessuno
+                // capiva perche'. A restringersi devono essere le etichette di
+                // testo, che hanno gia' l'ellissi e si leggono lo stesso.
+                flex: none;
                 display: flex;
                 flex-direction: row;
                 align-items: center;
@@ -134,7 +139,7 @@
                 }
 
                 .label {
-                    flex: 0 1 auto;
+                    flex: none;
                     margin-right: 1rem;
                     font-size: 1.35rem;
                     font-weight: 600;
@@ -154,7 +159,7 @@
              * uguale. Il marchio sono i tre pallini (l'icon-set di Stremio non
              * ha Letterboxd) — disegnati, non un logo caricato da fuori. */
             .letterboxd-button-container {
-                flex: 0 1 auto;
+                flex: none;
                 display: flex;
                 flex-direction: row;
                 align-items: center;
@@ -168,7 +173,7 @@
                 }
 
                 .label {
-                    flex: 0 1 auto;
+                    flex: none;
                     margin-right: 0.6rem;
                     font-size: 1.35rem;
                     font-weight: 600;
@@ -182,10 +187,14 @@
                     align-items: center;
                     gap: 0.25rem;
 
+                    // I pallini SONO il logo: a 0,9rem erano 12px contro i 42
+                    // dell'icona IMDb accanto, cioe' decorazione invisibile a
+                    // distanza di divano. Alla stessa altezza del testo si
+                    // leggono come marchio.
                     span {
                         display: block;
-                        width: 0.9rem;
-                        height: 0.9rem;
+                        width: 1.15rem;
+                        height: 1.15rem;
                         border-radius: 50%;
                     }
                     span:nth-child(1) { background-color: #00e054; }
