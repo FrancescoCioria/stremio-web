@@ -27,7 +27,7 @@ const ALLOWED_LINK_REDIRECTS = [
     routesRegexp.metadetails.regexp
 ];
 
-const MetaPreview = React.forwardRef(({ className, compact, name, logo, background, runtime, releaseInfo, released, description, deepLinks, links, trailerStreams, inLibrary, toggleInLibrary, watched, toggleWatched, ratingInfo, focusedEpisode, focusedEpisodeRuntime, movieDigitalReleaseLabel, typeLabel, letterboxdRating, letterboxdSlug, hideActions, showWatchedToggle, showNotificationsToggle, notificationsEnabled, toggleNotifications }, ref) => {
+const MetaPreview = React.forwardRef(({ className, compact, name, logo, background, runtime, releaseInfo, released, description, deepLinks, links, trailerStreams, inLibrary, toggleInLibrary, watched, toggleWatched, ratingInfo, focusedEpisode, focusedEpisodeRuntime, movieDigitalReleaseLabel, typeLabel, letterboxdRating, letterboxdSlug, imdbRating, rtScore, metacriticScore, hideActions, showWatchedToggle, showNotificationsToggle, notificationsEnabled, toggleNotifications }, ref) => {
     const { t } = useTranslation();
     const [shareModalOpen, openShareModal, closeShareModal] = useBinaryState(false);
     const linksGroups = React.useMemo(() => {
@@ -75,6 +75,14 @@ const MetaPreview = React.forwardRef(({ className, compact, name, logo, backgrou
             :
             new Map();
     }, [links]);
+    // Numero dal dataset ufficiale, link da Cinemeta (l'unico che ce l'ha).
+    const imdbLink = linksGroups.has(CONSTANTS.IMDB_LINK_CATEGORY)
+        ? linksGroups.get(CONSTANTS.IMDB_LINK_CATEGORY)
+        : null;
+    const imdbLabel = typeof imdbRating === 'number'
+        ? imdbRating.toFixed(1)
+        : (imdbLink ? imdbLink.label : null);
+    const imdbHref = imdbLink ? imdbLink.href : null;
     const showHref = React.useMemo(() => {
         return deepLinks ?
             typeof deepLinks.player === 'string' ?
@@ -194,7 +202,7 @@ const MetaPreview = React.forwardRef(({ className, compact, name, logo, backgrou
                             }
                         </div>
                         :
-                        (typeof releaseInfo === 'string' && releaseInfo.length > 0) || (released instanceof Date && !isNaN(released.getTime())) || (typeof runtime === 'string' && runtime.length > 0) || (typeof movieDigitalReleaseLabel === 'string' && movieDigitalReleaseLabel.length > 0) || typeof letterboxdRating === 'number' || (typeof typeLabel === 'string' && typeLabel.length > 0) || linksGroups.has(CONSTANTS.IMDB_LINK_CATEGORY) ?
+                        (typeof releaseInfo === 'string' && releaseInfo.length > 0) || (released instanceof Date && !isNaN(released.getTime())) || (typeof runtime === 'string' && runtime.length > 0) || (typeof movieDigitalReleaseLabel === 'string' && movieDigitalReleaseLabel.length > 0) || typeof letterboxdRating === 'number' || (typeof typeLabel === 'string' && typeLabel.length > 0) || imdbLabel !== null || typeof metacriticScore === 'number' || typeof rtScore === 'number' ?
                             <div className={classnames(styles['runtime-release-info-container'], styles['title-info-row'])}>
                                 {
                                 /* Casa: film o serie. Sta per PRIMO e in
@@ -256,18 +264,46 @@ const MetaPreview = React.forwardRef(({ className, compact, name, logo, backgrou
                                 }
                                 {
                                 /* TV: rating IMDb resta visibile come info,
-                                 * ma non entra nella spatial nav (tabIndex=-1). */
-                                    linksGroups.has(CONSTANTS.IMDB_LINK_CATEGORY) ?
+                                 * ma non entra nella spatial nav (tabIndex=-1).
+                                 * ⚠️ Il NUMERO viene dal dataset ufficiale
+                                 * (`imdbRating`), non da Cinemeta: sui titoli
+                                 * nuovi Cinemeta non ce l'ha, e dove ce l'ha e'
+                                 * piu' vecchio — Motor City leggeva 5.8 qui e
+                                 * 5.9 nell'hero, due numeri per la stessa cosa a
+                                 * due schermate di distanza. Il LINK invece resta
+                                 * quello di Cinemeta, che e' l'unico a portarlo. */
+                                    imdbLabel !== null ?
                                         <Button
                                             className={styles['imdb-button-container']}
-                                            title={linksGroups.get(CONSTANTS.IMDB_LINK_CATEGORY).label}
-                                            href={linksGroups.get(CONSTANTS.IMDB_LINK_CATEGORY).href}
+                                            title={`IMDb ${imdbLabel}`}
+                                            href={imdbHref}
                                             target={'_blank'}
                                             tabIndex={-1}
                                         >
-                                            <div className={styles['label']}>{linksGroups.get(CONSTANTS.IMDB_LINK_CATEGORY).label}</div>
+                                            <div className={styles['label']}>{imdbLabel}</div>
                                             <Icon className={styles['icon']} name={'imdb'} />
                                         </Button>
+                                        :
+                                        null
+                                }
+                                {
+                                /* Casa: ci sono di rado (Metacritic ~33% dei
+                                 * titoli, Rotten Tomatoes ~6%) e per lo stesso
+                                 * motivo non ordinano niente. */
+                                    typeof metacriticScore === 'number' ?
+                                        <div className={styles['score-chip']}>
+                                            <span className={styles['label']}>{metacriticScore}</span>
+                                            <span className={styles['metacritic-badge']}>MC</span>
+                                        </div>
+                                        :
+                                        null
+                                }
+                                {
+                                    typeof rtScore === 'number' ?
+                                        <div className={styles['score-chip']}>
+                                            <span className={styles['label']}>{rtScore}%</span>
+                                            <span className={styles['rt-badge']}>RT</span>
+                                        </div>
                                         :
                                         null
                                 }
@@ -408,6 +444,9 @@ MetaPreview.propTypes = {
     focusedEpisodeRuntime: PropTypes.number,
     movieDigitalReleaseLabel: PropTypes.string,
     typeLabel: PropTypes.string,
+    imdbRating: PropTypes.number,
+    rtScore: PropTypes.number,
+    metacriticScore: PropTypes.number,
     letterboxdRating: PropTypes.number,
     letterboxdSlug: PropTypes.string,
     hideActions: PropTypes.bool,

@@ -87,7 +87,10 @@ const MetaDetails = () => {
     const movieAvailability = useTitleAvailability(type, type === 'movie' ? id : null);
     // Voto Letterboxd, accanto a quello IMDb. Solo film: Letterboxd non ha le
     // serie (li' il chip non compare proprio, invece di comparire vuoto).
-    const letterboxd = useLetterboxdRating(type, type === 'movie' ? id : null);
+    // ⚠️ Non piu' solo film: da qui arrivano anche il voto IMDb (dal dataset
+    // ufficiale, che Cinemeta non ha sui titoli nuovi), Rotten Tomatoes e
+    // Metacritic — e valgono anche per le serie.
+    const letterboxd = useLetterboxdRating(type, id);
     // Film o serie: dalla pagina di dettaglio non si capiva. Il `type` ce
     // l'abbiamo nell'URL, non serve dedurlo da niente.
     const typeLabel = type === 'movie' ? 'Film' : type === 'series' ? 'Serie' : null;
@@ -271,6 +274,9 @@ const MetaDetails = () => {
                                             typeLabel={typeLabel}
                                             letterboxdRating={letterboxd.rating10}
                                             letterboxdSlug={letterboxd.slug}
+                                            imdbRating={letterboxd.imdb}
+                                            rtScore={letterboxd.rt}
+                                            metacriticScore={letterboxd.metacritic}
                                             /* Per i FILM la pagina streams e' anche la pagina
                                              * di dettaglio (non c'e' episode list prima), quindi
                                              * manteniamo visibili Trailer/Add to Lib/Mark as
