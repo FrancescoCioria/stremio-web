@@ -12,6 +12,15 @@ const { casaBackendUrl } = require('./casaBackend');
 // non si mostra niente — non e' un dato mancante, e' un dato che non esiste.
 const BACKEND_URL = casaBackendUrl('');
 
+// ⚠️ Letterboxd vota in STELLE, 0,5-5. Accanto a un IMDb su 10 quei numeri
+// sembrano tutti disastrosi — un film discreto legge "3.5" e pare bocciato —
+// quindi si MOSTRA raddoppiato, sulla stessa scala 1-10 del vicino. E' una
+// riscalatura lineare, non cambia nessun ordine.
+// ⚠️ Il valore GREZZO resta quello che arriva dal backend, ed e' quello che
+// ordina la riga "Ultime uscite" (`rating / 5` in new_releases.ts): la scala
+// doppia vive SOLO qui, dove si stampa.
+const onTen = (rating) => (typeof rating === 'number' ? rating * 2 : null);
+
 const cache = new Map(); // imdbId -> { rating, slug, ts }
 const inflight = new Map();
 const TTL_MS = 24 * 60 * 60 * 1000;
@@ -19,15 +28,17 @@ const MAX_CACHE = 500;
 
 // `loaded` distingue "non ancora chiesto" da "chiesto e non c'e'": senza,
 // il chip lampeggerebbe (stesso inciampo della riga "Disponibile dal").
-const NONE = { rating: null, slug: null, loaded: false };
+const NONE = { rating: null, rating10: null, slug: null, loaded: false };
 
 const fetchRating = async (imdbId) => {
     const r = await fetch(`${BACKEND_URL}/letterboxd/${encodeURIComponent(imdbId)}`);
     if (!r.ok) return null;
     const j = await r.json();
     if (!j || typeof j !== 'object') return null;
+    const rating = typeof j.rating === 'number' ? j.rating : null;
     return {
-        rating: typeof j.rating === 'number' ? j.rating : null,
+        rating,
+        rating10: onTen(rating),
         slug: typeof j.slug === 'string' ? j.slug : null,
         loaded: true,
     };
@@ -45,7 +56,7 @@ const useLetterboxdRating = (type, id) => {
 
         const cached = cache.get(imdbId);
         if (cached && Date.now() - cached.ts <= TTL_MS) {
-            setState({ rating: cached.rating, slug: cached.slug, loaded: true });
+            setState({ rating: cached.rating, rating10: onTen(cached.rating), slug: cached.slug, loaded: true });
             return;
         }
 

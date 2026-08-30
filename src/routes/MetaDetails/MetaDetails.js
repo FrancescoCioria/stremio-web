@@ -265,7 +265,7 @@ const MetaDetails = () => {
                                             focusedEpisode={previewVideo}
                                             focusedEpisodeRuntime={previewVideoRuntime}
                                             movieDigitalReleaseLabel={movieDigitalReleaseLabel}
-                                            letterboxdRating={letterboxd.rating}
+                                            letterboxdRating={letterboxd.rating10}
                                             letterboxdSlug={letterboxd.slug}
                                             /* Per i FILM la pagina streams e' anche la pagina
                                              * di dettaglio (non c'e' episode list prima), quindi

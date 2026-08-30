@@ -220,7 +220,7 @@ const MetaPreview = React.forwardRef(({ className, compact, name, logo, backgrou
                                     typeof letterboxdRating === 'number' ?
                                         <Button
                                             className={styles['letterboxd-button-container']}
-                                            title={`Letterboxd ${letterboxdRating.toFixed(1)}/5`}
+                                            title={`Letterboxd ${letterboxdRating.toFixed(1)}/10`}
                                             href={typeof letterboxdSlug === 'string' && letterboxdSlug.length > 0 ? `https://letterboxd.com/film/${letterboxdSlug}/` : null}
                                             target={'_blank'}
                                             tabIndex={-1}

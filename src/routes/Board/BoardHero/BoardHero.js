@@ -116,7 +116,7 @@ const BoardHero = ({ meta: rawMeta }) => {
     // decidere. Su tanti film nuovi Cinemeta non ha ancora l'imdbRating (torna
     // stringa vuota) — senza Letterboxd l'hero non mostrava NESSUN voto, e la
     // riga sotto sembrava ordinata a caso.
-    const lbRating = typeof letterboxd.rating === 'number' ? letterboxd.rating.toFixed(1) : null;
+    const lbRating = typeof letterboxd.rating10 === 'number' ? letterboxd.rating10.toFixed(1) : null;
     // ⚠️ `releaseInfo` di Cinemeta e' il solo ANNO ("2026"), che su una riga di
     // NOVITA' non dice niente: fra "uscito tre giorni fa" e "uscito a gennaio"
     // c'e' tutta la differenza. Quando conosciamo la data DIGITALE del film
