@@ -49,6 +49,12 @@ const findTrackById = (tracks, id) => tracks.find((track) => track.id === id);
 
 const GAMEPAD_HANDLER_ID = 'player';
 
+// Quanto resta su la barra tirata su col telecomando, senza che si tocchi un
+// tasto. VALORE NUOVO, non ereditato: l'auto-hide del mouse e' 3s, ma li' il
+// timer lo rianima ogni micro-movimento, mentre qui serve il tempo di LEGGERE
+// la timeline e decidere. Ogni tasto lo rimette a zero.
+const TV_BAR_IDLE_MS = 5000;
+
 const Player = () => {
     const { stream, streamTransportUrl, metaTransportUrl, type, id, videoId } = useParams();
     const urlParams = React.useMemo(() => ({
@@ -901,6 +907,49 @@ const Player = () => {
         }
     }, [player.nextVideo, handleNextVideoNavigation]);
 
+    // Casa TV: la barra tirata su col telecomando si ritira DA SOLA.
+    //
+    // ⚠️ L'auto-hide di upstream lo arma il MOUSE (`onContainerMouseMove` ->
+    // `setImmersedDebounced`): col telecomando quell'evento non esiste, e
+    // `overlayHidden` per costruzione da' false finche' `tvNavMode !== null`.
+    // Risultato: premevi ↓ per vedere la timeline e la barra ti restava
+    // addosso per tutto il film, l'unico modo di toglierla era il tasto
+    // indietro. Ogni volta.
+    //
+    // Il timer riparte a OGNI tasto (chi sta navigando non se lo vede sparire
+    // sotto le dita) e fa esattamente quello che farebbe "indietro" a barra
+    // aperta: esce dalla TV-nav e ri-immerge. Niente di nuovo, solo da solo.
+    //
+    // ⚠️ NON scatta se c'e' un menu aperto (`menusOpen`: sottotitoli, audio,
+    // velocita', statistiche, drawer episodi, popup prossimo video): quello e'
+    // un livello sopra, e chi lo sta leggendo non preme tasti per minuti.
+    // ⚠️ NON scatta a video fermo: in pausa la barra resta su per design
+    // (`overlayHidden` la tiene visibile a prescindere), e in buffering
+    // sparirebbe proprio mentre guardi se sta caricando.
+    const exitTvNav = React.useCallback(() => {
+        setTvNavMode(null);
+        if (document.activeElement instanceof HTMLElement) {
+            document.activeElement.blur();
+        }
+        setImmersedDebounced.cancel();
+        setImmersed(true);
+    }, []);
+
+    React.useEffect(() => {
+        if (tvNavMode === null || menusOpen || video.state.paused !== false) return;
+        let tid = null;
+        const arm = () => {
+            if (tid !== null) clearTimeout(tid);
+            tid = setTimeout(exitTvNav, TV_BAR_IDLE_MS);
+        };
+        arm();
+        document.addEventListener('keydown', arm, true);
+        return () => {
+            if (tid !== null) clearTimeout(tid);
+            document.removeEventListener('keydown', arm, true);
+        };
+    }, [tvNavMode, menusOpen, video.state.paused, exitTvNav]);
+
     onShortcut('exit', () => {
         // Esc gerarchico: dismiss del piu' interno prima di tornare indietro.
         // Ogni "indietro" toglie un livello di UI visibile; solo quando lo
@@ -935,14 +984,10 @@ const Player = () => {
             return;
         }
         if (tvNavMode !== null) {
-            setTvNavMode(null);
-            if (document.activeElement instanceof HTMLElement) {
-                document.activeElement.blur();
-            }
             // Uscendo dalla nav a video in play, ri-immergi: la barra sparisce
             // subito invece di restare su (immersed poteva essere false).
-            setImmersedDebounced.cancel();
-            setImmersed(true);
+            // Stessa uscita del timer di inattivita' qui sopra.
+            exitTvNav();
             return;
         }
         // Video in play ma barra ancora visibile (immersed=false, es. dopo un
@@ -961,7 +1006,7 @@ const Player = () => {
         // merge questo lo faceva il vecchio service KeyboardShortcuts (Esc ->
         // history.back senza guard), ora cancellato da upstream.
         window.history.back();
-    }, [tvNavMode, menusOpen, closeMenus, video.state.paused, onPlayRequested, immersed]);
+    }, [tvNavMode, menusOpen, closeMenus, video.state.paused, onPlayRequested, immersed, exitTvNav]);
 
     React.useLayoutEffect(() => {
         if (menusOpen) {
