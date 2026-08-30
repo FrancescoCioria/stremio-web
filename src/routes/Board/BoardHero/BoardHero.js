@@ -90,19 +90,28 @@ const BoardHero = ({ meta: rawMeta }) => {
     const { meta, done: enrichmentDone } = useEnrichedMeta(rawMeta);
     // ⚠️ Prima delle uscite anticipate: gli hook non possono stare sotto un
     // `return`. Con `meta` nullo passa (null, null) e non chiede niente.
-    const letterboxd = useLetterboxdRating(meta?.type, meta?.type === 'movie' ? meta?.id : null);
+    const ratings = useLetterboxdRating(meta?.type, meta?.id);
     const availability = useTitleAvailability(meta?.type, meta?.type === 'movie' ? meta?.id : null);
     if (!meta) {
         return <div className={styles['board-hero-container']} />;
     }
 
-    const rating = meta.imdbRating ? `${meta.imdbRating}` : null;
+    // ⚠️ Cinemeta PRIMA (e' gia' in memoria), il dataset IMDb quando Cinemeta non
+    // ce l'ha: sui titoli usciti da poche settimane Cinemeta e' indietro, e
+    // l'hero restava senza nessun voto proprio sulle novita' — che sono il
+    // contenuto di meta' delle righe.
+    const rating = meta.imdbRating
+        ? `${meta.imdbRating}`
+        : (typeof ratings.imdb === 'number' ? ratings.imdb.toFixed(1) : null);
     // ⚠️ Il voto Letterboxd sta ANCHE qui, non solo nel dettaglio: questa e' la
     // riga che si legge dalla home, ed e' quella che l'utente guarda per
     // decidere. Su tanti film nuovi Cinemeta non ha ancora l'imdbRating (torna
     // stringa vuota) — senza Letterboxd l'hero non mostrava NESSUN voto, e la
     // riga sotto sembrava ordinata a caso.
-    const lbRating = typeof letterboxd.rating10 === 'number' ? letterboxd.rating10.toFixed(1) : null;
+    const lbRating = typeof ratings.rating10 === 'number' ? ratings.rating10.toFixed(1) : null;
+    // ⚠️ Film o serie, DETTO: era la domanda per cui bisognava entrare nella
+    // pagina e tornare indietro — cioe' esattamente il passo da togliere.
+    const typeLabel = meta.type === 'movie' ? 'Film' : meta.type === 'series' ? 'Serie' : null;
     // ⚠️ `releaseInfo` di Cinemeta e' il solo ANNO ("2026"), che su una riga di
     // NOVITA' non dice niente: fra "uscito tre giorni fa" e "uscito a gennaio"
     // c'e' tutta la differenza. Quando conosciamo la data DIGITALE del film
@@ -154,6 +163,8 @@ const BoardHero = ({ meta: rawMeta }) => {
                     }
                 </div>
                 <div className={styles['hero-subline']}>
+                    {typeLabel ?
+                        <span className={classnames(styles['sub-item'], styles['type-label'])}>{typeLabel}</span> : null}
                     {typeof meta.runtime === 'string' && meta.runtime.length > 0 ?
                         <span className={styles['sub-item']}>{meta.runtime}</span> : null}
                     {typeof releaseText === 'string' && releaseText.length > 0 ?

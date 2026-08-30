@@ -31,18 +31,25 @@ const inflight = new Map();
 
 // `loaded` distingue "non ancora chiesto" da "chiesto e non c'e'": senza,
 // il chip lampeggerebbe (stesso inciampo della riga "Disponibile dal").
-const NONE = { rating: null, rating10: null, slug: null, loaded: false };
+const NONE = { rating: null, rating10: null, slug: null, imdb: null, loaded: false };
 
+// ⚠️ Una chiamata sola per i DUE voti: `/ratings/:imdbId`. Il voto IMDb NON
+// arriva da Cinemeta — che sui titoli nuovi e' indietro di settimane (misurato:
+// 4 film su 7 della riga "Ultime uscite" senza voto li' e con voto su IMDb) — ma
+// dal dataset ufficiale IMDb che il backend tiene aggiornato.
 const fetchRating = async (imdbId) => {
-    const r = await fetch(`${BACKEND_URL}/letterboxd/${encodeURIComponent(imdbId)}`);
+    const r = await fetch(`${BACKEND_URL}/ratings/${encodeURIComponent(imdbId)}`);
     if (!r.ok) return null;
     const j = await r.json();
     if (!j || typeof j !== 'object') return null;
-    const rating = typeof j.rating === 'number' ? j.rating : null;
+    const lb = j.letterboxd || {};
+    const rating = typeof lb.rating === 'number' ? lb.rating : null;
+    const imdb = j.imdb && typeof j.imdb.rating === 'number' ? j.imdb.rating : null;
     return {
         rating,
         rating10: onTen(rating),
-        slug: typeof j.slug === 'string' ? j.slug : null,
+        slug: typeof lb.slug === 'string' ? lb.slug : null,
+        imdb,
         loaded: true,
     };
 };
@@ -51,7 +58,7 @@ const fetchRating = async (imdbId) => {
 const warmLetterboxd = (imdbId) => {
     if (!/^tt\d+$/.test(imdbId || '')) return Promise.resolve(null);
     const hit = cache.get(imdbId);
-    if (hit) return Promise.resolve({ ...hit, rating10: onTen(hit.rating), loaded: true });
+    if (hit) return Promise.resolve({ ...hit, rating10: onTen(hit.rating), imdb: hit.imdb ?? null, loaded: true });
     const running = inflight.get(imdbId);
     if (running) return running;
     const p = fetchRating(imdbId)
@@ -59,7 +66,7 @@ const warmLetterboxd = (imdbId) => {
             // ⚠️ Si mette in cache anche il "non c'e' voto" (rating null): senza,
             // ogni film senza Letterboxd verrebbe richiesto ad ogni focus per
             // sempre. Il backend distingue gia' "non lo so" da "non risponde".
-            if (res) cache.set(imdbId, { rating: res.rating, slug: res.slug });
+            if (res) cache.set(imdbId, { rating: res.rating, slug: res.slug, imdb: res.imdb });
             return res;
         })
         .catch(() => null)
@@ -73,14 +80,16 @@ const useLetterboxdRating = (type, id) => {
 
     React.useEffect(() => {
         setState(NONE);
-        if (type !== 'movie' || !id) return;
+        // ⚠️ Non piu' solo film: Letterboxd non ha le serie, ma il voto IMDb si'
+        // — ed e' proprio sulle serie nuove che Cinemeta manca piu' spesso.
+        if (!type || !id) return;
         const m = String(id).match(/^(tt\d+)/);
         if (!m) return;
         const imdbId = m[1];
 
         const cached = cache.get(imdbId);
         if (cached) {
-            setState({ rating: cached.rating, rating10: onTen(cached.rating), slug: cached.slug, loaded: true });
+            setState({ rating: cached.rating, rating10: onTen(cached.rating), slug: cached.slug, imdb: cached.imdb ?? null, loaded: true });
             return;
         }
 
