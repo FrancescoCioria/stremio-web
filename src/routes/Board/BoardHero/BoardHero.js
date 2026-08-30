@@ -181,6 +181,19 @@ const BoardHero = ({ meta: rawMeta }) => {
                             {rating}
                             <span className={styles['imdb-badge']}>IMDb</span>
                         </span> : null}
+                    {/* ⚠️ Ci sono di rado (Metacritic ~33% dei titoli, Rotten
+                        Tomatoes ~6%): compaiono quando ci sono e spariscono
+                        senza lasciare buchi, e NON ordinano niente. */}
+                    {typeof ratings.metacritic === 'number' ?
+                        <span className={classnames(styles['sub-item'], styles['rating'])}>
+                            {ratings.metacritic}
+                            <span className={styles['metacritic-badge']}>MC</span>
+                        </span> : null}
+                    {typeof ratings.rt === 'number' ?
+                        <span className={classnames(styles['sub-item'], styles['rating'])}>
+                            {ratings.rt}%
+                            <span className={styles['rt-badge']}>RT</span>
+                        </span> : null}
                     {genresText ?
                         <span className={classnames(styles['sub-item'], styles['genres'])}>{genresText}</span> : null}
                 </div>

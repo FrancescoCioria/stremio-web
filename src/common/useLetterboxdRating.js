@@ -31,7 +31,7 @@ const inflight = new Map();
 
 // `loaded` distingue "non ancora chiesto" da "chiesto e non c'e'": senza,
 // il chip lampeggerebbe (stesso inciampo della riga "Disponibile dal").
-const NONE = { rating: null, rating10: null, slug: null, imdb: null, loaded: false };
+const NONE = { rating: null, rating10: null, slug: null, imdb: null, rt: null, metacritic: null, loaded: false };
 
 // ⚠️ Una chiamata sola per i DUE voti: `/ratings/:imdbId`. Il voto IMDb NON
 // arriva da Cinemeta — che sui titoli nuovi e' indietro di settimane (misurato:
@@ -50,6 +50,11 @@ const fetchRating = async (imdbId) => {
         rating10: onTen(rating),
         slug: typeof lb.slug === 'string' ? lb.slug : null,
         imdb,
+        // ⚠️ Rotten Tomatoes e Metacritic ci sono di rado (misurato sulla riga
+        // "Ultime uscite": 6% e 33%). Si mostrano quando ci sono; NON ordinano
+        // niente, per lo stesso motivo.
+        rt: typeof j.rt === 'number' ? j.rt : null,
+        metacritic: typeof j.metacritic === 'number' ? j.metacritic : null,
         loaded: true,
     };
 };
@@ -58,7 +63,7 @@ const fetchRating = async (imdbId) => {
 const warmLetterboxd = (imdbId) => {
     if (!/^tt\d+$/.test(imdbId || '')) return Promise.resolve(null);
     const hit = cache.get(imdbId);
-    if (hit) return Promise.resolve({ ...hit, rating10: onTen(hit.rating), imdb: hit.imdb ?? null, loaded: true });
+    if (hit) return Promise.resolve({ ...NONE, ...hit, rating10: onTen(hit.rating), loaded: true });
     const running = inflight.get(imdbId);
     if (running) return running;
     const p = fetchRating(imdbId)
@@ -66,7 +71,7 @@ const warmLetterboxd = (imdbId) => {
             // ⚠️ Si mette in cache anche il "non c'e' voto" (rating null): senza,
             // ogni film senza Letterboxd verrebbe richiesto ad ogni focus per
             // sempre. Il backend distingue gia' "non lo so" da "non risponde".
-            if (res) cache.set(imdbId, { rating: res.rating, slug: res.slug, imdb: res.imdb });
+            if (res) cache.set(imdbId, { rating: res.rating, slug: res.slug, imdb: res.imdb, rt: res.rt, metacritic: res.metacritic });
             return res;
         })
         .catch(() => null)
@@ -89,7 +94,7 @@ const useLetterboxdRating = (type, id) => {
 
         const cached = cache.get(imdbId);
         if (cached) {
-            setState({ rating: cached.rating, rating10: onTen(cached.rating), slug: cached.slug, imdb: cached.imdb ?? null, loaded: true });
+            setState({ ...NONE, ...cached, rating10: onTen(cached.rating), loaded: true });
             return;
         }
 
