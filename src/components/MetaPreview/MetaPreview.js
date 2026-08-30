@@ -27,7 +27,7 @@ const ALLOWED_LINK_REDIRECTS = [
     routesRegexp.metadetails.regexp
 ];
 
-const MetaPreview = React.forwardRef(({ className, compact, name, logo, background, runtime, releaseInfo, released, description, deepLinks, links, trailerStreams, inLibrary, toggleInLibrary, watched, toggleWatched, ratingInfo, focusedEpisode, focusedEpisodeRuntime, movieDigitalReleaseLabel, hideActions, showWatchedToggle, showNotificationsToggle, notificationsEnabled, toggleNotifications }, ref) => {
+const MetaPreview = React.forwardRef(({ className, compact, name, logo, background, runtime, releaseInfo, released, description, deepLinks, links, trailerStreams, inLibrary, toggleInLibrary, watched, toggleWatched, ratingInfo, focusedEpisode, focusedEpisodeRuntime, movieDigitalReleaseLabel, letterboxdRating, letterboxdSlug, hideActions, showWatchedToggle, showNotificationsToggle, notificationsEnabled, toggleNotifications }, ref) => {
     const { t } = useTranslation();
     const [shareModalOpen, openShareModal, closeShareModal] = useBinaryState(false);
     const linksGroups = React.useMemo(() => {
@@ -183,7 +183,7 @@ const MetaPreview = React.forwardRef(({ className, compact, name, logo, backgrou
                             }
                         </div>
                         :
-                        (typeof releaseInfo === 'string' && releaseInfo.length > 0) || (released instanceof Date && !isNaN(released.getTime())) || (typeof runtime === 'string' && runtime.length > 0) || (typeof movieDigitalReleaseLabel === 'string' && movieDigitalReleaseLabel.length > 0) || linksGroups.has(CONSTANTS.IMDB_LINK_CATEGORY) ?
+                        (typeof releaseInfo === 'string' && releaseInfo.length > 0) || (released instanceof Date && !isNaN(released.getTime())) || (typeof runtime === 'string' && runtime.length > 0) || (typeof movieDigitalReleaseLabel === 'string' && movieDigitalReleaseLabel.length > 0) || typeof letterboxdRating === 'number' || linksGroups.has(CONSTANTS.IMDB_LINK_CATEGORY) ?
                             <div className={styles['runtime-release-info-container']}>
                                 {
                                     typeof runtime === 'string' && runtime.length > 0 ?
@@ -206,6 +206,30 @@ const MetaPreview = React.forwardRef(({ className, compact, name, logo, backgrou
                                  * primi rip buoni. Vedi casaDigitalRelease.js. */
                                     typeof movieDigitalReleaseLabel === 'string' && movieDigitalReleaseLabel.length > 0 ?
                                         <div className={styles['release-info-label']}>{movieDigitalReleaseLabel}</div>
+                                        :
+                                        null
+                                }
+                                {
+                                /* TV Casa: voto Letterboxd accanto a quello
+                                 * IMDb — due pubblici diversi, e sull'animazione
+                                 * danno ordini quasi opposti. Solo FILM:
+                                 * Letterboxd non ha le serie, li' `letterboxdRating`
+                                 * e' null e il chip non compare (non un buco: un
+                                 * dato che non esiste). Il marchio sono i tre
+                                 * pallini, che l'icon-set di Stremio non ha. */
+                                    typeof letterboxdRating === 'number' ?
+                                        <Button
+                                            className={styles['letterboxd-button-container']}
+                                            title={`Letterboxd ${letterboxdRating.toFixed(1)}/5`}
+                                            href={typeof letterboxdSlug === 'string' && letterboxdSlug.length > 0 ? `https://letterboxd.com/film/${letterboxdSlug}/` : null}
+                                            target={'_blank'}
+                                            tabIndex={-1}
+                                        >
+                                            <div className={styles['label']}>{letterboxdRating.toFixed(1)}</div>
+                                            <div className={styles['letterboxd-mark']}>
+                                                <span /><span /><span />
+                                            </div>
+                                        </Button>
                                         :
                                         null
                                 }
@@ -362,6 +386,8 @@ MetaPreview.propTypes = {
     focusedEpisode: PropTypes.object,
     focusedEpisodeRuntime: PropTypes.number,
     movieDigitalReleaseLabel: PropTypes.string,
+    letterboxdRating: PropTypes.number,
+    letterboxdSlug: PropTypes.string,
     hideActions: PropTypes.bool,
     showWatchedToggle: PropTypes.bool,
     showNotificationsToggle: PropTypes.bool,

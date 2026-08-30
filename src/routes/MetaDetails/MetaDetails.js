@@ -11,6 +11,7 @@ const { withCoreSuspender } = require('stremio/common');
 const { VerticalNavBar, DelayedRenderer, Image, MetaPreview, ModalDialog } = require('stremio/components');
 const useEpisodeRuntimes = require('stremio/common/useEpisodeRuntimes');
 const useTitleAvailability = require('stremio/common/useTitleAvailability');
+const useLetterboxdRating = require('stremio/common/useLetterboxdRating');
 const { digitalReleaseLabel } = require('stremio/common/casaDigitalRelease');
 const StreamsList = require('./StreamsList');
 const VideosList = require('./VideosList');
@@ -84,6 +85,9 @@ const MetaDetails = () => {
     // (recenza/wording) e' calcolata da casaDigitalRelease.js; mostrata solo
     // per film recenti/imminenti.
     const movieAvailability = useTitleAvailability(type, type === 'movie' ? id : null);
+    // Voto Letterboxd, accanto a quello IMDb. Solo film: Letterboxd non ha le
+    // serie (li' il chip non compare proprio, invece di comparire vuoto).
+    const letterboxd = useLetterboxdRating(type, type === 'movie' ? id : null);
     const movieDigitalReleaseLabel = React.useMemo(() => {
         if (type !== 'movie' || metaDetails.metaItem === null || metaDetails.metaItem.content.type !== 'Ready') {
             return null;
@@ -261,6 +265,8 @@ const MetaDetails = () => {
                                             focusedEpisode={previewVideo}
                                             focusedEpisodeRuntime={previewVideoRuntime}
                                             movieDigitalReleaseLabel={movieDigitalReleaseLabel}
+                                            letterboxdRating={letterboxd.rating}
+                                            letterboxdSlug={letterboxd.slug}
                                             /* Per i FILM la pagina streams e' anche la pagina
                                              * di dettaglio (non c'e' episode list prima), quindi
                                              * manteniamo visibili Trailer/Add to Lib/Mark as

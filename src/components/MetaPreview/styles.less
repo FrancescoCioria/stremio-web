@@ -148,6 +148,51 @@
                     color: var(--color-imdb);
                 }
             }
+
+            /* Casa: voto Letterboxd accanto a quello IMDb. Stesse misure del
+             * chip IMDb: sono due letture della stessa cosa e devono pesare
+             * uguale. Il marchio sono i tre pallini (l'icon-set di Stremio non
+             * ha Letterboxd) — disegnati, non un logo caricato da fuori. */
+            .letterboxd-button-container {
+                flex: 0 1 auto;
+                display: flex;
+                flex-direction: row;
+                align-items: center;
+                border-radius: 0.5rem;
+                border: var(--focus-outline-size) solid transparent;
+                padding: 0rem 0.5rem;
+
+                &:focus {
+                    outline: none;
+                    border: var(--focus-outline-size) solid @color-surface-light5;
+                }
+
+                .label {
+                    flex: 0 1 auto;
+                    margin-right: 0.6rem;
+                    font-size: 1.35rem;
+                    font-weight: 600;
+                    color: var(--primary-foreground-color);
+                }
+
+                .letterboxd-mark {
+                    flex: none;
+                    display: flex;
+                    flex-direction: row;
+                    align-items: center;
+                    gap: 0.25rem;
+
+                    span {
+                        display: block;
+                        width: 0.9rem;
+                        height: 0.9rem;
+                        border-radius: 50%;
+                    }
+                    span:nth-child(1) { background-color: #00e054; }
+                    span:nth-child(2) { background-color: #40bcf4; }
+                    span:nth-child(3) { background-color: #ff8000; }
+                }
+            }
         }
 
         .description-container {
