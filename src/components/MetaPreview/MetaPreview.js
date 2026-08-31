@@ -240,28 +240,6 @@ const MetaPreview = React.forwardRef(({ className, compact, name, logo, backgrou
                                         null
                                 }
                                 {
-                                /* TV Casa: voto Letterboxd accanto a quello
-                                 * IMDb — due pubblici diversi, e sull'animazione
-                                 * danno ordini quasi opposti. Solo FILM:
-                                 * Letterboxd non ha le serie, li' `letterboxdRating`
-                                 * e' null e il chip non compare (non un buco: un
-                                 * dato che non esiste). Il marchio sono i tre
-                                 * pallini, che l'icon-set di Stremio non ha. */
-                                    typeof letterboxdRating === 'number' ?
-                                        <Button
-                                            className={styles['letterboxd-button-container']}
-                                            title={`Letterboxd ${letterboxdRating.toFixed(1)}/10`}
-                                            href={typeof letterboxdSlug === 'string' && letterboxdSlug.length > 0 ? `https://letterboxd.com/film/${letterboxdSlug}/` : null}
-                                            target={'_blank'}
-                                            tabIndex={-1}
-                                        >
-                                            <div className={styles['label']}>{letterboxdRating.toFixed(1)}</div>
-                                            <LetterboxdMark className={styles['letterboxd-mark']} />
-                                        </Button>
-                                        :
-                                        null
-                                }
-                                {
                                 /* TV: rating IMDb resta visibile come info,
                                  * ma non entra nella spatial nav (tabIndex=-1).
                                  * ⚠️ Il NUMERO viene dal dataset ufficiale
@@ -295,6 +273,28 @@ const MetaPreview = React.forwardRef(({ className, compact, name, logo, backgrou
                                             <span className={styles['label']}>{rtScore}%</span>
                                             <span className={styles['rt-badge']}>RT</span>
                                         </div>
+                                        :
+                                        null
+                                }
+                                {
+                                /* TV Casa: voto Letterboxd accanto a quello
+                                 * IMDb — due pubblici diversi, e sull'animazione
+                                 * danno ordini quasi opposti. Solo FILM:
+                                 * Letterboxd non ha le serie, li' `letterboxdRating`
+                                 * e' null e il chip non compare (non un buco: un
+                                 * dato che non esiste). Il marchio sono i tre
+                                 * pallini, che l'icon-set di Stremio non ha. */
+                                    typeof letterboxdRating === 'number' ?
+                                        <Button
+                                            className={styles['letterboxd-button-container']}
+                                            title={`Letterboxd ${letterboxdRating.toFixed(1)}/10`}
+                                            href={typeof letterboxdSlug === 'string' && letterboxdSlug.length > 0 ? `https://letterboxd.com/film/${letterboxdSlug}/` : null}
+                                            target={'_blank'}
+                                            tabIndex={-1}
+                                        >
+                                            <div className={styles['label']}>{letterboxdRating.toFixed(1)}</div>
+                                            <LetterboxdMark className={styles['letterboxd-mark']} />
+                                        </Button>
                                         :
                                         null
                                 }

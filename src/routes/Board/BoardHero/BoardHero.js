@@ -170,11 +170,6 @@ const BoardHero = ({ meta: rawMeta }) => {
                         <span className={styles['sub-item']}>{meta.runtime}</span> : null}
                     {typeof releaseText === 'string' && releaseText.length > 0 ?
                         <span className={styles['sub-item']}>{releaseText}</span> : null}
-                    {lbRating ?
-                        <span className={classnames(styles['sub-item'], styles['rating'])}>
-                            {lbRating}
-                            <LetterboxdMark className={styles['letterboxd-mark']} />
-                        </span> : null}
                     {rating ?
                         <span className={classnames(styles['sub-item'], styles['rating'])}>
                             {rating}
@@ -191,6 +186,11 @@ const BoardHero = ({ meta: rawMeta }) => {
                         <span className={classnames(styles['sub-item'], styles['rating'])}>
                             {ratings.rt}%
                             <span className={styles['rt-badge']}>RT</span>
+                        </span> : null}
+                    {lbRating ?
+                        <span className={classnames(styles['sub-item'], styles['rating'])}>
+                            {lbRating}
+                            <LetterboxdMark className={styles['letterboxd-mark']} />
                         </span> : null}
                     {genresText ?
                         <span className={classnames(styles['sub-item'], styles['genres'])}>{genresText}</span> : null}
