@@ -9,6 +9,7 @@ const { default: Icon } = require('@stremio/stremio-icons/react');
 const { default: Button } = require('stremio/components/Button');
 const { default: Image } = require('stremio/components/Image');
 const { default: ActionsGroup } = require('stremio/components/ActionsGroup');
+const LetterboxdMark = require('stremio/common/LetterboxdMark');
 const ModalDialog = require('stremio/components/ModalDialog');
 const SharePrompt = require('stremio/components/SharePrompt');
 const CONSTANTS = require('stremio/common/CONSTANTS');
@@ -27,7 +28,7 @@ const ALLOWED_LINK_REDIRECTS = [
     routesRegexp.metadetails.regexp
 ];
 
-const MetaPreview = React.forwardRef(({ className, compact, name, logo, background, runtime, releaseInfo, released, description, deepLinks, links, trailerStreams, inLibrary, toggleInLibrary, watched, toggleWatched, ratingInfo, focusedEpisode, focusedEpisodeRuntime, movieDigitalReleaseLabel, typeLabel, letterboxdRating, letterboxdSlug, imdbRating, rtScore, metacriticScore, hideActions, showWatchedToggle, showNotificationsToggle, notificationsEnabled, toggleNotifications }, ref) => {
+const MetaPreview = React.forwardRef(({ className, compact, name, logo, background, runtime, releaseInfo, released, description, deepLinks, links, trailerStreams, inLibrary, toggleInLibrary, watched, toggleWatched, ratingInfo, focusedEpisode, focusedEpisodeRuntime, movieDigitalReleaseLabel, typeLabel, letterboxdRating, letterboxdSlug, imdbRating, rtScore, hideActions, showWatchedToggle, showNotificationsToggle, notificationsEnabled, toggleNotifications }, ref) => {
     const { t } = useTranslation();
     const [shareModalOpen, openShareModal, closeShareModal] = useBinaryState(false);
     const linksGroups = React.useMemo(() => {
@@ -202,7 +203,7 @@ const MetaPreview = React.forwardRef(({ className, compact, name, logo, backgrou
                             }
                         </div>
                         :
-                        (typeof releaseInfo === 'string' && releaseInfo.length > 0) || (released instanceof Date && !isNaN(released.getTime())) || (typeof runtime === 'string' && runtime.length > 0) || (typeof movieDigitalReleaseLabel === 'string' && movieDigitalReleaseLabel.length > 0) || typeof letterboxdRating === 'number' || (typeof typeLabel === 'string' && typeLabel.length > 0) || imdbLabel !== null || typeof metacriticScore === 'number' || typeof rtScore === 'number' ?
+                        (typeof releaseInfo === 'string' && releaseInfo.length > 0) || (released instanceof Date && !isNaN(released.getTime())) || (typeof runtime === 'string' && runtime.length > 0) || (typeof movieDigitalReleaseLabel === 'string' && movieDigitalReleaseLabel.length > 0) || typeof letterboxdRating === 'number' || (typeof typeLabel === 'string' && typeLabel.length > 0) || imdbLabel !== null || typeof rtScore === 'number' ?
                             <div className={classnames(styles['runtime-release-info-container'], styles['title-info-row'])}>
                                 {
                                 /* Casa: film o serie. Sta per PRIMO e in
@@ -255,9 +256,7 @@ const MetaPreview = React.forwardRef(({ className, compact, name, logo, backgrou
                                             tabIndex={-1}
                                         >
                                             <div className={styles['label']}>{letterboxdRating.toFixed(1)}</div>
-                                            <div className={styles['letterboxd-mark']}>
-                                                <span /><span /><span />
-                                            </div>
+                                            <LetterboxdMark className={styles['letterboxd-mark']} />
                                         </Button>
                                         :
                                         null
@@ -286,18 +285,10 @@ const MetaPreview = React.forwardRef(({ className, compact, name, logo, backgrou
                                         :
                                         null
                                 }
-                                {
-                                /* Casa: ci sono di rado (Metacritic ~33% dei
-                                 * titoli, Rotten Tomatoes ~6%) e per lo stesso
-                                 * motivo non ordinano niente. */
-                                    typeof metacriticScore === 'number' ?
-                                        <div className={styles['score-chip']}>
-                                            <span className={styles['label']}>{metacriticScore}</span>
-                                            <span className={styles['metacritic-badge']}>MC</span>
-                                        </div>
-                                        :
-                                        null
-                                }
+                                {/* Casa: Metacritic RIMOSSO il 2026-08-31 (c'era
+                                  * su ~1 titolo su 3: la riga cambiava forma da
+                                  * un titolo all'altro e confondeva). Rotten
+                                  * Tomatoes resta, ~6%. */}
                                 {
                                     typeof rtScore === 'number' ?
                                         <div className={styles['score-chip']}>
@@ -446,7 +437,6 @@ MetaPreview.propTypes = {
     typeLabel: PropTypes.string,
     imdbRating: PropTypes.number,
     rtScore: PropTypes.number,
-    metacriticScore: PropTypes.number,
     letterboxdRating: PropTypes.number,
     letterboxdSlug: PropTypes.string,
     hideActions: PropTypes.bool,

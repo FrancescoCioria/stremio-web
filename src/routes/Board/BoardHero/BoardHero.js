@@ -8,6 +8,7 @@ const React = require('react');
 const PropTypes = require('prop-types');
 const classnames = require('classnames');
 const { Image } = require('stremio/components');
+const LetterboxdMark = require('stremio/common/LetterboxdMark');
 const useLetterboxdRating = require('stremio/common/useLetterboxdRating');
 const useTitleAvailability = require('stremio/common/useTitleAvailability');
 const { warmMeta, getCached: getCachedMeta, baseIdOf } = require('stremio/common/casaMetaCache');
@@ -172,23 +173,20 @@ const BoardHero = ({ meta: rawMeta }) => {
                     {lbRating ?
                         <span className={classnames(styles['sub-item'], styles['rating'])}>
                             {lbRating}
-                            <span className={styles['letterboxd-mark']}>
-                                <span /><span /><span />
-                            </span>
+                            <LetterboxdMark className={styles['letterboxd-mark']} />
                         </span> : null}
                     {rating ?
                         <span className={classnames(styles['sub-item'], styles['rating'])}>
                             {rating}
                             <span className={styles['imdb-badge']}>IMDb</span>
                         </span> : null}
-                    {/* ⚠️ Ci sono di rado (Metacritic ~33% dei titoli, Rotten
-                        Tomatoes ~6%): compaiono quando ci sono e spariscono
-                        senza lasciare buchi, e NON ordinano niente. */}
-                    {typeof ratings.metacritic === 'number' ?
-                        <span className={classnames(styles['sub-item'], styles['rating'])}>
-                            {ratings.metacritic}
-                            <span className={styles['metacritic-badge']}>MC</span>
-                        </span> : null}
+                    {/* ⚠️ Metacritic RIMOSSO il 2026-08-31 su richiesta: c'era
+                        su ~1 titolo su 3, quindi la riga cambiava forma da un
+                        poster all'altro e il badge in piu' confondeva invece di
+                        informare. Rotten Tomatoes resta (~6%), ma se anche lui
+                        da' la stessa impressione va tolto con lo stesso criterio.
+                        Il dato continua ad arrivare dal backend: e' solo non
+                        mostrato. */}
                     {typeof ratings.rt === 'number' ?
                         <span className={classnames(styles['sub-item'], styles['rating'])}>
                             {ratings.rt}%

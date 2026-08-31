@@ -169,7 +169,7 @@
                     color: var(--primary-foreground-color);
                 }
 
-                .metacritic-badge, .rt-badge {
+                .rt-badge {
                     flex: none;
                     font-size: 0.95rem;
                     font-weight: 800;
@@ -178,7 +178,6 @@
                     letter-spacing: 0.04em;
                     color: #fff;
                 }
-                .metacritic-badge { background-color: #00ce7a; color: #003b23; }
                 .rt-badge { background-color: #fa320a; }
             }
 
@@ -244,25 +243,13 @@
                 }
 
                 .letterboxd-mark {
+                    /* SVG ufficiale (common/LetterboxdMark.js). Alto quanto
+                     * il testo del voto accanto: a meno si legge come
+                     * decorazione, e da divano non si riconosce piu'. */
                     flex: none;
-                    display: flex;
-                    flex-direction: row;
-                    align-items: center;
-                    gap: 0.25rem;
-
-                    // I pallini SONO il logo: a 0,9rem erano 12px contro i 42
-                    // dell'icona IMDb accanto, cioe' decorazione invisibile a
-                    // distanza di divano. Alla stessa altezza del testo si
-                    // leggono come marchio.
-                    span {
-                        display: block;
-                        width: 1.15rem;
-                        height: 1.15rem;
-                        border-radius: 50%;
-                    }
-                    span:nth-child(1) { background-color: #00e054; }
-                    span:nth-child(2) { background-color: #40bcf4; }
-                    span:nth-child(3) { background-color: #ff8000; }
+                    display: block;
+                    height: 1.3rem;
+                    width: auto;
                 }
             }
         }

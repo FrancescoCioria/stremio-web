@@ -276,7 +276,6 @@ const MetaDetails = () => {
                                             letterboxdSlug={letterboxd.slug}
                                             imdbRating={letterboxd.imdb}
                                             rtScore={letterboxd.rt}
-                                            metacriticScore={letterboxd.metacritic}
                                             /* Per i FILM la pagina streams e' anche la pagina
                                              * di dettaglio (non c'e' episode list prima), quindi
                                              * manteniamo visibili Trailer/Add to Lib/Mark as

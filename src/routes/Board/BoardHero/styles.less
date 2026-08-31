@@ -6,7 +6,7 @@
     flex: none;
     /* 28->30rem: l'hero era quasi pieno e la riga Regista/Cast finiva
      * incollata alla prima riga di contenuto -> ~2rem di respiro sotto. */
-    height: 34rem;
+    height: 31rem;
     width: 100%;
     /* Overflow visibile: il BG estende oltre la container e sfuma sopra
      * la prima lista via mask-image radial. */
@@ -74,8 +74,8 @@
          * width/height esplicito, facendo shifare verso l'alto la
          * subline/description. Lo slot fisso 10rem evita lo shift. */
         .hero-logo-slot {
-            width: 32rem;
-            height: 11rem;
+            width: 30rem;
+            height: 10.5rem;
             display: flex;
             align-items: flex-end;
             flex: none;
@@ -91,7 +91,7 @@
 
         .hero-title {
             width: 100%;
-            font-size: 5rem;
+            font-size: 4.5rem;
             font-weight: 800;
             color: var(--primary-foreground-color);
             line-height: 1.05;
@@ -101,14 +101,26 @@
 
         .hero-subline {
             display: flex;
-            flex-wrap: wrap;
+            /* ⚠️ `nowrap`, non `wrap`: a capo questa riga costava una riga
+             * VERTICALE all'hero (e quindi al contenuto sotto) a seconda di
+             * quanto erano lunghi i generi del titolo a fuoco — il layout si
+             * muoveva da un poster all'altro. Ora la riga e' sempre una:
+             * quando non ci sta, a cedere sono SOLO i generi (vedi .genres). */
+            flex-wrap: nowrap;
             align-items: center;
             gap: 1.4rem;
+            overflow: hidden;
             color: var(--primary-foreground-color);
             opacity: 0.94;
 
             .sub-item {
-                font-size: 1.9rem;
+                /* ⚠️ `flex: none` su TUTTE le voci corte. Senza, il flexbox
+                 * restringe ogni figlio in proporzione e "2026" o il voto
+                 * diventano "2…" e "." — e' successo davvero nella riga info
+                 * del dettaglio (vedi MetaPreview/styles.less). A restringersi
+                 * dev'essere una sola cosa, ed e' la piu' sacrificabile. */
+                flex: none;
+                font-size: 1.65rem;
                 font-weight: 600;
             }
 
@@ -116,7 +128,7 @@
              * non un dato da rileggere ogni volta. */
             .type-label {
                 font-weight: 700;
-                font-size: 1.45rem;
+                font-size: 1.3rem;
                 letter-spacing: 0.08em;
                 text-transform: uppercase;
                 opacity: 0.72;
@@ -127,41 +139,31 @@
                 align-items: center;
                 gap: 0.55rem;
 
-                /* Casa: il marchio Letterboxd (tre pallini) accanto al voto,
-                 * come il badge IMDb qui sotto. Disegnato, non un logo caricato
-                 * da fuori: l'icon-set di Stremio non ha Letterboxd. */
+                /* Casa: il marchio Letterboxd accanto al voto, come il
+                 * badge IMDb qui sotto. E' l'SVG UFFICIALE (vedi
+                 * common/LetterboxdMark.js): qui si decide solo quanto e'
+                 * alto, la larghezza la porta il viewBox. */
                 .letterboxd-mark {
-                    display: inline-flex;
-                    flex-direction: row;
-                    align-items: center;
-                    gap: 0.2rem;
-
-                    span {
-                        display: block;
-                        width: 1.1rem;
-                        height: 1.1rem;
-                        border-radius: 50%;
-                    }
-                    span:nth-child(1) { background-color: #00e054; }
-                    span:nth-child(2) { background-color: #40bcf4; }
-                    span:nth-child(3) { background-color: #ff8000; }
+                    display: block;
+                    flex: none;
+                    height: 1.05rem;
+                    width: auto;
                 }
 
                 /* Casa: Metacritic (verde del loro marchio) e Rotten Tomatoes
                  * (rosso pomodoro). Stessa forma del badge IMDb. */
-                .metacritic-badge, .rt-badge {
-                    font-size: 1.25rem;
+                .rt-badge {
+                    font-size: 1.15rem;
                     font-weight: 800;
                     padding: 0.2rem 0.55rem;
                     border-radius: 0.3rem;
                     letter-spacing: 0.04em;
                     color: #fff;
                 }
-                .metacritic-badge { background-color: #00ce7a; color: #003b23; }
                 .rt-badge { background-color: #fa320a; }
 
                 .imdb-badge {
-                    font-size: 1.25rem;
+                    font-size: 1.15rem;
                     font-weight: 800;
                     padding: 0.2rem 0.55rem;
                     background-color: #f5c518;
@@ -171,13 +173,22 @@
                 }
             }
 
+            /* L'unico elemento che cede spazio: se la riga non ci sta, i
+             * generi si accorciano con l'ellissi invece di mandare a capo
+             * tutto. `min-width: 0` perche' un flex item non scende sotto la
+             * larghezza del proprio contenuto senza. */
             .genres {
+                flex: 0 1 auto;
+                min-width: 0;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
                 opacity: 0.85;
             }
         }
 
         .hero-description {
-            font-size: 1.9rem;
+            font-size: 1.6rem;
             line-height: 1.5;
             color: var(--primary-foreground-color);
             opacity: 0.92;
@@ -191,7 +202,7 @@
         }
 
         .hero-cast {
-            font-size: 1.5rem;
+            font-size: 1.35rem;
             color: var(--primary-foreground-color);
             opacity: 0.64;
             white-space: nowrap;
