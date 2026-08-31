@@ -95,6 +95,19 @@
             display: none;
         }
 
+        /* Vuoto di coda: lo spazio dove starebbe la card DOPO l'ultima, cosi'
+         * arrivando in fondo alla riga il ritmo non cambia (vedi
+         * revealCardInRail in Board.js, che imposta --casa-rail-trail con la
+         * larghezza vera della card di QUESTA riga).
+         * ⚠️ Uno pseudo-elemento e non `padding-right`: in un flex container
+         * che scrolla il padding di coda e' storicamente ignorato da
+         * `scrollWidth`, mentre un flex item c'e' sempre. */
+        &::after {
+            content: '';
+            flex: none;
+            width: var(--casa-rail-trail, 15rem);
+        }
+
         .meta-item {
             flex: none;
 

@@ -31,26 +31,54 @@ const isFeaturedCatalog = (catalog) => {
 // sempre. Il re-center continuo (scrollTo del centro a ogni freccia) faceva
 // "balzare" l'intera riga avanti/indietro: passando 1a->2a card il rail
 // scrollava di ~15px per centrare, e tornando indietro ri-scrollava a 0.
-// Qui: prima card -> scrollLeft 0; ultima -> fondo; in mezzo scrolla SOLO
-// se la card sta entrando/uscendo da un bordo (margine RAIL_REVEAL_PAD).
-// Card gia' visibile = nessuno scroll = nessun balzo.
+//
+// ⚠️ Il bersaglio non e' la card a fuoco ma quella SUCCESSIVA nella direzione
+// di marcia: cosi' resta sempre almeno una card INTERA visibile oltre quella
+// selezionata, e si vede dove si sta andando invece di scoprirlo dopo aver
+// premuto. Scorrendo solo quando la card a fuoco tocca il bordo, l'utente
+// naviga guardando un muro.
+//
+// ⚠️ Sull'ULTIMA card la card successiva non esiste: al suo posto si mostra
+// lo SPAZIO VUOTO dove starebbe (il `::after` del rail, vedi MetaRow
+// styles.less), cosi' il ritmo visivo e' identico e la fine della riga non
+// e' una sbattuta contro il bordo destro. Senza quello spazio nel DOM non
+// ci sarebbe niente da scrollare: `scrollWidth` finisce con l'ultima card.
 const RAIL_REVEAL_PAD = 32;
-const revealCardInRail = (rowScroll, card) => {
+
+// Larghezza del vuoto di coda = una card + il gap. Si ricava dalla card
+// vera invece di scriverla in CSS perche' le righe hanno forme diverse
+// (poster 14rem, landscape 24rem) e il contenitore non puo' selezionare per
+// la forma dei propri figli.
+const ensureRailTrail = (rowScroll, card) => {
+    const gap = parseFloat(getComputedStyle(rowScroll).columnGap) || 0;
+    const trail = Math.round(card.getBoundingClientRect().width + gap);
+    if (!trail) return 0;
+    if (rowScroll.dataset.casaTrail !== String(trail)) {
+        rowScroll.style.setProperty('--casa-rail-trail', `${trail}px`);
+        rowScroll.dataset.casaTrail = String(trail);
+    }
+    return trail;
+};
+
+// `dir`: +1 freccia destra, -1 freccia sinistra, 0 ingresso dall'alto/basso
+// (li' vale solo "rendi visibile", senza anticipo in una direzione sola).
+const revealCardInRail = (rowScroll, card, dir = 0) => {
     if (!rowScroll || !card) return;
+    const trail = ensureRailTrail(rowScroll, card);
     if (!card.previousElementSibling) {
         rowScroll.scrollTo({ left: 0, behavior: 'smooth' });
         return;
     }
-    if (!card.nextElementSibling) {
-        rowScroll.scrollTo({ left: rowScroll.scrollWidth, behavior: 'smooth' });
-        return;
-    }
     const railRect = rowScroll.getBoundingClientRect();
     const cardRect = card.getBoundingClientRect();
-    if (cardRect.left < railRect.left + RAIL_REVEAL_PAD) {
-        rowScroll.scrollBy({ left: cardRect.left - railRect.left - RAIL_REVEAL_PAD, behavior: 'smooth' });
-    } else if (cardRect.right > railRect.right - RAIL_REVEAL_PAD) {
-        rowScroll.scrollBy({ left: cardRect.right - railRect.right + RAIL_REVEAL_PAD, behavior: 'smooth' });
+    const next = card.nextElementSibling;
+    const prev = card.previousElementSibling;
+    const rightTarget = next ? next.getBoundingClientRect().right : cardRect.right + trail;
+    const leftTarget = prev ? prev.getBoundingClientRect().left : cardRect.left - trail;
+    if (dir >= 0 && rightTarget > railRect.right - RAIL_REVEAL_PAD) {
+        rowScroll.scrollBy({ left: rightTarget - railRect.right + RAIL_REVEAL_PAD, behavior: 'smooth' });
+    } else if (dir <= 0 && leftTarget < railRect.left + RAIL_REVEAL_PAD) {
+        rowScroll.scrollBy({ left: leftTarget - railRect.left - RAIL_REVEAL_PAD, behavior: 'smooth' });
     }
 };
 
@@ -221,7 +249,7 @@ const Board = () => {
         lastCardByRowRef.current.set(currentRow, targetCard);
         // Scroll SOLO orizzontale, reveal-if-needed (no re-center continuo
         // che faceva balzare la riga avanti/indietro a ogni freccia).
-        revealCardInRail(currentRow.querySelector('[class*="meta-items-container"]'), targetCard);
+        revealCardInRail(currentRow.querySelector('[class*="meta-items-container"]'), targetCard, e.key === 'ArrowRight' ? 1 : -1);
     }, []);
 
     // TV: default focus sulla prima card, ma solo DOPO che l'array catalogs
