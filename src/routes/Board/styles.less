@@ -32,7 +32,18 @@
                 flex: 1;
                 min-height: 0;
                 width: 100%;
-                padding: 0;
+                /* ⚠️ padding-bottom: la nav verticale fa
+                 * `scrollIntoView({block:'start'})`, che allinea la riga al
+                 * TOP dello scroller — ma sull'ULTIMA riga non c'e' contenuto
+                 * sotto, quindi lo scroll finisce prima e la riga resta a
+                 * meta' schermo ("non sale abbastanza"). Misurato prima del
+                 * fix: scroller alto 727px, ultima riga ferma 166px sotto il
+                 * suo bordo superiore con scrollTop gia' al massimo.
+                 * 16rem = piu' della differenza fra l'altezza dello scroller
+                 * e quella di una riga (727-521=206px=12,9rem), cosi' QUALSIASI
+                 * riga puo' salire in cima. Il vuoto in fondo si vede solo con
+                 * l'ultima riga a fuoco, ed e' il comportamento delle UI TV. */
+                padding: 0 0 16rem 0;
                 overflow-y: auto;
                 /* z-index sopra l'eventuale bleed del hero BG che sfora
                  * sotto la hero-container: la lista resta leggibile. */
