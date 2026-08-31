@@ -6,7 +6,7 @@
     flex: none;
     /* 28->30rem: l'hero era quasi pieno e la riga Regista/Cast finiva
      * incollata alla prima riga di contenuto -> ~2rem di respiro sotto. */
-    height: 30rem;
+    height: 34rem;
     width: 100%;
     /* Overflow visibile: il BG estende oltre la container e sfuma sopra
      * la prima lista via mask-image radial. */
@@ -74,8 +74,8 @@
          * width/height esplicito, facendo shifare verso l'alto la
          * subline/description. Lo slot fisso 10rem evita lo shift. */
         .hero-logo-slot {
-            width: 28rem;
-            height: 10rem;
+            width: 32rem;
+            height: 11rem;
             display: flex;
             align-items: flex-end;
             flex: none;
@@ -91,7 +91,7 @@
 
         .hero-title {
             width: 100%;
-            font-size: 4rem;
+            font-size: 5rem;
             font-weight: 800;
             color: var(--primary-foreground-color);
             line-height: 1.05;
@@ -108,7 +108,7 @@
             opacity: 0.94;
 
             .sub-item {
-                font-size: 1.35rem;
+                font-size: 1.9rem;
                 font-weight: 600;
             }
 
@@ -116,7 +116,7 @@
              * non un dato da rileggere ogni volta. */
             .type-label {
                 font-weight: 700;
-                font-size: 1.1rem;
+                font-size: 1.45rem;
                 letter-spacing: 0.08em;
                 text-transform: uppercase;
                 opacity: 0.72;
@@ -138,8 +138,8 @@
 
                     span {
                         display: block;
-                        width: 0.85rem;
-                        height: 0.85rem;
+                        width: 1.1rem;
+                        height: 1.1rem;
                         border-radius: 50%;
                     }
                     span:nth-child(1) { background-color: #00e054; }
@@ -150,7 +150,7 @@
                 /* Casa: Metacritic (verde del loro marchio) e Rotten Tomatoes
                  * (rosso pomodoro). Stessa forma del badge IMDb. */
                 .metacritic-badge, .rt-badge {
-                    font-size: 0.95rem;
+                    font-size: 1.25rem;
                     font-weight: 800;
                     padding: 0.2rem 0.55rem;
                     border-radius: 0.3rem;
@@ -161,7 +161,7 @@
                 .rt-badge { background-color: #fa320a; }
 
                 .imdb-badge {
-                    font-size: 0.95rem;
+                    font-size: 1.25rem;
                     font-weight: 800;
                     padding: 0.2rem 0.55rem;
                     background-color: #f5c518;
@@ -177,7 +177,7 @@
         }
 
         .hero-description {
-            font-size: 1.25rem;
+            font-size: 1.9rem;
             line-height: 1.5;
             color: var(--primary-foreground-color);
             opacity: 0.92;
@@ -191,7 +191,7 @@
         }
 
         .hero-cast {
-            font-size: 1.1rem;
+            font-size: 1.5rem;
             color: var(--primary-foreground-color);
             opacity: 0.64;
             white-space: nowrap;
@@ -200,6 +200,16 @@
             /* Piu' respiro tra la riga Regista/Cast e la prima riga di
              * contenuto sotto (l'hero e' quasi pieno -> stava incollata). */
             margin-top: 0.5rem;
+
+            /* ⚠️ `* { font-size: 1rem }` (App/styles.less) colpisce ANCHE
+             * questo wrapper: senza una regola esplicita il nome del regista
+             * e del cast restano a 1rem e la riga NON segue la font-size di
+             * .hero-cast. Era cosi' da sempre — non si vedeva perche' 1.1rem
+             * e 1rem differiscono di 2px; alzando .hero-cast a 1.5rem la riga
+             * sarebbe rimasta indietro in silenzio. */
+            .hero-credit {
+                font-size: inherit;
+            }
 
             /* Regista + Cast su UNA riga (prima erano due div impilati che
              * spingevano giu' il contenuto sotto). Separati da un pallino. */
