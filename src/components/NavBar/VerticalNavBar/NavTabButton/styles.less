@@ -30,6 +30,9 @@
     /* TV: focus-visible (frecce) — match lo stile hover (bg + label
      * visibile) invece del solo ring outline. Cosi' l'utente vede
      * subito su quale tab e'. */
+    /* `:focus` oltre a `:focus-visible`: vedi Video/styles.less — su WebKit
+     * il focus da script non matcha `:focus-visible` e resta il bordo bianco. */
+    &:focus,
     &:focus-visible {
         outline: none;
         background-color: var(--overlay-color);

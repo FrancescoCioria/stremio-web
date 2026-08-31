@@ -44,6 +44,19 @@
      * dietro la THUMBNAIL (via selettore discendente qui sotto), non
      * attorno a tutto il box: il titolo/data sono testo e l'alone li
      * sfocava. Niente outline "quadratino bianco". */
+    /* ⚠️ `:focus` E `:focus-visible`, non solo il secondo. La nav da
+     * telecomando/tastiera sposta il focus da SCRIPT (`el.focus()`), e su
+     * WebKit (Safari = la web app installata sul Mac) `:focus-visible` NON
+     * matcha in quel caso: la card non si ingrandiva e al suo posto compariva
+     * il bordo bianco di `.button-container:focus { outline-style: solid }`
+     * (Button.less), che e' la regola base e scatta su QUALSIASI focus.
+     * ⚠️ Aggiungere `:focus` non puo' peggiorare nulla: quel bordo bianco lo
+     * si prende gia' oggi anche col semplice click del mouse, quindi qui si
+     * sostituisce un anello brutto con lo stile giusto — non se ne aggiunge
+     * uno dove non c'era. `:focus` e' un SOVRAINSIEME di `:focus-visible`:
+     * dove il secondo gia' funzionava (Firefox della TV, Chromium) non cambia
+     * niente. Stesso fix di MetaItem (2026-08-30). */
+    &:focus,
     &:focus-visible {
         outline: none;
         /* Scale piu' pronunciato (stesso del MetaItem della Home, 1.16). */

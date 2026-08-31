@@ -30,6 +30,9 @@
         background-color: var(--overlay-color);
     }
 
+    /* `:focus` oltre a `:focus-visible`: vedi Video/styles.less — su WebKit
+     * il focus da script non matcha `:focus-visible` e resta il bordo bianco. */
+    &:focus,
     &:focus-visible {
         outline: 0.2rem solid var(--primary-foreground-color);
         outline-offset: 0.1rem;
