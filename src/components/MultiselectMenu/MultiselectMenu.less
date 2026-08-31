@@ -1,7 +1,8 @@
 // Copyright (C) 2017-2024 Smart code 203358507
 
 @border-radius: 2.75rem;
-@height: 3.6rem;
+@height: 3rem;
+@height-tv: 3.25rem;
 
 .multiselect-menu {
     position: relative;
@@ -16,6 +17,11 @@
 
     .multiselect-button {
         height: @height;
+
+        /* TV 55" a ~2 m: vedi `html.casa-tv` in src/index.js. */
+        :global(html.casa-tv) & {
+            height: @height-tv;
+        }
         padding: 0.75rem 1.5rem;
         display: flex;
         flex: 1;
@@ -25,16 +31,24 @@
         border-radius: @border-radius;
 
         .label {
-            /* Casa: 1rem implicito (dal selettore universale) = 7,1 arcmin sulla TV */
-            font-size: 1.3rem;
             white-space: nowrap;
+
+            /* Casa: senza questa riga il testo prende `* { font-size: 1rem }`
+             * = 16px, che sulla TV da 2 m sono ~10 arcmin. */
+            :global(html.casa-tv) & {
+                font-size: 1.15rem;
+            }
             overflow: hidden;
             text-overflow: ellipsis;
             color: var(--primary-foreground-color);
         }
 
         .icon {
-            width: 1.3rem;
+            width: 1rem;
+
+            :global(html.casa-tv) & {
+                width: 1.15rem;
+            }
             color: var(--primary-foreground-color);
             opacity: 0.6;
 

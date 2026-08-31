@@ -5,8 +5,11 @@
     height: 2rem;
 
     .label {
-        font-size: 1.3rem;
         color: var(--primary-accent-color);
+
+        :global(html.casa-tv) & {
+            font-size: 1.15rem;
+        }
     }
 
     &:hover {

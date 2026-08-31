@@ -25,7 +25,13 @@
         .title-container {
             flex: 1;
             max-height: 2.4em;
-            font-size: 2.6rem;
+            font-size: 2.1rem;
+
+            /* TV 55" a ~2 m: vedi `html.casa-tv` in src/index.js. Sul Mac
+             * (~60 cm) resta il valore di prima. */
+            :global(html.casa-tv) & {
+                font-size: 2.35rem;
+            }
             font-weight: 700;
             letter-spacing: -0.01em;
             color: var(--primary-foreground-color);
@@ -68,7 +74,11 @@
     .message-container {
         max-height: 3.6em;
         padding: 0 0.5rem;
-        font-size: 1.6rem;
+        font-size: 1.3rem;
+
+        :global(html.casa-tv) & {
+            font-size: 1.45rem;
+        }
         color: var(--primary-foreground-color);
         opacity: 0.6;
     }

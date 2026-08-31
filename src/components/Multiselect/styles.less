@@ -13,9 +13,15 @@
     display: flex;
     flex-direction: row;
     align-items: center;
-    height: 3.4rem;
+    height: 2.75rem;
     padding: 0 1.5rem;
-    border-radius: 3.4rem;
+    border-radius: 2.75rem;
+
+    /* TV 55" a ~2 m: vedi `html.casa-tv` in src/index.js. */
+    :global(html.casa-tv) & {
+        height: 3.05rem;
+        border-radius: 3.05rem;
+    }
     background-color: var(--overlay-color);
 
     &:global(.active) {
@@ -27,8 +33,11 @@
     >.label {
         flex: 1;
         max-height: 2.4em;
-        font-size: 1.3rem;
         font-weight: 500;
+
+        :global(html.casa-tv) & {
+            font-size: 1.15rem;
+        }
         color: var(--primary-foreground-color);
         overflow: hidden;
         text-overflow: ellipsis;
@@ -37,9 +46,14 @@
 
     .icon {
         flex: none;
-        width: 1.3rem;
-        height: 1.3rem;
+        width: 1rem;
+        height: 1rem;
         margin-left: 1rem;
+
+        :global(html.casa-tv) & {
+            width: 1.15rem;
+            height: 1.15rem;
+        }
         color: var(--primary-foreground-color);
         opacity: 0.4;
     }
@@ -72,8 +86,11 @@
             .label {
                 flex: 1;
                 max-height: 4.8em;
-                font-size: 1.3rem;
                 color: var(--primary-foreground-color);
+
+                :global(html.casa-tv) & {
+                    font-size: 1.15rem;
+                }
             }
 
             .icon {

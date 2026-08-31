@@ -1,12 +1,19 @@
 // Copyright (C) 2017-2024 Smart code 203358507
 
-@height: 3.6rem;
+@height: 3rem;
+@height-tv: 3.25rem;
 
 .option {
     height: @height;
-    /* Casa: `--font-size-normal` NON e' definita da nessuna parte nel repo
-     * -> dichiarazione invalida -> il testo restava al fallback di 1rem. */
-    font-size: 1.3rem;
+    /* ⚠️ `--font-size-normal` (upstream) NON e' definita da nessuna parte nel
+     * repo: dichiarazione invalida, il testo resta al fallback di 1rem. */
+    font-size: 1rem;
+
+    /* TV 55" a ~2 m: vedi `html.casa-tv` in src/index.js. */
+    :global(html.casa-tv) & {
+        height: @height-tv;
+        font-size: 1.15rem;
+    }
     color: var(--primary-foreground-color);
     align-items: center;
     display: flex;

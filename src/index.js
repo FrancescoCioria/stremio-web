@@ -31,6 +31,26 @@ installCasaErrorLog();
 // telecomando e tasto destro percorrono lo STESSO codice. Vedi casaRemoteInput.js.
 installCasaRemoteInput();
 
+// Casa: `html.casa-tv` = questa pagina e' la tile sulla TV, non l'app sul Mac.
+//
+// Lo STESSO bundle serve due schermi con distanze di lettura opposte: il
+// televisore da 55" a ~2 m (dove il testo del design desktop di Stremio e'
+// al limite del leggibile) e la web app sul Mac a ~60 cm (dove va gia' bene).
+// Le dimensioni maggiorate stanno tutte dietro questa classe: senza, ogni
+// ritocco per il divano rimpicciolisce... anzi INGRANDISCE a sproposito il
+// Mac, ed e' successo davvero (2026-08-31).
+//
+// ⚠️ Il discriminante e' l'HOSTNAME, non la larghezza della finestra: il
+// kiosk apre `localhost:8080`, il Mac `stremio.casa:8080`, un portatile via
+// Tailscale `beelink-cachyos:8080`. Una media query su `min-width` sarebbe
+// un indovinello (un monitor 5K da scrivania ha piu' CSS px della TV, che
+// per lo zoom del kiosk sta a ~2260) e sbaglierebbe in silenzio.
+// ⚠️ Impostata PRIMA del render di React: una classe aggiunta dopo il primo
+// paint si vedrebbe come un salto di dimensioni a schermo.
+if (/^(localhost|127\.0\.0\.1)$/.test(window.location.hostname)) {
+    document.documentElement.classList.add('casa-tv');
+}
+
 const translations = Object.fromEntries(Object.entries(stremioTranslations()).map(([key, value]) => [key, {
     translation: value
 }]));

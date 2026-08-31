@@ -6,7 +6,7 @@
     flex: none;
     /* 28->30rem: l'hero era quasi pieno e la riga Regista/Cast finiva
      * incollata alla prima riga di contenuto -> ~2rem di respiro sotto. */
-    height: 31rem;
+    height: 30rem;
     width: 100%;
     /* Overflow visibile: il BG estende oltre la container e sfuma sopra
      * la prima lista via mask-image radial. */
@@ -74,8 +74,8 @@
          * width/height esplicito, facendo shifare verso l'alto la
          * subline/description. Lo slot fisso 10rem evita lo shift. */
         .hero-logo-slot {
-            width: 30rem;
-            height: 10.5rem;
+            width: 28rem;
+            height: 10rem;
             display: flex;
             align-items: flex-end;
             flex: none;
@@ -91,7 +91,7 @@
 
         .hero-title {
             width: 100%;
-            font-size: 4.5rem;
+            font-size: 4rem;
             font-weight: 800;
             color: var(--primary-foreground-color);
             line-height: 1.05;
@@ -120,7 +120,7 @@
                  * del dettaglio (vedi MetaPreview/styles.less). A restringersi
                  * dev'essere una sola cosa, ed e' la piu' sacrificabile. */
                 flex: none;
-                font-size: 1.65rem;
+                font-size: 1.35rem;
                 font-weight: 600;
             }
 
@@ -128,7 +128,7 @@
              * non un dato da rileggere ogni volta. */
             .type-label {
                 font-weight: 700;
-                font-size: 1.3rem;
+                font-size: 1.1rem;
                 letter-spacing: 0.08em;
                 text-transform: uppercase;
                 opacity: 0.72;
@@ -146,14 +146,14 @@
                 .letterboxd-mark {
                     display: block;
                     flex: none;
-                    height: 1.05rem;
+                    height: 0.9rem;
                     width: auto;
                 }
 
                 /* Casa: Metacritic (verde del loro marchio) e Rotten Tomatoes
                  * (rosso pomodoro). Stessa forma del badge IMDb. */
                 .rt-badge {
-                    font-size: 1.15rem;
+                    font-size: 0.95rem;
                     font-weight: 800;
                     padding: 0.2rem 0.55rem;
                     border-radius: 0.3rem;
@@ -163,7 +163,7 @@
                 .rt-badge { background-color: #fa320a; }
 
                 .imdb-badge {
-                    font-size: 1.15rem;
+                    font-size: 0.95rem;
                     font-weight: 800;
                     padding: 0.2rem 0.55rem;
                     background-color: #f5c518;
@@ -188,7 +188,7 @@
         }
 
         .hero-description {
-            font-size: 1.6rem;
+            font-size: 1.25rem;
             line-height: 1.5;
             color: var(--primary-foreground-color);
             opacity: 0.92;
@@ -202,7 +202,7 @@
         }
 
         .hero-cast {
-            font-size: 1.35rem;
+            font-size: 1.1rem;
             color: var(--primary-foreground-color);
             opacity: 0.64;
             white-space: nowrap;
@@ -254,4 +254,56 @@
 @keyframes hero-fade {
     from { opacity: 0; }
     to { opacity: 0.95; }
+}
+
+/* ---------------------------------------------------------------------------
+ * Dimensioni per la TV da 55" a ~2 m. Lo STESSO bundle serve anche la web app
+ * sul Mac (~60 cm), dove i valori qui sopra erano gia' giusti: senza questo
+ * cancello ogni ritocco per il divano ingrandisce a sproposito il Mac (successo
+ * il 2026-08-31). Il discriminante e' l'hostname, vedi `casa-tv` in src/index.js.
+ * ------------------------------------------------------------------------- */
+:global(html.casa-tv) {
+    .board-hero-container {
+        height: 30.5rem;
+
+        .hero-info {
+            .hero-logo-slot {
+                width: 29rem;
+                height: 10.2rem;
+            }
+
+            .hero-title {
+                font-size: 4.05rem;
+            }
+
+            .hero-subline {
+                .sub-item {
+                    font-size: 1.5rem;
+                }
+
+                .type-label {
+                    font-size: 1.15rem;
+                }
+
+                .rating {
+                    .letterboxd-mark {
+                        height: 0.95rem;
+                    }
+
+                    .rt-badge,
+                    .imdb-badge {
+                        font-size: 1.05rem;
+                    }
+                }
+            }
+
+            .hero-description {
+                font-size: 1.45rem;
+            }
+
+            .hero-cast {
+                font-size: 1.2rem;
+            }
+        }
+    }
 }
