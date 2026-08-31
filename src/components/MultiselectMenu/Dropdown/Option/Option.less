@@ -1,10 +1,12 @@
 // Copyright (C) 2017-2024 Smart code 203358507
 
-@height: 3rem;
+@height: 3.6rem;
 
 .option {
     height: @height;
-    font-size: var(--font-size-normal);
+    /* Casa: `--font-size-normal` NON e' definita da nessuna parte nel repo
+     * -> dichiarazione invalida -> il testo restava al fallback di 1rem. */
+    font-size: 1.3rem;
     color: var(--primary-foreground-color);
     align-items: center;
     display: flex;

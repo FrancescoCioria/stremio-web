@@ -26,7 +26,7 @@ const Update = () => {
     return (
         <Section label={'Casa'}>
             <Option label={'Versione'}>
-                <div style={{ color: 'var(--primary-foreground-color)' }}>
+                <div style={{ color: 'var(--primary-foreground-color)', fontSize: '1.3rem' }}>
                     {casaUpdate.updateStatusText(state, CASA_VERSION + ' · ' + String(process.env.COMMIT_HASH || '').slice(0, 7))}
                 </div>
             </Option>

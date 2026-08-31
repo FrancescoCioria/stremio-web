@@ -10,10 +10,10 @@
     flex-direction: row;
     justify-content: center;
     align-items: center;
-    gap: 0.5rem;
-    height: 2.5rem;
-    padding: 0 1.25rem;
-    border-radius: 1.25rem;
+    gap: 0.6rem;
+    height: 3.2rem;
+    padding: 0 1.5rem;
+    border-radius: 1.6rem;
     background-color: transparent;
     border: 0.1rem solid transparent;
     transition: background-color 0.1s ease-out;
@@ -32,8 +32,8 @@
 
         .icon {
             display: block;
-            height: 1.1rem;
-            width: 1.1rem;
+            height: 1.4rem;
+            width: 1.4rem;
             color: var(--primary-foreground-color);
             opacity: 0.95;
         }
@@ -46,9 +46,15 @@
         flex-direction: row;
         align-items: center;
 
+        /* Casa: 1 -> 1.35rem. Non aveva una font-size sua e la prendeva
+         * `* { font-size: 1rem }`: 16px = 7,1 arcmin sulla TV da 3 m, cioe'
+         * i comandi principali della pagina si leggevano meno del cast.
+         * ⚠️ La regola DEVE stare qui: `.label-container`/`.label` sono classi
+         * di QUESTO modulo CSS, un selettore scritto in MetaPreview/styles.less
+         * compila a un hash diverso e non aggancia niente (provato). */
         .label {
             flex: 1;
-            font-size: 1rem;
+            font-size: 1.35rem;
             font-weight: 500;
             max-height: 1.4em;
             padding: 0 0.15rem;
