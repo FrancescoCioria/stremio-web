@@ -217,6 +217,15 @@ const Board = () => {
         }
 
         // Horizontal: trova la card corrente + salta alla sibling.
+        //
+        // ⚠️ Da qui in poi l'evento va CONSUMATO in ogni uscita, anche quando
+        // non c'e' dove andare (ultima card e freccia destra). Senza, arriva
+        // allo spatial-navigation polyfill (keydown su window, attivo solo se
+        // `!e.defaultPrevented`), che cerca il focusable piu' vicino in quella
+        // direzione: in fondo a una riga significa saltare in un'altra riga o
+        // a inizio lista, con la pagina che scrolla e il focus che sparisce.
+        // Segnalato dal campo: "destra destra veloce e si spacca". Il bordo di
+        // una riga deve essere un muro, non una porta.
         const currentCard = current.closest('[class*="meta-item-container"]');
         if (!currentCard) return;
         const rowItems = [...currentRow.querySelectorAll('[class*="meta-item-container"]')];
@@ -238,9 +247,11 @@ const Board = () => {
             }
         }
         const targetCard = e.key === 'ArrowRight' ? rowItems[cardIdx + 1] : rowItems[cardIdx - 1];
-        if (!targetCard) return;
         e.preventDefault();
         e.stopPropagation();
+        // Bordo della riga: si resta dove si e'. (L'unica uscita laterale e'
+        // ArrowLeft sulla prima card verso la sidebar, gestita qui sopra.)
+        if (!targetCard) return;
         // La card stessa e' un <a href> (la Button di stremio/components
         // renderizza anchor). Focussiamo direttamente la card, non cerchiamo
         // figli focusabili (il menu 3-pallini Multiselect ha tabindex=-1
