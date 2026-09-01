@@ -17,6 +17,7 @@ const useSearchHistory = require('./useSearchHistory');
 const useLocalSearch = require('./useLocalSearch');
 const styles = require('./styles');
 const useBinaryState = require('stremio/common/useBinaryState');
+const { filterSearchHistory } = require('stremio/common/casaSearchHistory');
 
 const SearchBar = React.memo(({ className, query, active }) => {
     const { t } = useTranslation();
@@ -89,6 +90,13 @@ const SearchBar = React.memo(({ className, query, active }) => {
         updateLocalSearchDebounced(currentQuery);
     }, [currentQuery]);
 
+    // Casa: la cronologia parla della ricerca in corso. A campo vuoto e' tutta
+    // (serve a ripescare una ricerca vecchia senza riscriverla); appena si
+    // scrive restano solo le voci compatibili. Vedi common/casaSearchHistory.
+    const historyItems = React.useMemo(() => {
+        return filterSearchHistory(searchHistory?.items, currentQuery);
+    }, [searchHistory?.items, currentQuery]);
+
     React.useEffect(() => {
         if (routeFocused && active) {
             searchInputRef.current.focus();
@@ -134,10 +142,10 @@ const SearchBar = React.memo(({ className, query, active }) => {
                     </Button>
             }
             {
-                historyOpen && (searchHistory?.items?.length || localSearch?.items?.length) ?
+                historyOpen && (historyItems.length || localSearch?.items?.length) ?
                     <div className={styles['menu-container']}>
                         {
-                            searchHistory?.items?.length > 0 ?
+                            historyItems.length > 0 ?
                                 <div className={styles['items']}>
                                     <div className={styles['title']}>
                                         <div className={styles['label']}>{ t('STREMIO_TV_SEARCH_HISTORY_TITLE') }</div>
@@ -146,7 +154,7 @@ const SearchBar = React.memo(({ className, query, active }) => {
                                         </button>
                                     </div>
                                     {
-                                        searchHistory.items.slice(0, 8).map(({ query, deepLinks }, index) => (
+                                        historyItems.map(({ query, deepLinks }, index) => (
                                             <Button key={index} className={styles['item']} href={deepLinks.search} onClick={closeHistory}>
                                                 {query}
                                             </Button>
