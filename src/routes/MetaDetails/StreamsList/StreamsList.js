@@ -246,7 +246,12 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
     const noStreams = React.useMemo(() => {
         return props.streams.length > 0 && props.streams.every((streams) => streams.content.type === 'Err');
     }, [props.streams]);
-    const sourceHealth = useCasaSourceHealth(noStreams);
+    // Identita' del contenuto: sui film `video` non c'e', quindi si ripiega
+    // sugli url degli stream (cambiano con il titolo) e in ultimo sulla rotta.
+    const contentKey = React.useMemo(() => {
+        return video?.id || window.location.hash || '';
+    }, [video, props.streams]);
+    const sourceHealth = useCasaSourceHealth(noStreams, contentKey);
     const filteredStreams = React.useMemo(() => {
         const list = selectedAddon === ALL_ADDONS_KEY ?
             // Flatten di piu' addon: ogni gruppo e' gia' ordinato, ma la
