@@ -8,6 +8,7 @@ const { default: Icon } = require('@stremio/stremio-icons/react');
 const { Button, Image } = require('stremio/components');
 const { useCore } = require('stremio/core');
 const Stream = require('./Stream');
+const useCasaSourceHealth = require('./useCasaSourceHealth');
 const styles = require('./styles');
 const { usePlatform, useProfile } = require('stremio/common');
 const { streamKey, recallStreamKey, rememberStream } = require('stremio/common/lastStream');
@@ -240,6 +241,12 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
                 return streamsByAddon;
             }, {});
     }, [props.streams, healthMap]);
+    // Casa: "nessuna sorgente" ha due cause opposte, e la schermata era la
+    // stessa per entrambe. Vedi useCasaSourceHealth.
+    const noStreams = React.useMemo(() => {
+        return props.streams.length > 0 && props.streams.every((streams) => streams.content.type === 'Err');
+    }, [props.streams]);
+    const sourceHealth = useCasaSourceHealth(noStreams);
     const filteredStreams = React.useMemo(() => {
         const list = selectedAddon === ALL_ADDONS_KEY ?
             // Flatten di piu' addon: ogni gruppo e' gia' ordinato, ma la
@@ -624,7 +631,20 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
                                     : null
                             }
                             <Image className={styles['image']} src={require('/assets/images/empty.png')} alt={' '} />
-                            <div className={styles['label']}>{t('NO_STREAM')}</div>
+                            {
+                                sourceHealth && sourceHealth.ok === false ?
+                                    <React.Fragment>
+                                        <div className={styles['label']}>{'Le sorgenti non rispondono'}</div>
+                                        <div className={styles['label']}>{'Non e\' questo titolo: riprova fra qualche minuto.'}</div>
+                                        {
+                                            sourceHealth.detail ?
+                                                <div className={styles['source-health-detail']}>{sourceHealth.detail}</div>
+                                                : null
+                                        }
+                                    </React.Fragment>
+                                    :
+                                    <div className={styles['label']}>{t('NO_STREAM')}</div>
+                            }
                             {
                                 showInstallAddonsButton ?
                                     <Button className={styles['install-button-container']} title={t('ADDON_CATALOGUE_MORE')} href={'#/addons'}>
