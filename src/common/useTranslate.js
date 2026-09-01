@@ -4,7 +4,7 @@ const { useCallback } = require('react');
 const { useTranslation } = require('react-i18next');
 
 // Il nostro addon di liste (launcher/backend/src/stremio_addon.ts).
-const CASA_ADDON_ID = 'casa.home.lists';
+const { CASA_ADDON_ID } = require('stremio/common/casaAddon');
 
 const useTranslate = () => {
     const { t } = useTranslation();

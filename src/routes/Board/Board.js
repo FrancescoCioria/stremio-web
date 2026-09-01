@@ -12,20 +12,12 @@ const useCasaPrefetch = require('./useCasaPrefetch');
 const useCasaWatchlist = require('./useCasaWatchlist');
 const ContinueWatchingRowItem = require('./ContinueWatchingRowItem');
 const { mergeWatchlist } = require('stremio/common/casaWatchlist');
+const { isCasaHomeCatalog } = require('stremio/common/casaAddon');
 const BoardHero = require('./BoardHero');
 const styles = require('./styles');
 const { default: StreamingServerWarning } = require('./StreamingServerWarning');
 
 const THRESHOLD = 5;
-
-// TV: nascondi le righe "Featured" del Board — ridondanti rispetto a Popular
-// e Rotten Tomatoes Certified Fresh (stessi top-tier titoli). Filtriamo per
-// nome del catalog (case-insensitive, prefisso "Featured" — tipicamente
-// "Featured Movies" / "Featured Series").
-const isFeaturedCatalog = (catalog) => {
-    const name = catalog?.name ?? '';
-    return /^featured\b/i.test(name);
-};
 
 // TV: porta una card in vista nel suo rail orizzontale SENZA ri-centrarla
 // sempre. Il re-center continuo (scrollTo del centro a ogni freccia) faceva
@@ -104,18 +96,23 @@ const Board = () => {
     const boardCatalogsOffset = continueWatchingItems.length > 0 ? 1 : 0;
     const scrollContainerRef = React.useRef();
     const containerRef = React.useRef();
-    // Catalog renderizzati = board.catalogs meno Featured. `originalIdx` ci
-    // serve per tradurre la visibile-range (DOM children) in indici core
-    // quando chiamiamo loadBoardRows (core ha la lista non filtrata).
+    // Casa: in home si disegnano SOLO le nostre righe (vedi common/casaAddon).
+    // Gli altri cataloghi installati restano vivi e servono a ricerca,
+    // calendario e notifiche: qui semplicemente non si mostrano.
+    // `originalIdx` traduce la visible-range (figli DOM) in indici del core,
+    // che ha la lista NON filtrata.
     const visibleCatalogs = React.useMemo(() => {
         return board.catalogs.reduce((acc, catalog, originalIdx) => {
-            if (!isFeaturedCatalog(catalog)) acc.push({ catalog, originalIdx });
+            if (isCasaHomeCatalog(catalog)) acc.push({ catalog, originalIdx });
             return acc;
         }, []);
     }, [board.catalogs]);
     // Casa: scalda in anticipo le info dell'hero per la testa di ogni riga,
     // invece di aspettare che l'utente ci passi sopra. Vedi useCasaPrefetch.js.
-    useCasaPrefetch(board.catalogs, continueWatchingItems);
+    // ⚠️ Solo le righe DISEGNATE: scaldare una riga che nessuno vedra' e' la
+    // stessa spesa (meta + voto + disponibilita' per card) senza il beneficio.
+    const renderedCatalogs = React.useMemo(() => visibleCatalogs.map(({ catalog }) => catalog), [visibleCatalogs]);
+    useCasaPrefetch(renderedCatalogs, continueWatchingItems);
 
     const showStreamingServerWarning = React.useMemo(() => {
         return streamingServer.settings !== null && streamingServer.settings.type === 'Err' && (
@@ -273,9 +270,9 @@ const Board = () => {
     const catalogsStateKey = React.useMemo(() => {
         return (
             continueWatchingItems.length + ':' +
-            board.catalogs.map((c) => c.content?.type || 'pending').join(',')
+            renderedCatalogs.map((c) => c.content?.type || 'pending').join(',')
         );
-    }, [board.catalogs, continueWatchingItems.length]);
+    }, [renderedCatalogs, continueWatchingItems.length]);
     const initialFocusDoneRef = React.useRef(false);
     React.useEffect(() => {
         if (initialFocusDoneRef.current) return;
