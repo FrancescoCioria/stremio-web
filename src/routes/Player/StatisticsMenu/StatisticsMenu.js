@@ -29,7 +29,15 @@ const formatBytes = (bytes) => {
     return `${Math.round(bytes / 1000 / 1000)} MB`;
 };
 
-const StatisticsMenu = React.memo(React.forwardRef(({ className, peers, speed, downloaded, buffer, infoHash }, ref) => {
+// "825 MB (100%)". La percentuale sparisce quando non e' calcolabile: meglio
+// il solo dato certo che una parentesi inventata.
+const formatDownloaded = (bytes, pct) => {
+    const size = formatBytes(bytes);
+    if (typeof pct !== 'number' || !isFinite(pct)) return size;
+    return `${size} (${pct}%)`;
+};
+
+const StatisticsMenu = React.memo(React.forwardRef(({ className, peers, speed, downloaded, downloadedPct, buffer, infoHash }, ref) => {
     const { t } = useTranslation();
     const onMouseDown = React.useCallback((event) => {
         event.nativeEvent.statisticsMenuClosePrevented = true;
@@ -68,7 +76,7 @@ const StatisticsMenu = React.memo(React.forwardRef(({ className, peers, speed, d
                         {'Scaricato'}
                     </div>
                     <div className={styles['value']}>
-                        { formatBytes(downloaded) }
+                        { formatDownloaded(downloaded, downloadedPct) }
                     </div>
                 </div>
                 <div className={styles['stat']}>
@@ -97,6 +105,7 @@ StatisticsMenu.propTypes = {
     peers: PropTypes.number,
     speed: PropTypes.number,
     downloaded: PropTypes.number,
+    downloadedPct: PropTypes.number,
     buffer: PropTypes.number,
     infoHash: PropTypes.string,
 };

@@ -2,6 +2,7 @@
 
 const React = require('react');
 const { useCore } = require('stremio/core');
+const { targetFileLength, downloadedPercent } = require('./casaDownloadedPct');
 
 // hash + base TorrServer da un nostro url stream (.../stremio-addon/ts/<hash>/<idx>).
 const torrserverOf = (url) => {
@@ -82,6 +83,15 @@ const useStatistics = (player, streamingServer) => {
         return coreStats?.downloaded ? coreStats.downloaded : 0;
     }, [ts, tsStats, coreStats]);
 
+    // Percentuale accanto ai MB: stessa base dei MB (byte utili di sessione) sulla
+    // dimensione del file in riproduzione. Vedi casaDownloadedPct.js.
+    const downloadedPct = React.useMemo(() => {
+        if (!ts) {
+            return downloadedPercent(coreStats?.downloaded ?? null, coreStats?.streamLen ?? null);
+        }
+        return downloadedPercent(downloaded, targetFileLength(tsStats && tsStats.file_stats));
+    }, [ts, tsStats, coreStats, downloaded]);
+
     // % = frazione di file gia' in cache (preloaded/size).
     // ⚠️ NON e' progresso di download e NON e' una finestra davanti alla testina:
     // `preloaded_bytes` e' inchiodato alla dimensione della cache (6 GiB), quindi
@@ -156,6 +166,7 @@ const useStatistics = (player, streamingServer) => {
         peers,
         speed,
         downloaded,
+        downloadedPct,
         completed,
         progress,
     };
