@@ -21,11 +21,16 @@ const TIMEOUT_MS = 4000;
 // enabled: si interroga solo quando serve davvero (lista vuota), non ad ogni
 // apertura di una pagina che le sorgenti ce l'ha.
 // key: identita' del contenuto a schermo (film o episodio).
-// ⚠️ La `key` NON e' un dettaglio: senza, passando da un titolo vuoto a un
-// altro `enabled` resta true, l'effetto non rigira e il verdetto vecchio resta
-// a schermo — cioe' la tile continua a dire "le sorgenti non rispondono" quando
-// invece rispondono. Pescato dal controllo negativo dell'e2e, non dal caso
-// felice: il caso felice passava.
+// ⚠️ La `key` serve perche' il verdetto e' di UN ISTANTE: se `enabled` resta
+// true passando da un titolo vuoto a un altro, l'effetto non rigira e a schermo
+// resta il giudizio vecchio — la tile direbbe "le sorgenti non rispondono"
+// quando invece rispondono.
+// ⚠️ Nota di metodo: il controllo negativo dell'e2e che me l'ha fatto notare era
+// **rotto** (riscriveva la route nello stesso context di Playwright e serviva
+// comunque la prima risposta), quindi accusava il prodotto per un difetto
+// dell'harness. Rifatto con due browser separati: fonte giu' -> messaggio nuovo,
+// fonte ok -> messaggio standard. La `key` resta perche' e' giusta di suo, non
+// perche' quel test l'avesse dimostrata.
 const useCasaSourceHealth = (enabled, key) => {
     const [health, setHealth] = React.useState(null);
     React.useEffect(() => {
