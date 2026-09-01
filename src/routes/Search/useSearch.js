@@ -3,9 +3,13 @@
 const React = require('react');
 const { useCore } = require('stremio/core');
 const { useModelState } = require('stremio/common');
+const { useCoreEpoch } = require('stremio/common/casaCoreEpoch');
 
 const useSearch = (queryParams) => {
     const core = useCore();
+    // Casa: cambia quando l'autologin sostituisce il contesto del core; rifa'
+    // il Load invece di lasciare le righe sull'errore di una fetch annullata.
+    const coreEpoch = useCoreEpoch();
     // TODO: refactor this to be in stremio-core-web
     // React.useEffect(() => {
     //     let timerId = setTimeout(emitSearchEvent, 500);
@@ -50,7 +54,7 @@ const useSearch = (queryParams) => {
                 action: 'Unload'
             };
         }
-    }, [queryParams]);
+    }, [queryParams, coreEpoch]);
     const loadRange = React.useCallback((range) => {
         core.transport.dispatch({
             action: 'CatalogsWithExtra',

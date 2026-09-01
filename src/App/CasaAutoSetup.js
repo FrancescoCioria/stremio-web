@@ -31,6 +31,7 @@ const { useCore } = require('stremio/core');
 const { withCoreSuspender, useProfile } = require('stremio/common');
 const { casaBackendUrl, casaBeacon } = require('stremio/common/casaBackend');
 const { serverUrlUpdate, desiredSettings, settingsPatch, readStoredSettings } = require('stremio/common/casaAutoSetup');
+const { bumpCoreEpoch } = require('stremio/common/casaCoreEpoch');
 
 const TOKEN_PATH = '/stremio-auth/token';
 // Il backend puo' non essere ancora su quando la tile parte al boot del box.
@@ -126,6 +127,9 @@ const CasaAutoSetup = () => {
         wasAuthedRef.current = authed;
         if (!justLoggedIn) return;
         report({ step: 'authenticated' });
+        // Le richieste partite da ospite sono state annullate dal login: chi
+        // sta guardando una lista di cataloghi la ricarica (casaCoreEpoch).
+        bumpCoreEpoch();
         if (urlPhaseRef.current < 2) {
             urlPhaseRef.current = 2;
             applyCasaPreferences(2);

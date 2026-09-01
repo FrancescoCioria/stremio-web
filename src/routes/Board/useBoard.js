@@ -3,16 +3,20 @@
 const React = require('react');
 const { useCore } = require('stremio/core');
 const { useModelState } = require('stremio/common');
+const { useCoreEpoch } = require('stremio/common/casaCoreEpoch');
 
 const useBoard = () => {
     const core = useCore();
+    // Casa: vedi useSearch — anche la home carica cataloghi, e da ospite li
+    // carica dagli addon sbagliati.
+    const coreEpoch = useCoreEpoch();
     const action = React.useMemo(() => ({
         action: 'Load',
         args: {
             model: 'CatalogsWithExtra',
             args: { extra: [] }
         }
-    }), []);
+    }), [coreEpoch]);
     const loadRange = React.useCallback((range) => {
         core.transport.dispatch({
             action: 'CatalogsWithExtra',
