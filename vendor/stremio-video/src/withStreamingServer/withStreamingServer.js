@@ -1,5 +1,7 @@
 var EventEmitter = require('eventemitter3');
 var url = require('url');
+// Casa: la rendition video la serve il nostro backend (vedi casaHls.js).
+var casaMasterUrl = require('../casaHls').casaMasterUrl;
 var hat = require('hat');
 var cloneDeep = require('lodash.clonedeep');
 var deepFreeze = require('deep-freeze');
@@ -169,7 +171,11 @@ function withStreamingServer(Video) {
                                             infoHash: infoHash,
                                             fileIdx: fileIdx,
                                             stream: {
-                                                url: url.resolve(commandArgs.streamingServerURL, '/hlsv2/' + id + '/master.m3u8?' + queryParams.toString()),
+                                                url: casaMasterUrl(
+                                                    url.resolve(commandArgs.streamingServerURL, '/hlsv2/' + id + '/master.m3u8?' + queryParams.toString()),
+                                                    id,
+                                                    queryParams.toString()
+                                                ),
                                                 subtitles: Array.isArray(commandArgs.stream.subtitles) ?
                                                     commandArgs.stream.subtitles.map(function(track) {
                                                         return Object.assign({}, track, {
