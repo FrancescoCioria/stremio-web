@@ -3,6 +3,7 @@
 const React = require('react');
 const { useCore } = require('stremio/core');
 const { targetFileLength, downloadedPercent } = require('./casaDownloadedPct');
+const { casaBackendUrl } = require('stremio/common/casaBackend');
 
 // hash + base TorrServer da un nostro url stream (.../stremio-addon/ts/<hash>/<idx>).
 const torrserverOf = (url) => {
@@ -47,6 +48,27 @@ const useStatistics = (player, streamingServer) => {
         return () => { alive = false; clearInterval(interval); };
     }, [ts]);
 
+    // Byte REALMENTE su disco per il torrent, dal backend (legge la cache di
+    // TorrServer sul filesystem: sopravvive al distacco del reader e a un
+    // episodio gia' cachato in una sessione precedente — vedi `downloaded`
+    // sotto per il perche' serve). Solo per stream TorrServer; niente
+    // equivalente per gli infoHash del core, che non hanno questo bug.
+    const [cacheBytes, setCacheBytes] = React.useState(0);
+    React.useEffect(() => {
+        if (!ts) { setCacheBytes(0); return; }
+        let alive = true;
+        const poll = () => {
+            const url = casaBackendUrl('/stremio-addon/ts-cache/' + ts.hash);
+            if (!url) return;
+            fetch(url).then((r) => (r && r.ok ? r.json() : null))
+                .then((j) => { if (alive && j) setCacheBytes(+j.cachedBytes || 0); })
+                .catch(() => { /* tieni l'ultimo valore */ });
+        };
+        poll();
+        const interval = setInterval(poll, 3000);
+        return () => { alive = false; clearInterval(interval); };
+    }, [ts]);
+
     // statistics dal core (:11470) per gli stream infoHash classici.
     const coreStats = React.useMemo(() => {
         return streamingServer.statistics?.type === 'Ready' ?
@@ -70,18 +92,21 @@ const useStatistics = (player, streamingServer) => {
         return bps ? parseFloat((bps / 1000 / 1000).toFixed(2)) : 0;
     }, [ts, tsStats, coreStats]);
 
-    // Byte davvero scaricati DALLO SWARM (utili, cioe' non duplicati) in QUESTA
-    // sessione del torrent. E' la risposta a "Torr sta scaricando e quanto".
-    // ⚠️ Per-sessione, NON un totale storico: quando TorrServer sgancia il torrent
-    // (stat_string "Torrent in db", 30s dopo l'ultimo lettore) azzera i contatori.
-    // ⚠️ Puo' restare a 0 mentre il film va benissimo: con `UseDisk` +
+    // "Quanto del file c'e' davvero", non solo "quanto e' passato dallo swarm
+    // in questa sessione". `bytes_read_useful_data` (API TorrServer) e'
+    // per-sessione e si azzera quando il reader si stacca (stat_string
+    // "Torrent in db", 30s dopo l'ultimo lettore): con `UseDisk` +
     // `RemoveCacheOnDrop:false` i pezzi restano su disco fra una sessione e
-    // l'altra, quindi riguardare una parte gia' vista non scarica NIENTE.
-    // Zero qui NON significa "TorrServer e' rotto".
+    // l'altra, quindi riguardare un file gia' cachato mostrava "0.1%" anche a
+    // episodio completo — il numero era vero (poco swarm), ma rispondeva alla
+    // domanda sbagliata. `cacheBytes` (dal backend, byte REALI su disco per
+    // quel torrent) non ha questo limite: prendiamo il massimo dei due, cosi'
+    // durante un download attivo il numero cresce in tempo reale (cacheBytes
+    // arriva ogni 3s, non istantaneo) e a film gia' scaricato mostra il vero.
     const downloaded = React.useMemo(() => {
-        if (ts) return tsStats ? (+tsStats.bytes_read_useful_data || 0) : 0;
+        if (ts) return Math.max(tsStats ? (+tsStats.bytes_read_useful_data || 0) : 0, cacheBytes);
         return coreStats?.downloaded ? coreStats.downloaded : 0;
-    }, [ts, tsStats, coreStats]);
+    }, [ts, tsStats, coreStats, cacheBytes]);
 
     // Percentuale accanto ai MB: stessa base dei MB (byte utili di sessione) sulla
     // dimensione del file in riproduzione. Vedi casaDownloadedPct.js.

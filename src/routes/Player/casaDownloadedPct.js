@@ -9,11 +9,10 @@
 // dichiarata: gli episodi di un pack hanno dimensioni simili, e il numero
 // serve a rispondere "manca molto?", non a fare contabilita'.
 //
-// ⚠️ Sta sulla STESSA base dei MB gia' mostrati (`bytes_read_useful_data`, che
-// e' per-sessione): quindi eredita lo stesso limite, scritto in useStatistics —
-// se i pezzi erano gia' in cache su disco, si guarda il film con pochi MB e
-// poca percentuale. La parentesi non aggiunge una bugia nuova, dice in
-// proporzione quello che il numero accanto dice in MB.
+// ⚠️ Sta sulla STESSA base dei MB gia' mostrati (`downloaded` in useStatistics,
+// che dal 2026-09-03 e' il MASSIMO fra byte di sessione e byte reali su disco —
+// vedi li' il perche'): quindi la percentuale non mente piu' su un file gia'
+// in cache da una sessione precedente.
 
 // files: `file_stats` di TorrServer ([{length}]). Torna la lunghezza da usare
 // come denominatore, o null se non e' deducibile.
