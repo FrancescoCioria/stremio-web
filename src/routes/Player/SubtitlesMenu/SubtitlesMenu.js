@@ -123,15 +123,23 @@ const SubtitlesMenu = React.memo(React.forwardRef((props, ref) => {
             }
         }
     }, [props.onSubtitlesTrackSelected, props.onExtraSubtitlesTrackSelected]);
+    // Casa: NIENTE guardia su `selectedExtraSubtitlesTrackId` (a differenza di
+    // SIZE/OFFSET sotto, che hanno un ramo anche per l'embedded). Quel prop qui
+    // e' `displayedExtraSelection(...)` (vedi useSubtitles.ts + casaEmbeddedSubs.js):
+    // torna SEMPRE null quando il sottotitolo attivo e' un nostro CASA_EMB_* — che
+    // e' il caso normale, visto che l'utente vede un solo sottotitolo per lingua e
+    // il pallino resta sulla riga embedded. Con la guardia il DELAY non scattava
+    // MAI sui nostri sottotitoli ("resta sempre su 0s", incidente 2026-09-03).
+    // Il gate giusto e' lo stesso della Stepper stessa: `extraSubtitlesDelay`
+    // (valore REALE dal core, non mascherato) e' null solo quando il concetto di
+    // delay non si applica affatto (nessuna istanza di sottotitoli extra viva).
     const onSubtitlesDelayChanged = React.useCallback((value) => {
-        if (typeof props.selectedExtraSubtitlesTrackId === 'string') {
-            if (props.extraSubtitlesDelay !== null && !isNaN(props.extraSubtitlesDelay)) {
-                if (typeof props.onExtraSubtitlesDelayChanged === 'function') {
-                    props.onExtraSubtitlesDelayChanged(value * 1000);
-                }
+        if (props.extraSubtitlesDelay !== null && !isNaN(props.extraSubtitlesDelay)) {
+            if (typeof props.onExtraSubtitlesDelayChanged === 'function') {
+                props.onExtraSubtitlesDelayChanged(value * 1000);
             }
         }
-    }, [props.selectedExtraSubtitlesTrackId, props.extraSubtitlesDelay, props.onExtraSubtitlesDelayChanged]);
+    }, [props.extraSubtitlesDelay, props.onExtraSubtitlesDelayChanged]);
     const onSubtitlesSizeChanged = React.useCallback((value) => {
         if (typeof props.selectedSubtitlesTrackId === 'string') {
             if (props.subtitlesSize !== null && !isNaN(props.subtitlesSize)) {
