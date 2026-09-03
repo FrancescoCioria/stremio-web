@@ -157,7 +157,7 @@ const MetaPreview = React.forwardRef(({ className, compact, name, logo, backgrou
                         /* TV: episodio focus-ato -> "S02E01 · 53 min · Dec 25, 2024 · Ppang-gwa boggwon"
                          * al posto di "runtime · year · IMDb". Info della serie
                          * torna quando il focus esce dal rail. */
-                        <div className={styles['runtime-release-info-container']}>
+                        <div className={classnames(styles['runtime-release-info-container'], styles['episode-info-row'])}>
                             {
                             /* Casa: anche qui. ⚠️ Su una SERIE il dettaglio
                              * mostra sempre questo ramo (l'episodio parte gia'
@@ -197,7 +197,7 @@ const MetaPreview = React.forwardRef(({ className, compact, name, logo, backgrou
                             }
                             {
                                 typeof focusedEpisode.title === 'string' && focusedEpisode.title.length > 0 ?
-                                    <div className={styles['release-info-label']}>{focusedEpisode.title}</div>
+                                    <div className={classnames(styles['release-info-label'], styles['episode-title-label'])}>{focusedEpisode.title}</div>
                                     :
                                     null
                             }

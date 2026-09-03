@@ -152,6 +152,28 @@
                 }
             }
 
+            /* Casa: riga dell'EPISODIO a fuoco ("S01E02 · 25 min · 14 Jul 2026
+             * · Episode title"). Stessa classe base della riga del titolo
+             * (`.runtime-label`/`.release-info-label` con `flex: 0 1 auto`),
+             * quindi senza questo blocco flexbox restringe TUTTI e 4 i segmenti
+             * insieme non appena non entrano — S01E.., 25 .., 14 Jul 20..,
+             * EPISODE 02:... diventano tutti ellissi (screenshot 2026-09-03).
+             * Qui l'unico segmento potenzialmente lungo e' il TITOLO
+             * dell'episodio: resta lui solo a potersi restringere, come
+             * `.digital-release-label` sopra. */
+            &.episode-info-row {
+                .runtime-label, .release-info-label {
+                    flex: none;
+                    margin-right: 1.5rem;
+                }
+
+                .episode-title-label {
+                    flex: 0 1 auto;
+                    margin-right: 0;
+                    min-width: 4rem;
+                }
+            }
+
             /* Casa: Metacritic e Rotten Tomatoes. Stessa forma del chip IMDb,
              * ma NON sono link (nessuno dei due ce l'ha nei metadati). */
             .score-chip {
