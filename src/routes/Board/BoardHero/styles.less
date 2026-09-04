@@ -152,20 +152,24 @@
 
                 /* Casa: icona ufficiale Rotten Tomatoes (bitmap, vedi
                  * common/styles.less del MetaPreview per la spiegazione) e
-                 * marchio IMDb ufficiale (SVG, common/ImdbMark.js). Stessa
-                 * logica del marchio Letterboxd sopra: si decide solo l'altezza. */
+                 * marchio IMDb ufficiale (SVG, common/ImdbMark.js).
+                 * ⚠️ 1.6rem, non 0.9: il primo giro le aveva fatte piu'
+                 * piccole del vecchio badge rettangolare di testo (~1.54rem
+                 * coi suoi padding) — un downgrade visibile, segnalato da
+                 * Francesco. Deliberatamente PIU' alte del Letterboxd-mark
+                 * (0.9rem) sopra: quello era gia' cosi' prima di oggi. */
                 .rt-badge {
                     display: block;
                     flex: none;
-                    height: 0.9rem;
+                    height: 1.6rem;
                     width: auto;
-                    border-radius: 0.2rem;
+                    border-radius: 0.25rem;
                 }
 
                 .imdb-badge {
                     display: block;
                     flex: none;
-                    height: 0.9rem;
+                    height: 1.6rem;
                     width: auto;
                 }
             }
@@ -289,7 +293,7 @@
 
                     .rt-badge,
                     .imdb-badge {
-                        height: 0.95rem;
+                        height: 1.7rem;
                     }
                 }
             }

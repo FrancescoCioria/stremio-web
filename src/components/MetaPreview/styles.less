@@ -195,13 +195,17 @@
                     /* Icona ufficiale Rotten Tomatoes (assets/images/rottentomatoes_icon.png).
                      * Prima era un badge di testo disegnato in CSS ("RT" su
                      * sfondo rosso) — questa e' l'icona vera fornita da Francesco.
-                     * Bitmap e non SVG (nessuna sorgente vettoriale a mano):
-                     * alta quanto il testo del voto accanto, come .letterboxd-mark. */
+                     * Bitmap e non SVG (nessuna sorgente vettoriale a mano).
+                     * ⚠️ Altezza 2.2rem, non 1.5: il primo giro l'aveva fatta
+                     * piu' piccola del vecchio badge rettangolare di testo
+                     * (~1.54rem coi suoi padding) — un downgrade visibile,
+                     * segnalato da Francesco. Stessa altezza di .icon (IMDb)
+                     * qui sotto: sono due letture della stessa riga. */
                     flex: none;
                     display: block;
-                    height: 1.5rem;
-                    width: 1.5rem;
-                    border-radius: 0.3rem;
+                    height: 2.2rem;
+                    width: 2.2rem;
+                    border-radius: 0.4rem;
                 }
             }
 
@@ -235,12 +239,13 @@
                 .icon {
                     /* Logo IMDb ufficiale (common/ImdbMark.js, SVG vettoriale
                      * dal file su Wikimedia Commons) — prima era l'icona
-                     * generica del set stremio-icons colorata via CSS var.
-                     * Alto quanto il testo del voto accanto, come .letterboxd-mark
-                     * (rapporto 575:289.83 tenuto dal viewBox). */
+                     * generica del set stremio-icons colorata via CSS var, in
+                     * un box 3rem. Qui 2.2rem (rapporto 575:289.83 tenuto dal
+                     * viewBox, la larghezza segue da sola) — stessa altezza
+                     * di .rt-badge accanto. */
                     flex: none;
                     display: block;
-                    height: 1.3rem;
+                    height: 2.2rem;
                     width: auto;
                 }
             }
