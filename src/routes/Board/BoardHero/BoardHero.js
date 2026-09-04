@@ -9,6 +9,7 @@ const PropTypes = require('prop-types');
 const classnames = require('classnames');
 const { Image } = require('stremio/components');
 const LetterboxdMark = require('stremio/common/LetterboxdMark');
+const ImdbMark = require('stremio/common/ImdbMark');
 const useLetterboxdRating = require('stremio/common/useLetterboxdRating');
 const useTitleAvailability = require('stremio/common/useTitleAvailability');
 const { warmMeta, getCached: getCachedMeta, baseIdOf } = require('stremio/common/casaMetaCache');
@@ -173,7 +174,7 @@ const BoardHero = ({ meta: rawMeta }) => {
                     {rating ?
                         <span className={classnames(styles['sub-item'], styles['rating'])}>
                             {rating}
-                            <span className={styles['imdb-badge']}>IMDb</span>
+                            <ImdbMark className={styles['imdb-badge']} />
                         </span> : null}
                     {/* ⚠️ Metacritic RIMOSSO il 2026-08-31 su richiesta: c'era
                         su ~1 titolo su 3, quindi la riga cambiava forma da un
@@ -185,7 +186,7 @@ const BoardHero = ({ meta: rawMeta }) => {
                     {typeof ratings.rt === 'number' ?
                         <span className={classnames(styles['sub-item'], styles['rating'])}>
                             {ratings.rt}%
-                            <span className={styles['rt-badge']}>RT</span>
+                            <Image className={styles['rt-badge']} src={require('/assets/images/rottentomatoes_icon.png')} alt={'Rotten Tomatoes'} />
                         </span> : null}
                     {lbRating ?
                         <span className={classnames(styles['sub-item'], styles['rating'])}>

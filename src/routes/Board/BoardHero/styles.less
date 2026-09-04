@@ -150,26 +150,23 @@
                     width: auto;
                 }
 
-                /* Casa: Metacritic (verde del loro marchio) e Rotten Tomatoes
-                 * (rosso pomodoro). Stessa forma del badge IMDb. */
+                /* Casa: icona ufficiale Rotten Tomatoes (bitmap, vedi
+                 * common/styles.less del MetaPreview per la spiegazione) e
+                 * marchio IMDb ufficiale (SVG, common/ImdbMark.js). Stessa
+                 * logica del marchio Letterboxd sopra: si decide solo l'altezza. */
                 .rt-badge {
-                    font-size: 0.95rem;
-                    font-weight: 800;
-                    padding: 0.2rem 0.55rem;
-                    border-radius: 0.3rem;
-                    letter-spacing: 0.04em;
-                    color: #fff;
+                    display: block;
+                    flex: none;
+                    height: 0.9rem;
+                    width: auto;
+                    border-radius: 0.2rem;
                 }
-                .rt-badge { background-color: #fa320a; }
 
                 .imdb-badge {
-                    font-size: 0.95rem;
-                    font-weight: 800;
-                    padding: 0.2rem 0.55rem;
-                    background-color: #f5c518;
-                    color: #000;
-                    border-radius: 0.3rem;
-                    letter-spacing: 0.04em;
+                    display: block;
+                    flex: none;
+                    height: 0.9rem;
+                    width: auto;
                 }
             }
 
@@ -292,7 +289,7 @@
 
                     .rt-badge,
                     .imdb-badge {
-                        font-size: 1.05rem;
+                        height: 0.95rem;
                     }
                 }
             }

@@ -192,15 +192,17 @@
                 }
 
                 .rt-badge {
+                    /* Icona ufficiale Rotten Tomatoes (assets/images/rottentomatoes_icon.png).
+                     * Prima era un badge di testo disegnato in CSS ("RT" su
+                     * sfondo rosso) — questa e' l'icona vera fornita da Francesco.
+                     * Bitmap e non SVG (nessuna sorgente vettoriale a mano):
+                     * alta quanto il testo del voto accanto, come .letterboxd-mark. */
                     flex: none;
-                    font-size: 0.95rem;
-                    font-weight: 800;
-                    padding: 0.2rem 0.55rem;
+                    display: block;
+                    height: 1.5rem;
+                    width: 1.5rem;
                     border-radius: 0.3rem;
-                    letter-spacing: 0.04em;
-                    color: #fff;
                 }
-                .rt-badge { background-color: #fa320a; }
             }
 
             .imdb-button-container {
@@ -231,10 +233,15 @@
                 }
 
                 .icon {
+                    /* Logo IMDb ufficiale (common/ImdbMark.js, SVG vettoriale
+                     * dal file su Wikimedia Commons) — prima era l'icona
+                     * generica del set stremio-icons colorata via CSS var.
+                     * Alto quanto il testo del voto accanto, come .letterboxd-mark
+                     * (rapporto 575:289.83 tenuto dal viewBox). */
                     flex: none;
-                    width: 3rem;
-                    height: 3rem;
-                    color: var(--color-imdb);
+                    display: block;
+                    height: 1.3rem;
+                    width: auto;
                 }
             }
 

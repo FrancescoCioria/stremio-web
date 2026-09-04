@@ -5,11 +5,11 @@ const PropTypes = require('prop-types');
 const classnames = require('classnames');
 const UrlUtils = require('url');
 const { useTranslation } = require('react-i18next');
-const { default: Icon } = require('@stremio/stremio-icons/react');
 const { default: Button } = require('stremio/components/Button');
 const { default: Image } = require('stremio/components/Image');
 const { default: ActionsGroup } = require('stremio/components/ActionsGroup');
 const LetterboxdMark = require('stremio/common/LetterboxdMark');
+const ImdbMark = require('stremio/common/ImdbMark');
 const ModalDialog = require('stremio/components/ModalDialog');
 const SharePrompt = require('stremio/components/SharePrompt');
 const CONSTANTS = require('stremio/common/CONSTANTS');
@@ -258,7 +258,7 @@ const MetaPreview = React.forwardRef(({ className, compact, name, logo, backgrou
                                             tabIndex={-1}
                                         >
                                             <div className={styles['label']}>{imdbLabel}</div>
-                                            <Icon className={styles['icon']} name={'imdb'} />
+                                            <ImdbMark className={styles['icon']} />
                                         </Button>
                                         :
                                         null
@@ -271,7 +271,7 @@ const MetaPreview = React.forwardRef(({ className, compact, name, logo, backgrou
                                     typeof rtScore === 'number' ?
                                         <div className={styles['score-chip']}>
                                             <span className={styles['label']}>{rtScore}%</span>
-                                            <span className={styles['rt-badge']}>RT</span>
+                                            <Image className={styles['rt-badge']} src={require('/assets/images/rottentomatoes_icon.png')} alt={'Rotten Tomatoes'} />
                                         </div>
                                         :
                                         null
