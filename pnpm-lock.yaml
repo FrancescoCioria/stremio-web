@@ -4,6 +4,9 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  spatial-navigation-polyfill@1.2.0: c2be54069dc555600f93d128128f186f3ce232a6f97415f5d6f7581dc30a63d1
+
 importers:
 
   .:
@@ -94,7 +97,7 @@ importers:
         version: 6.30.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       spatial-navigation-polyfill:
         specifier: github:Stremio/spatial-navigation#64871b1422466f5f45d24ebc8bbd315b2ebab6a6
-        version: https://codeload.github.com/Stremio/spatial-navigation/tar.gz/64871b1422466f5f45d24ebc8bbd315b2ebab6a6
+        version: https://codeload.github.com/Stremio/spatial-navigation/tar.gz/64871b1422466f5f45d24ebc8bbd315b2ebab6a6(patch_hash=c2be54069dc555600f93d128128f186f3ce232a6f97415f5d6f7581dc30a63d1)
       stremio-translations:
         specifier: github:Stremio/stremio-translations#89e695effcd165b6b1f2133d9bc5c4ffe37ba4be
         version: https://codeload.github.com/Stremio/stremio-translations/tar.gz/89e695effcd165b6b1f2133d9bc5c4ffe37ba4be
@@ -10089,7 +10092,7 @@ snapshots:
     dependencies:
       whatwg-url: 7.1.0
 
-  spatial-navigation-polyfill@https://codeload.github.com/Stremio/spatial-navigation/tar.gz/64871b1422466f5f45d24ebc8bbd315b2ebab6a6: {}
+  spatial-navigation-polyfill@https://codeload.github.com/Stremio/spatial-navigation/tar.gz/64871b1422466f5f45d24ebc8bbd315b2ebab6a6(patch_hash=c2be54069dc555600f93d128128f186f3ce232a6f97415f5d6f7581dc30a63d1): {}
 
   spdy-transport@3.0.0:
     dependencies:

@@ -1,0 +1,13 @@
+diff --git a/polyfill/spatial-navigation-polyfill.js b/polyfill/spatial-navigation-polyfill.js
+index 17ece154f8dfbe0b6abfa4d347b1ef3da66df7d2..fafb6963d2fc81d91d22d31f44dc9b0b9bb09996 100644
+--- a/polyfill/spatial-navigation-polyfill.js
++++ b/polyfill/spatial-navigation-polyfill.js
+@@ -220,7 +220,7 @@
+ 
+       // Scrolling container or document when the next focusing element isn't entirely visible
+       // This is for the browser compatability
+-      if (isScrollable(container, dir) && !isEntirelyVisible(bestCandidate));
++      if (isScrollable(container, dir) && !isEntirelyVisible(bestCandidate))
+         bestCandidate.scrollIntoView();
+ 
+       // When bestCandidate is a focusable element and not a container : move focus

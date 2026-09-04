@@ -11,3 +11,5 @@ blockExoticSubdeps: false
 packages:
   - vendor/stremio-video
 
+patchedDependencies:
+  spatial-navigation-polyfill@1.2.0: patches/spatial-navigation-polyfill@1.2.0.patch
