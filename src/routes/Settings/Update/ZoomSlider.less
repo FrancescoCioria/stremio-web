@@ -1,0 +1,46 @@
+// Casa custom (NON upstream). Copia dello stile di CacheSizeSlider (coerente
+// con .multiselect/.button dei Settings): larghezza piena, altezza 3.5rem,
+// pill, background overlay, outline al focus.
+.zoom-slider {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 1.5rem;
+    width: 100%;
+    height: 3.5rem;
+    padding: 0 2rem;
+    border-radius: 3.5rem;
+    background-color: var(--overlay-color);
+    cursor: default;
+    outline: none;
+
+    &:hover {
+        outline: var(--focus-outline-size) solid var(--primary-foreground-color);
+    }
+
+    &:focus {
+        outline: var(--focus-outline-size) solid var(--primary-foreground-color);
+    }
+
+    .track {
+        flex: 1 1 auto;
+        height: 0.5rem;
+        border-radius: 0.5rem;
+        background-color: rgba(255, 255, 255, 0.2);
+        overflow: hidden;
+
+        .fill {
+            height: 100%;
+            border-radius: 0.5rem;
+            background-color: var(--primary-foreground-color);
+        }
+    }
+
+    .value {
+        flex: none;
+        min-width: 6rem;
+        text-align: right;
+        font-weight: 500;
+        color: var(--primary-foreground-color);
+    }
+}

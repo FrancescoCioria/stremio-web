@@ -44,6 +44,18 @@
 @transparency-gradient-pad: 6rem;
 
 :root {
+    // Zoom UI Casa (common/casaUiScale.js): moltiplicatore sul font-size del
+    // root. NON un `zoom` CSS come nel launcher — qui `html` stesso e'
+    // dimensionato in vw/vh (vedi @html-width/@html-height sotto), e un
+    // `zoom` sul root raddoppierebbe la scala anche li' facendo uscire il
+    // documento dallo schermo. Il font-size invece lascia intatte le vw/vh
+    // (restano ancorate al viewport fisico) e scala solo il rem — che e' il
+    // 95% delle dimensioni di questa app (misurato: 1244 usi di rem contro 44
+    // px e 9 vw/vh in tutto `src`) ed e' lo STESSO meccanismo con cui i
+    // breakpoint qui sotto gia' passano da 14 a 18px fra mobile e TV.
+    // Default qui (non solo in JS) per il primo paint, prima che
+    // casaUiScale applichi il valore persistito in localStorage.
+    --casa-ui-scale: 1.1;
     --landscape-shape-ratio: 0.5625;
     --poster-shape-ratio: 1.464;
     --scroll-bar-size: 6px;
@@ -230,25 +242,25 @@ html {
 
 @media only screen and (min-width: @xxlarge) {
     html {
-        font-size: 18px;
+        font-size: calc(18px * var(--casa-ui-scale, 1));
     }
 }
 
 @media only screen and (max-width: @xxlarge) {
     html {
-        font-size: 16px;
+        font-size: calc(16px * var(--casa-ui-scale, 1));
     }
 }
 
 @media only screen and (max-width: @large) {
     html {
-        font-size: 15px;
+        font-size: calc(15px * var(--casa-ui-scale, 1));
     }
 }
 
 @media only screen and (max-width: @medium) {
     html {
-        font-size: 14px;
+        font-size: calc(14px * var(--casa-ui-scale, 1));
     }
 }
 

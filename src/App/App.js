@@ -12,6 +12,7 @@ const ServicesToaster = require('./ServicesToaster');
 const SearchParamsHandler = require('./SearchParamsHandler');
 const CasaAutoSetup = require('./CasaAutoSetup');
 const CasaUpdater = require('./CasaUpdater');
+const CasaUiScaleInit = require('./CasaUiScaleInit');
 const DeepLinkHandler = require('./DeepLinkHandler');
 const { default: UpdaterBanner } = require('./UpdaterBanner');
 const { default: ShortcutsModal } = require('./ShortcutsModal');
@@ -235,6 +236,7 @@ const App = () => {
                                     }
                                     <ServicesToaster />
                                     <SearchParamsHandler />
+                                    <CasaUiScaleInit />
                                     <CasaAutoSetup />
                                     <CasaUpdater />
                                     <DeepLinkHandler />

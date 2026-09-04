@@ -16,6 +16,7 @@ const { Button } = require('stremio/components');
 const { Section, Option } = require('../components');
 const { CASA_VERSION } = require('stremio/casaVersion');
 const casaUpdate = require('stremio/common/casaUpdate');
+const ZoomSlider = require('./ZoomSlider');
 
 const Update = () => {
     const state = React.useSyncExternalStore(casaUpdate.subscribe, casaUpdate.getState);
@@ -39,6 +40,9 @@ const Update = () => {
                 >
                     {casaUpdate.updateButtonLabel(state.status)}
                 </Button>
+            </Option>
+            <Option label={'Zoom UI'}>
+                <ZoomSlider />
             </Option>
         </Section>
     );
