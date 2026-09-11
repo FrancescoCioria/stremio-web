@@ -20,50 +20,115 @@ const Video = ({ className, id, title, thumbnail, season, episode, released, upc
     const navigate = useNavigate();
     const { t } = useTranslation();
 
-    const [menuOpen, , closeMenu, toggleMenu] = useBinaryState(false);
+    const [menuOpen, openMenu, closeMenu] = useBinaryState(false);
 
-    const popupLabelOnMouseUp = React.useCallback((event) => {
-        if (!event.nativeEvent.togglePopupPrevented) {
-            if (event.nativeEvent.ctrlKey || event.nativeEvent.button === 2) {
-                event.preventDefault();
-                toggleMenu();
-            }
-        }
-    }, []);
+    // Casa: il menu contestuale si apre su UNA sola strada, l'evento
+    // `contextmenu` — tasto destro del mouse, oppure tasto Menu del telecomando
+    // che `common/casaRemoteInput.js` traduce nello stesso evento. Upstream lo
+    // apriva sul `mouseup` col tasto destro e usava `contextmenu` solo per
+    // zittire il menu del browser: dal telecomando arriva SOLO il
+    // `contextmenu`, quindi le card episodio non avevano nessun menu in
+    // salotto mentre dal Mac funzionava (X Factor, 2026-09-11). Stesso
+    // schema di `CasaContextMenu` in MetaItem.js: focus sulla prima voce
+    // all'apertura, frecce su/giu' dentro il menu, orizzontali inghiottite
+    // (se no la rail sposta la card sotto al menu), Escape/Menu chiudono e
+    // riportano il focus sulla card — senza risalire al router, dove Escape
+    // e' "indietro".
+    const menuContentRef = React.useRef(null);
+    const returnFocusRef = React.useRef(null);
+    const closeMenuAndRefocus = React.useCallback(() => {
+        closeMenu();
+        const el = returnFocusRef.current;
+        returnFocusRef.current = null;
+        if (!el || typeof el.focus !== 'function') return;
+        // ⚠️ Dopo lo smontaggio del FocusLock, non prima: finche' il lock e'
+        // vivo un focus fuori dal menu lo intercetta e lo butta sul body.
+        setTimeout(() => {
+            if (document.contains(el)) el.focus({ preventScroll: true });
+        }, 0);
+    }, [closeMenu]);
     const popupLabelOnContextMenu = React.useCallback((event) => {
-        if (!event.nativeEvent.togglePopupPrevented && !event.nativeEvent.ctrlKey) {
-            event.preventDefault();
+        if (event.nativeEvent.togglePopupPrevented) return;
+        event.preventDefault();
+        if (menuOpen) {
+            closeMenuAndRefocus();
+            return;
         }
-    }, [toggleMenu]);
+        returnFocusRef.current = event.currentTarget;
+        openMenu();
+    }, [menuOpen, openMenu, closeMenuAndRefocus]);
     const popupLabelOnLongPress = React.useCallback((event) => {
-        if (event.nativeEvent.pointerType !== 'mouse' && !event.nativeEvent.togglePopupPrevented) {
-            toggleMenu();
+        if (event.nativeEvent.pointerType !== 'mouse' && !event.nativeEvent.togglePopupPrevented && !menuOpen) {
+            openMenu();
         }
-    }, [toggleMenu]);
+    }, [menuOpen, openMenu]);
+    React.useEffect(() => {
+        if (!menuOpen) return;
+        // ⚠️ Non nello stesso tick del commit: Popup posiziona il menu in un
+        // layout effect (setState -> secondo render) e finche' non ha una
+        // direzione la voce non e' focusabile — il focus falliva in silenzio
+        // e cadeva sul body (misurato con Playwright).
+        const tid = setTimeout(() => {
+            const first = menuContentRef.current ? menuContentRef.current.querySelector('[tabindex]') : null;
+            if (first) first.focus({ preventScroll: true });
+        }, 0);
+        return () => clearTimeout(tid);
+    }, [menuOpen]);
     const popupMenuOnPointerDown = React.useCallback((event) => {
         event.nativeEvent.togglePopupPrevented = true;
     }, []);
+    // Secondo "menu" (telecomando o tasto destro) a menu aperto = chiudi.
     const popupMenuOnContextMenu = React.useCallback((event) => {
         event.nativeEvent.togglePopupPrevented = true;
-    }, []);
+        event.preventDefault();
+        event.stopPropagation();
+        closeMenuAndRefocus();
+    }, [closeMenuAndRefocus]);
     const popupMenuOnClick = React.useCallback((event) => {
         event.nativeEvent.togglePopupPrevented = true;
     }, []);
     const popupMenuOnKeyDown = React.useCallback((event) => {
+        // Enter sulla voce: il click lo fa gia' il Button della voce (target);
+        // qui si impedisce che risalga anche alla card.
         event.nativeEvent.buttonClickPrevented = true;
-    }, []);
+        switch (event.key) {
+            case 'ArrowDown':
+            case 'ArrowUp': {
+                event.preventDefault();
+                event.stopPropagation();
+                const items = menuContentRef.current ? [...menuContentRef.current.querySelectorAll('[tabindex]')] : [];
+                if (items.length === 0) return;
+                const idx = items.indexOf(document.activeElement);
+                const delta = event.key === 'ArrowDown' ? 1 : -1;
+                items[idx === -1 ? 0 : (idx + delta + items.length) % items.length].focus({ preventScroll: true });
+                return;
+            }
+            case 'ArrowLeft':
+            case 'ArrowRight':
+                event.preventDefault();
+                event.stopPropagation();
+                return;
+            case 'Escape':
+                event.preventDefault();
+                event.stopPropagation();
+                closeMenuAndRefocus();
+                return;
+            default:
+                return;
+        }
+    }, [closeMenuAndRefocus]);
     const toggleWatchedOnClick = React.useCallback((event) => {
         event.preventDefault();
         event.stopPropagation();
-        closeMenu();
+        closeMenuAndRefocus();
         onMarkVideoAsWatched({ id, released }, watched);
-    }, [id, released, watched]);
+    }, [id, released, watched, closeMenuAndRefocus]);
     const toggleWatchedSeasonOnClick = React.useCallback((event) => {
         event.preventDefault();
         event.stopPropagation();
-        closeMenu();
+        closeMenuAndRefocus();
         onMarkSeasonAsWatched(season, seasonWatched);
-    }, [season, seasonWatched, onMarkSeasonAsWatched]);
+    }, [season, seasonWatched, onMarkSeasonAsWatched, closeMenuAndRefocus]);
     const videoButtonOnClick = React.useCallback(() => {
         if (typeof onSelect === 'function') {
             onSelect();
@@ -171,7 +236,7 @@ const Video = ({ className, id, title, thumbnail, season, episode, released, upc
     }, [selected]);
     const renderMenu = React.useMemo(() => function renderMenu() {
         return (
-            <div className={styles['context-menu-content']} onPointerDown={popupMenuOnPointerDown} onContextMenu={popupMenuOnContextMenu} onClick={popupMenuOnClick} onKeyDown={popupMenuOnKeyDown}>
+            <div ref={menuContentRef} className={styles['context-menu-content']} onPointerDown={popupMenuOnPointerDown} onContextMenu={popupMenuOnContextMenu} onClick={popupMenuOnClick} onKeyDown={popupMenuOnKeyDown}>
                 <Button className={styles['context-menu-option-container']} title={t('CTX_WATCH')}>
                     <div className={styles['context-menu-option-label']}>{t('CTX_WATCH')}</div>
                 </Button>
@@ -183,7 +248,7 @@ const Video = ({ className, id, title, thumbnail, season, episode, released, upc
                 </Button>
             </div>
         );
-    }, [watched, seasonWatched, toggleWatchedOnClick]);
+    }, [watched, seasonWatched, toggleWatchedOnClick, toggleWatchedSeasonOnClick, popupMenuOnContextMenu, popupMenuOnKeyDown]);
     React.useEffect(() => {
         if (!routeFocused) {
             closeMenu();
@@ -203,7 +268,6 @@ const Video = ({ className, id, title, thumbnail, season, episode, released, upc
             scheduled={scheduled}
             onClick={videoButtonOnClick}
             {...props}
-            onMouseUp={popupLabelOnMouseUp}
             onLongPress={popupLabelOnLongPress}
             onContextMenu={popupLabelOnContextMenu}
             open={menuOpen}
