@@ -64,6 +64,9 @@ const VideosList = ({ className, metaItem, libraryItem, season, seasonOnSelect, 
 
     const initialFocusDoneRef = React.useRef(null);
     const isMountedRef = React.useRef(false);
+    // Letto dal keydown handler (useCallback senza deps) per trovare la pill
+    // della stagione corrente senza ricreare l'handler a ogni cambio.
+    const selectedSeasonRef = React.useRef(null);
 
     // Salva la scroll position quando l'utente apre un episodio, cosi' al
     // ritorno alla lista riprende da dove era (bugfix upstream).
@@ -93,11 +96,21 @@ const VideosList = ({ className, metaItem, libraryItem, season, seasonOnSelect, 
             if (!container) return;
             const content = container.closest('[class*="metadetails-content"]') || container.parentElement?.parentElement;
             if (!content) return;
-            const seasonPill = content.querySelector('[class*="seasons-bar-container"] [class*="season-pill"], [class*="seasons-bar-container"] button');
+            // La pill della stagione ATTIVA, non la prima. Le pill filtrano al
+            // focus: atterrare sulla prima (S1) cambiava stagione sotto i
+            // piedi, e su una serie con 20 stagioni tornare a quella giusta
+            // costava 19 pressioni (X Factor, 2026-09-11).
+            const bar = content.querySelector('[class*="seasons-bar-container"]');
+            if (!bar) return;
+            // ⚠️ Le pill NON sono <button> (il Button del kit rende un div/a):
+            // il selettore va per data-attribute, senza tag.
+            const seasonPill = bar.querySelector(`[data-season="${selectedSeasonRef.current}"]`) ||
+                bar.querySelector('[class*="season-pill"]');
             if (!seasonPill) return;
             e.preventDefault();
             e.stopPropagation();
             seasonPill.focus({ preventScroll: true });
+            seasonPill.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
             return;
         }
         if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
@@ -155,6 +168,7 @@ const VideosList = ({ className, metaItem, libraryItem, season, seasonOnSelect, 
 
         return null;
     }, [seasons, season, videos, libraryItem]);
+    selectedSeasonRef.current = selectedSeason;
     const videosForSeason = React.useMemo(() => {
         return videos
             .filter((video) => {
