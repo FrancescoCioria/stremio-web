@@ -11,6 +11,21 @@ const SeasonsBar = require('./SeasonsBar');
 const { default: EpisodePicker } = require('../EpisodePicker');
 const styles = require('./styles');
 
+// Il deep link agli stream del core NON porta `?season=`. Senza, tra l'Enter
+// sulla card e la risposta del core (async) questa lista resta montata per un
+// frame con season=null -> ricade sulla stagione del library item (ultimo
+// episodio visto) -> l'auto-focus salta su QUEL episodio e il MetaPreview mostra
+// S19E13 mentre l'URL (e gli stream) sono di S20E01. Con la stagione nell'URL
+// la lista non cambia stagione e il Back dagli stream torna dove si era.
+const withSeason = (deepLinks, season) => {
+    if (!deepLinks || typeof deepLinks.metaDetailsStreams !== 'string' || typeof season !== 'number') {
+        return deepLinks;
+    }
+    const link = deepLinks.metaDetailsStreams;
+    if (link.includes('?')) return deepLinks;
+    return { ...deepLinks, metaDetailsStreams: `${link}?season=${season}` };
+};
+
 // Scroll position della lista episodi, preservata tra un click su un episodio
 // e il ritorno alla lista (bugfix upstream: keep scroll position).
 let savedScrollTop = 0;
@@ -36,6 +51,18 @@ const VideosList = ({ className, metaItem, libraryItem, season, seasonOnSelect, 
             onFocusedVideoChange(focusedVideoId);
         }
     }, [focusedVideoId, onFocusedVideoChange]);
+    // Allo smontaggio (la pagina passa agli stream) il focus non e' piu' su
+    // nessun episodio: senza questo reset il MetaPreview restava sull'ULTIMO
+    // episodio focussato — e per via del re-render transitorio senza
+    // `?season` (vedi withSeason) quello era l'ultimo VISTO (S19E13), non
+    // quello scelto (S20E01). Bug X Factor 2026-09-11.
+    const onFocusedVideoChangeRef = React.useRef(onFocusedVideoChange);
+    onFocusedVideoChangeRef.current = onFocusedVideoChange;
+    React.useEffect(() => () => {
+        if (typeof onFocusedVideoChangeRef.current === 'function') {
+            onFocusedVideoChangeRef.current(null);
+        }
+    }, []);
     const setVideosContainerRef = React.useCallback((el) => {
         const prev = videosContainerRef.current;
         if (prev && prev._casaTvCleanup) prev._casaTvCleanup();
@@ -345,7 +372,7 @@ const VideosList = ({ className, metaItem, libraryItem, season, seasonOnSelect, 
                                                     upcoming={video.upcoming}
                                                     watched={video.watched}
                                                     progress={video.progress}
-                                                    deepLinks={video.deepLinks}
+                                                    deepLinks={withSeason(video.deepLinks, selectedSeason)}
                                                     scheduled={video.scheduled}
                                                     seasonWatched={seasonWatched}
                                                     selected={video.id === selectedVideoId}
