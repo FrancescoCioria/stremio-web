@@ -37,6 +37,7 @@ const useStallWatchdog = require('./useStallWatchdog');
 const { decodeRecoveryStep, initialMemory: initialDecodeRecoveryMemory } = require('./casaDecodeRecovery');
 const { bufferAheadMs } = require('./casaClientBuffer');
 const { nextSeek, initialSeekChain } = require('stremio/common/casaSeekAccel');
+const { shouldSkipCredits } = require('stremio/common/casaCreditsSkip');
 const useVideo = require('./useVideo');
 const { default: useSubtitles } = require('./useSubtitles');
 const styles = require('./styles');
@@ -378,6 +379,35 @@ const Player = () => {
             handleNextVideoNavigation(deepLinks, profile.settings.bingeWatching, false);
         }
     }, [player.nextVideo, handleNextVideoNavigation, profile.settings]);
+
+    // Casa: da Continue Watching su un episodio fermo nei titoli di coda -> vai
+    // al successivo. La regola (soglia 0.9) e' quella del core, che pero' la
+    // applica solo all'Unload del player: con la tile chiusa da fuori non gira
+    // mai. Motivazione e casi in casaCreditsSkip.js. `?casaFrom=cw` lo mette
+    // LibItem al click sulla card. Una sola volta per montaggio: la navigazione
+    // smonta questo player e il core fa il resto (offset a 0, library avanzata).
+    const casaFromContinueWatching = queryParams.get('casaFrom') === 'cw';
+    const creditsSkipDoneRef = React.useRef(false);
+    React.useEffect(() => {
+        if (creditsSkipDoneRef.current) return;
+        const selectedVideoId = player.selected?.streamRequest?.path?.id ?? null;
+        const decision = shouldSkipCredits({
+            fromContinueWatching: casaFromContinueWatching,
+            libraryItem: player.libraryItem,
+            selectedVideoId,
+            nextVideo: player.nextVideo,
+        });
+        if (!decision.skip) return;
+        creditsSkipDoneRef.current = true;
+        casaBeacon('/debug/player-event', {
+            ev: 'casa-cw-credits-skip',
+            videoId: selectedVideoId,
+            nextVideoId: player.nextVideo?.id ?? null,
+            timeOffset: player.libraryItem?.state?.timeOffset ?? null,
+            duration: player.libraryItem?.state?.duration ?? null,
+        });
+        handleNextVideoNavigation(player.nextVideo.deepLinks, profile.settings.bingeWatching, false);
+    }, [casaFromContinueWatching, player.selected, player.libraryItem, player.nextVideo, handleNextVideoNavigation, profile.settings.bingeWatching]);
 
     const onVideoClick = React.useCallback(() => {
         if (video.state.paused !== null && !longPress.current) {

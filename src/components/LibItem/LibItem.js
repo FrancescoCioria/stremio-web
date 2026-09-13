@@ -8,6 +8,13 @@ const { useCore } = require('stremio/core');
 const MetaItem = require('stremio/components/MetaItem');
 const { t } = require('i18next');
 
+// Casa: la ripresa da una card (Continue Watching / Library) si dichiara al
+// player con `?casaFrom=cw`, cosi' se l'episodio e' fermo nei titoli di coda
+// il player apre il successivo invece della sigla (casaCreditsSkip.js). Da un
+// episodio scelto nella lista il marker non c'e' e non si salta niente.
+const withContinueWatchingMarker = (playerLink) =>
+    playerLink + (playerLink.includes('?') ? '&' : '?') + 'casaFrom=cw';
+
 const LibItem = ({ _id, removable, notifications, watched, ...props }) => {
     const navigate = useNavigate();
     const core = useCore();
@@ -148,7 +155,7 @@ const LibItem = ({ _id, removable, notifications, watched, ...props }) => {
                     window.history.pushState(null, '', dl.metaDetailsVideos);
                     window.history.pushState(null, '', dl.metaDetailsStreams);
                 }
-                window.location = dl.player;
+                window.location = withContinueWatchingMarker(dl.player);
             };
         }
         return null;
@@ -177,7 +184,7 @@ const LibItem = ({ _id, removable, notifications, watched, ...props }) => {
             } else if (typeof dl.metaDetailsStreams === 'string') {
                 window.history.pushState(null, '', dl.metaDetailsStreams);
             }
-            window.location = dl.player;
+            window.location = withContinueWatchingMarker(dl.player);
             return;
         }
         if (hasSeries) {
