@@ -21,6 +21,12 @@ const { casaBackendUrl } = require('./casaBackend');
 // dismiss del core dispatcha RewindLibraryItem su un id che nella library non
 // esiste, quindi NON va usato sui nostri).
 const CASA_WATCHLIST = 'casaWatchlist';
+// "In attesa del prossimo episodio": serie di cui hai finito l'ultimo episodio
+// uscito, con il prossimo datato a breve (backend `awaiting_episodes.ts`).
+// Stessa riga, stesso trattamento della Watchlist (card MetaItem, niente
+// dismiss del core); flag diverso perche' il menu contestuale non deve
+// offrire "Togli da Watchlist" su una card che in watchlist non e'.
+const CASA_AWAITING = 'casaAwaiting';
 
 // Bus di aggiornamento: MetaItem aggiunge/toglie, il Board deve rinfrescare
 // SUBITO. Senza, la card comparirebbe al prossimo giro di polling — cioe' un
@@ -57,6 +63,26 @@ const toRowItem = (entry) => ({
     casaAddedAt: entry.addedAt || 0,
 });
 
+// Card "in attesa": poster con la pill "Prossimo: gio 17 set" (la disegna il
+// backend), progresso zero, click -> pagina della serie. Si posiziona nella
+// riga con l'ultima visione, cioe' dove la serie stava prima di sparire.
+const toAwaitingRowItem = (entry) => ({
+    _id: entry.id,
+    id: entry.id,
+    type: 'series',
+    name: entry.name,
+    poster: entry.poster,
+    posterShape: entry.posterShape || 'poster',
+    progress: 0,
+    watched: false,
+    deepLinks: {
+        metaDetailsVideos: '#/metadetails/series/' + encodeURIComponent(entry.id),
+    },
+    [CASA_AWAITING]: true,
+    casaNext: entry.next || null,
+    casaAddedAt: entry.lastWatched || 0,
+});
+
 // Fonde "Watchlist" in coda a Continue Watching, senza duplicati.
 //
 // ⚠️ La de-duplica non e' teorica: appena si guarda un secondo di un titolo il
@@ -89,14 +115,18 @@ const toRowItem = (entry) => ({
 // core lo mette in Continue Watching da solo, mentre il backend se ne accorge
 // solo alla riconciliazione successiva (library in cache 1h). In quella
 // finestra sta in ENTRAMBE le liste. Vince la copia del core: ha il progresso vero.
-const mergeWatchlist = (continueWatchingItems, watchlistEntries, activity) => {
+const mergeWatchlist = (continueWatchingItems, watchlistEntries, activity, awaitingEntries) => {
     const cw = Array.isArray(continueWatchingItems) ? continueWatchingItems : [];
     const wl = Array.isArray(watchlistEntries) ? watchlistEntries : [];
-    if (wl.length === 0) return cw;
+    const aw = Array.isArray(awaitingEntries) ? awaitingEntries : [];
+    if (wl.length === 0 && aw.length === 0) return cw;
     const seen = new Set(cw.map((i) => i && (i._id || i.id)).filter(Boolean));
-    const ours = wl
-        .filter((e) => e && typeof e.id === 'string' && !seen.has(e.id))
-        .map(toRowItem)
+    const valid = (e) => e && typeof e.id === 'string' && !seen.has(e.id);
+    // Le due popolazioni nostre si ordinano insieme: la data di aggiunta
+    // (watchlist) e l'ultima visione (in attesa) sono entrambe "ultimo
+    // aggiornamento" e si confrontano con la stessa `activity` del core.
+    const ours = wl.filter(valid).map(toRowItem)
+        .concat(aw.filter(valid).map(toAwaitingRowItem))
         .sort((a, b) => b.casaAddedAt - a.casaAddedAt);
     if (ours.length === 0) return cw;
 
@@ -123,7 +153,7 @@ const mergeWatchlist = (continueWatchingItems, watchlistEntries, activity) => {
     return merged;
 };
 
-const EMPTY_LIST = { items: [], activity: {} };
+const EMPTY_LIST = { items: [], activity: {}, awaiting: [] };
 
 const fetchWatchlist = async () => {
     const url = casaBackendUrl('/stremio-addon/watchlist');
@@ -134,6 +164,7 @@ const fetchWatchlist = async () => {
     return {
         items: Array.isArray(j && j.items) ? j.items : [],
         activity: j && j.activity && typeof j.activity === 'object' ? j.activity : {},
+        awaiting: Array.isArray(j && j.awaiting) ? j.awaiting : [],
     };
 };
 
@@ -176,8 +207,10 @@ const removeFromWatchlist = async (id) => {
 
 module.exports = {
     CASA_WATCHLIST,
+    CASA_AWAITING,
     EVENT,
     toRowItem,
+    toAwaitingRowItem,
     mergeWatchlist,
     fetchWatchlist,
     addToWatchlist,

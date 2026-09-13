@@ -1,6 +1,6 @@
 // Copyright (C) 2017-2026 Smart code 203358507
 
-const { mergeWatchlist, toRowItem, CASA_WATCHLIST } = require('../src/common/casaWatchlist');
+const { mergeWatchlist, toRowItem, toAwaitingRowItem, CASA_WATCHLIST, CASA_AWAITING } = require('../src/common/casaWatchlist');
 
 const cwItem = (id, extra) => Object.assign({ _id: id, name: id, progress: 0.4 }, extra);
 const entry = (id, extra) => Object.assign({ id, type: 'movie', name: id, poster: null, addedAt: 0 }, extra);
@@ -116,5 +116,50 @@ describe('mergeWatchlist', () => {
     it('regge input non validi senza esplodere', () => {
         expect(mergeWatchlist(null, null, null)).toEqual([]);
         expect(mergeWatchlist([cwItem('a')], [null, { noId: true }], {})).toHaveLength(1);
+    });
+});
+
+// "In attesa del prossimo episodio" (X Factor, 2026-09-13): finito l'ultimo
+// episodio uscito, la serie sparisce da Continue Watching finche' Cinemeta non
+// lista il successivo. La card del backend copre quella settimana.
+describe('awaiting (in attesa del prossimo episodio)', () => {
+    const awaiting = (id, lastWatched, extra) => Object.assign({
+        id, type: 'series', name: id, poster: 'p.svg', posterShape: 'poster', lastWatched,
+        next: { season: 20, episode: 2, airDate: '2026-09-17', name: null },
+    }, extra);
+
+    it('la card e\' una MetaItem nostra, non un item del core (niente dismiss)', () => {
+        const it = toAwaitingRowItem(awaiting('tt1194223', 100));
+        expect(it[CASA_AWAITING]).toBe(true);
+        expect(it[CASA_WATCHLIST]).toBeUndefined();
+        expect(it.deepLinks.player).toBeUndefined();
+        expect(it.deepLinks.metaDetailsVideos).toBe('#/metadetails/series/tt1194223');
+        expect(it.progress).toBe(0);
+    });
+
+    it('si posiziona nella riga con l\'ultima visione, dove la serie stava prima di sparire', () => {
+        const cw = [cwItem('a'), cwItem('b'), cwItem('c')];
+        const activity = { a: 300, b: 200, c: 100 };
+        const out = mergeWatchlist(cw, [], activity, [awaiting('x', 250)]);
+        expect(out.map((i) => i._id)).toEqual(['a', 'x', 'b', 'c']);
+    });
+
+    it('watchlist e in-attesa si ordinano insieme per data', () => {
+        const cw = [cwItem('a')];
+        const out = mergeWatchlist(cw, [entry('w', { addedAt: 500 })], { a: 300 }, [awaiting('x', 400)]);
+        expect(out.map((i) => i._id)).toEqual(['w', 'x', 'a']);
+    });
+
+    it('appena il core la rimette in Continue Watching (episodio uscito) la nostra copia sparisce', () => {
+        const cw = [cwItem('tt1194223', { progress: 0.01 })];
+        const out = mergeWatchlist(cw, [], { tt1194223: 900 }, [awaiting('tt1194223', 100)]);
+        expect(out).toHaveLength(1);
+        expect(out[0][CASA_AWAITING]).toBeUndefined();
+    });
+
+    it('senza in-attesa e senza watchlist ritorna ESATTAMENTE l\'array del core', () => {
+        const cw = [cwItem('a')];
+        expect(mergeWatchlist(cw, [], {}, [])).toBe(cw);
+        expect(mergeWatchlist(cw, [], {}, undefined)).toBe(cw);
     });
 });

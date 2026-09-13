@@ -7,7 +7,7 @@
 const React = require('react');
 const { EVENT, fetchWatchlist } = require('stremio/common/casaWatchlist');
 
-const EMPTY = { items: [], activity: {} };
+const EMPTY = { items: [], activity: {}, awaiting: [] };
 
 const useCasaWatchlist = () => {
     // `items` = la lista; `activity` = ultima visione per titolo della library,

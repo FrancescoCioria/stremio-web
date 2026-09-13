@@ -21,10 +21,10 @@ const React = require('react');
 // invalid". Letto al render il ciclo e' chiuso da un pezzo e i componenti ci
 // sono. Pescato dall'harness Playwright: nessun test unitario lo vedeva.
 const components = require('stremio/components');
-const { CASA_WATCHLIST } = require('stremio/common/casaWatchlist');
+const { CASA_WATCHLIST, CASA_AWAITING } = require('stremio/common/casaWatchlist');
 
 const ContinueWatchingRowItem = (props) => {
-    return props[CASA_WATCHLIST] === true ?
+    return (props[CASA_WATCHLIST] === true || props[CASA_AWAITING] === true) ?
         <components.MetaItem {...props} />
         :
         <components.ContinueWatchingItem {...props} />;
