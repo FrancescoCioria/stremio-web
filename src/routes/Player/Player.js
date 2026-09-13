@@ -36,6 +36,7 @@ const useCasaTitleLanguage = require('./useCasaTitleLanguage');
 const useStallWatchdog = require('./useStallWatchdog');
 const { decodeRecoveryStep, initialMemory: initialDecodeRecoveryMemory } = require('./casaDecodeRecovery');
 const { bufferAheadMs } = require('./casaClientBuffer');
+const { nextSeek, initialSeekChain } = require('stremio/common/casaSeekAccel');
 const useVideo = require('./useVideo');
 const { default: useSubtitles } = require('./useSubtitles');
 const styles = require('./styles');
@@ -318,6 +319,29 @@ const Player = () => {
         seek(time, video.state.duration, video.state.manifest?.name);
     }, [video.state.duration, video.state.manifest]);
 
+    // Casa: UNICO punto di decisione per i seek RELATIVI (frecce, tasto
+    // avanti/indietro del telecomando via MPRIS, bottoni della barra). Le
+    // pressioni concatenate accelerano e partono dal bersaglio precedente, non
+    // dal tempo del player (che fra due pressioni a 180ms puo' essere ancora
+    // quello vecchio → due tocchi che valgono uno). Regola e numeri in
+    // casaSeekAccel.js. `short` = passo breve (Shift / combo 1).
+    const seekChainRef = React.useRef(initialSeekChain());
+    const relativeSeek = React.useCallback((direction, short) => {
+        if (video.state.time === null) return;
+        const step = short ? settings.seekShortTimeDuration : settings.seekTimeDuration;
+        const { target, chain } = nextSeek({
+            direction,
+            step,
+            time: video.state.time,
+            duration: video.state.duration,
+            now: Date.now(),
+            chain: seekChainRef.current,
+        });
+        seekChainRef.current = chain;
+        setSeeking(true);
+        onSeekRequested(target);
+    }, [video.state.time, video.state.duration, onSeekRequested, settings.seekShortTimeDuration, settings.seekTimeDuration]);
+
     const onPlaybackSpeedChanged = React.useCallback((rate, skipUpdate) => {
         video.setPlaybackSpeed(rate);
 
@@ -421,21 +445,16 @@ const Player = () => {
     }, [menusOpen, nextVideoPopupOpen, video.state.paused]);
 
     const onSeekPrev = React.useCallback((event) => {
-        if (!menusOpen && !nextVideoPopupOpen && video.state.time !== null) {
-            const seekDuration = event?.shiftKey ? settings.seekShortTimeDuration : settings.seekTimeDuration;
-            const seekTime = video.state.time - seekDuration;
-            setSeeking(true);
-            onSeekRequested(Math.max(seekTime, 0));
+        if (!menusOpen && !nextVideoPopupOpen) {
+            relativeSeek(-1, !!event?.shiftKey);
         }
-    }, [menusOpen, nextVideoPopupOpen, video.state.time]);
+    }, [menusOpen, nextVideoPopupOpen, relativeSeek]);
 
     const onSeekNext = React.useCallback((event) => {
-        if (!menusOpen && !nextVideoPopupOpen && video.state.time !== null) {
-            const seekDuration = event?.shiftKey ? settings.seekShortTimeDuration : settings.seekTimeDuration;
-            setSeeking(true);
-            onSeekRequested(video.state.time + seekDuration);
+        if (!menusOpen && !nextVideoPopupOpen) {
+            relativeSeek(1, !!event?.shiftKey);
         }
-    }, [menusOpen, nextVideoPopupOpen, video.state.time]);
+    }, [menusOpen, nextVideoPopupOpen, relativeSeek]);
 
     const onVolumeUp = React.useCallback(() => {
         if (!menusOpen && !nextVideoPopupOpen && video.state.volume !== null) {
@@ -752,37 +771,21 @@ const Player = () => {
     // nexttrack->nextVideo che useMediaSession imposta.
     React.useEffect(() => {
         if (!navigator.mediaSession) return;
-        const seekForward = () => {
-            if (video.state.time === null) return;
-            setSeeking(true);
-            onSeekRequested(video.state.time + settings.seekTimeDuration);
-        };
-        const seekBackward = () => {
-            if (video.state.time === null) return;
-            setSeeking(true);
-            onSeekRequested(video.state.time - settings.seekTimeDuration);
-        };
+        const seekForward = () => relativeSeek(1, false);
+        const seekBackward = () => relativeSeek(-1, false);
         navigator.mediaSession.setActionHandler('nexttrack', seekForward);
         navigator.mediaSession.setActionHandler('previoustrack', seekBackward);
         navigator.mediaSession.setActionHandler('seekforward', seekForward);
         navigator.mediaSession.setActionHandler('seekbackward', seekBackward);
-    }, [video.state.time, player.nextVideo, onSeekRequested, settings.seekTimeDuration]);
+    }, [video.state.time, player.nextVideo, relativeSeek]);
 
     onShortcut('seekForward', (combo) => {
-        if (video.state.time !== null) {
-            const seekDuration = combo === 1 ? settings.seekShortTimeDuration : settings.seekTimeDuration;
-            setSeeking(true);
-            onSeekRequested(video.state.time + seekDuration);
-        }
-    }, [video.state.time, onSeekRequested], !menusOpen && tvNavMode !== 'buttons');
+        relativeSeek(1, combo === 1);
+    }, [relativeSeek], !menusOpen && tvNavMode !== 'buttons');
 
     onShortcut('seekBackward', (combo) => {
-        if (video.state.time !== null) {
-            const seekDuration = combo === 1 ? settings.seekShortTimeDuration : settings.seekTimeDuration;
-            setSeeking(true);
-            onSeekRequested(video.state.time - seekDuration);
-        }
-    }, [video.state.time, onSeekRequested], !menusOpen && tvNavMode !== 'buttons');
+        relativeSeek(-1, combo === 1);
+    }, [relativeSeek], !menusOpen && tvNavMode !== 'buttons');
 
     onShortcut('mute', () => {
         video.state.muted === true ? onUnmuteRequested() : onMuteRequested();
