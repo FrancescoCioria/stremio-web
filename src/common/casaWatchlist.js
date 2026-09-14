@@ -155,17 +155,23 @@ const mergeWatchlist = (continueWatchingItems, watchlistEntries, activity, await
 
 const EMPTY_LIST = { items: [], activity: {}, awaiting: [] };
 
+// Forma sicura di una risposta (dal backend o dalla copia salvata in
+// localStorage, che puo' venire da un bundle vecchio).
+const normalizeWatchlist = (j) => ({
+    items: Array.isArray(j && j.items) ? j.items : [],
+    activity: j && j.activity && typeof j.activity === 'object' ? j.activity : {},
+    awaiting: Array.isArray(j && j.awaiting) ? j.awaiting : [],
+});
+
+// ⚠️ Un errore HTTP LANCIA, non torna vuoto: il chiamante tiene cio' che sta
+// mostrando. Una lista vuota qui farebbe sparire le card (e cancellerebbe la
+// copia salvata con cui la riga si disegna all'avvio).
 const fetchWatchlist = async () => {
     const url = casaBackendUrl('/stremio-addon/watchlist');
     if (!url) return EMPTY_LIST;
     const r = await fetch(url, { cache: 'no-store' });
-    if (!r.ok) return EMPTY_LIST;
-    const j = await r.json();
-    return {
-        items: Array.isArray(j && j.items) ? j.items : [],
-        activity: j && j.activity && typeof j.activity === 'object' ? j.activity : {},
-        awaiting: Array.isArray(j && j.awaiting) ? j.awaiting : [],
-    };
+    if (!r.ok) throw new Error('watchlist HTTP ' + r.status);
+    return normalizeWatchlist(await r.json());
 };
 
 // `item` = una card qualunque (catalogo, ricerca, library): servono id e type,
@@ -212,6 +218,7 @@ module.exports = {
     toRowItem,
     toAwaitingRowItem,
     mergeWatchlist,
+    normalizeWatchlist,
     fetchWatchlist,
     addToWatchlist,
     removeFromWatchlist,

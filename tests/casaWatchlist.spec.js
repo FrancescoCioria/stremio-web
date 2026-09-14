@@ -1,9 +1,24 @@
 // Copyright (C) 2017-2026 Smart code 203358507
 
-const { mergeWatchlist, toRowItem, toAwaitingRowItem, CASA_WATCHLIST, CASA_AWAITING } = require('../src/common/casaWatchlist');
+const { mergeWatchlist, normalizeWatchlist, toRowItem, toAwaitingRowItem, CASA_WATCHLIST, CASA_AWAITING } = require('../src/common/casaWatchlist');
 
 const cwItem = (id, extra) => Object.assign({ _id: id, name: id, progress: 0.4 }, extra);
 const entry = (id, extra) => Object.assign({ id, type: 'movie', name: id, poster: null, addedAt: 0 }, extra);
+
+describe('normalizeWatchlist', () => {
+    it('una copia salvata da un bundle vecchio (senza awaiting) resta usabile', () => {
+        const r = normalizeWatchlist({ items: [entry('tt1')], activity: { tt2: 5 } });
+        expect(r.items).toHaveLength(1);
+        expect(r.activity).toEqual({ tt2: 5 });
+        expect(r.awaiting).toEqual([]);
+    });
+
+    it('forme rotte -> liste vuote, nessuna eccezione', () => {
+        for (const bad of [null, undefined, 'x', 42, { items: 'no', activity: 'no', awaiting: {} }]) {
+            expect(normalizeWatchlist(bad)).toEqual({ items: [], activity: {}, awaiting: [] });
+        }
+    });
+});
 
 describe('toRowItem', () => {
     it('non espone un deepLink player: un titolo mai iniziato non ha da dove riprendere', () => {
