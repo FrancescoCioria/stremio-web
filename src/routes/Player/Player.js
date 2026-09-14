@@ -38,6 +38,7 @@ const { decodeRecoveryStep, initialMemory: initialDecodeRecoveryMemory } = requi
 const { bufferAheadMs } = require('./casaClientBuffer');
 const { nextSeek, initialSeekChain } = require('stremio/common/casaSeekAccel');
 const { shouldSkipCredits } = require('stremio/common/casaCreditsSkip');
+const { nextVideoNavigation } = require('stremio/common/casaNextVideoHistory');
 const useVideo = require('./useVideo');
 const { default: useSubtitles } = require('./useSubtitles');
 const styles = require('./styles');
@@ -221,24 +222,24 @@ const Player = () => {
 
     const HOLD_DELAY = 400;
 
+    // Casa: indietro dal player del successivo deve portare ai SUOI torrent, non a
+    // quelli dell'episodio appena lasciato. Casi e motivo in casaNextVideoHistory.js.
     const handleNextVideoNavigation = React.useCallback((deepLinks, bingeWatching, ended) => {
-        if (ended) {
-            if (bingeWatching) {
-                if (deepLinks.player) {
-                    navigate(toPath(deepLinks.player), { replace: true });
-                } else if (deepLinks.metaDetailsStreams) {
-                    navigate(toPath(deepLinks.metaDetailsStreams), { replace: true });
-                }
-            } else {
+        const step = nextVideoNavigation(deepLinks, bingeWatching, ended);
+        switch (step.kind) {
+            case 'back':
                 navigate(-1);
-            }
-
-        } else {
-            if (deepLinks.player) {
-                navigate(toPath(deepLinks.player), { replace: true });
-            } else if (deepLinks.metaDetailsStreams) {
-                navigate(toPath(deepLinks.metaDetailsStreams), { replace: true });
-            }
+                break;
+            case 'streams-then-player':
+                // Idempotente: fine episodio + click sul popup nello stesso giro
+                // duplicherebbero la pagina torrent (due "indietro" per uscirne).
+                if (window.location.hash === step.player) break;
+                window.history.replaceState(null, '', step.streams);
+                window.location = step.player;
+                break;
+            case 'replace':
+                navigate(toPath(step.url), { replace: true });
+                break;
         }
     }, []);
 
