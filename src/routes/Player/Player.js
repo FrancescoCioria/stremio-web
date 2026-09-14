@@ -31,6 +31,7 @@ const useStatistics = require('./useStatistics');
 const usePlayerDebugLog = require('./usePlayerDebugLog');
 const useSubtitleDebugLog = require('./useSubtitleDebugLog');
 const useNextEpisodePrewarm = require('./useNextEpisodePrewarm');
+const useCasaPauseWarm = require('./useCasaPauseWarm');
 const useCasaEmbeddedSubs = require('./useCasaEmbeddedSubs');
 const useCasaTitleLanguage = require('./useCasaTitleLanguage');
 const useStallWatchdog = require('./useStallWatchdog');
@@ -86,6 +87,7 @@ const Player = () => {
     usePlayerDebugLog(video, streamingServer, statistics); // DEBUG: log pause/buffering + stato torrent al backend
     useSubtitleDebugLog(video); // DEBUG: log stato texttrack per bug sottotitoli embedded che spariscono
     useNextEpisodePrewarm(player, video, type); // scalda il prossimo episodio su TorrServer (custom Casa)
+    useCasaPauseWarm(player, video); // in pausa il backend continua a scaricare (custom Casa)
     // Casa: sottotitoli embedded estratti in VTT completo (fix "si spengono a
     // meta' film"), aggiunti come esterni -> overlay robusto invece del path
     // in-band di stremio-server che smette di produrre cue. Vedi useCasaEmbeddedSubs.
