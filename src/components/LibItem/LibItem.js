@@ -7,16 +7,21 @@ const PropTypes = require('prop-types');
 const { useCore } = require('stremio/core');
 const MetaItem = require('stremio/components/MetaItem');
 const { t } = require('i18next');
+const { casaBeacon } = require('stremio/common/casaBackend');
+const { fetchSeriesVideos } = require('stremio/common/casaMetaCache');
+const { decideCreditsSkip, needsCreditsCheck } = require('stremio/common/casaCreditsSkip');
 
-// Casa: la ripresa da una card (Continue Watching / Library) si dichiara al
-// player con `?casaFrom=cw`, cosi' se l'episodio e' fermo nei titoli di coda
-// il player apre il successivo invece della sigla (casaCreditsSkip.js). Da un
-// episodio scelto nella lista il marker non c'e' e non si salta niente.
-// `casaProgress` = la percentuale della card: il player non ha altro modo di
-// saperla (nel suo libraryItem il core non serializza la durata).
-const withContinueWatchingMarker = (playerLink, progress) =>
-    playerLink + (playerLink.includes('?') ? '&' : '?') + 'casaFrom=cw' +
-    (typeof progress === 'number' && isFinite(progress) ? '&casaProgress=' + progress.toFixed(2) : '');
+// Casa: l'episodio della card, dal deep link della sua pagina torrent
+// (`#/detail/series/tt123/tt123%3A3%3A8` -> `tt123:3:8`).
+const videoIdFromStreamsLink = (link) => {
+    const m = typeof link === 'string' && link.match(/\/detail\/[^/]+\/[^/]+\/([^/?#]+)/);
+    if (!m) return null;
+    try {
+        return decodeURIComponent(m[1]);
+    } catch (_e) {
+        return null;
+    }
+};
 
 const LibItem = ({ _id, removable, notifications, watched, ...props }) => {
     const navigate = useNavigate();
@@ -145,29 +150,76 @@ const LibItem = ({ _id, removable, notifications, watched, ...props }) => {
         }
     }, [_id, props.deepLinks, props.optionOnSelect]);
 
+    // Continue Watching: UX Netflix-like -> click sulla tile parte direttamente
+    // il video (deepLinks.player). Seed history con episodi + streams cosi'
+    // back: player -> streams -> episodi -> board. Fallback alla pagina
+    // streams se player deepLink manca (nuovo episodio mai aperto).
+    const openResume = React.useCallback((dl) => {
+        const hasSeries = typeof dl.metaDetailsVideos === 'string' && typeof dl.metaDetailsStreams === 'string' &&
+            dl.metaDetailsVideos !== dl.metaDetailsStreams;
+        if (typeof dl.player === 'string') {
+            if (hasSeries) {
+                window.history.pushState(null, '', dl.metaDetailsVideos);
+                window.history.pushState(null, '', dl.metaDetailsStreams);
+            } else if (typeof dl.metaDetailsStreams === 'string') {
+                window.history.pushState(null, '', dl.metaDetailsStreams);
+            }
+            window.location = dl.player;
+        } else if (hasSeries) {
+            window.history.pushState(null, '', dl.metaDetailsVideos);
+            window.location = dl.metaDetailsStreams;
+        }
+    }, []);
+
+    // Casa: card ferma nei titoli di coda -> i torrent del SUCCESSIVO, senza
+    // passare dal player dell'episodio vecchio. Regola e casi in
+    // casaCreditsSkip.js. Un click alla volta: la lista episodi arriva dalla rete,
+    // e un secondo OK nel frattempo aprirebbe due navigazioni.
+    const openingRef = React.useRef(false);
+    const openFromCard = React.useCallback(async (dl) => {
+        if (!needsCreditsCheck(props.progress, metaType)) {
+            openResume(dl);
+            return;
+        }
+        if (openingRef.current) return;
+        openingRef.current = true;
+        try {
+            const videoId = videoIdFromStreamsLink(dl.metaDetailsStreams);
+            const videos = videoId ? await fetchSeriesVideos(metaType, metaId) : null;
+            const decision = decideCreditsSkip({ progress: props.progress, videoId, videos, now: Date.now() });
+            casaBeacon('/debug/player-event', {
+                ev: 'casa-cw-credits-skip',
+                skip: decision.skip,
+                reason: decision.reason,
+                videoId,
+                nextVideoId: decision.next ? decision.next.id : null,
+                progress: props.progress,
+            });
+            if (!decision.skip) {
+                openResume(dl);
+                return;
+            }
+            if (typeof dl.metaDetailsVideos === 'string') {
+                window.history.pushState(null, '', dl.metaDetailsVideos);
+            }
+            window.location = '#/detail/' + encodeURIComponent(metaType) + '/' +
+                encodeURIComponent(metaId) + '/' + encodeURIComponent(decision.next.id);
+        } finally {
+            openingRef.current = false;
+        }
+    }, [props.progress, metaType, metaId, openResume]);
+
     const onPlayClick = React.useMemo(() => {
         if (props.deepLinks && typeof props.deepLinks.player === 'string') {
             const dl = props.deepLinks;
             return (event) => {
                 event.preventDefault();
-                // Series: seed history con episodi + streams cosi' back dal
-                // player torna a streams -> episodi -> home invece di saltare
-                // dritto a home.
-                if (typeof dl.metaDetailsVideos === 'string' && typeof dl.metaDetailsStreams === 'string' &&
-                    dl.metaDetailsVideos !== dl.metaDetailsStreams) {
-                    window.history.pushState(null, '', dl.metaDetailsVideos);
-                    window.history.pushState(null, '', dl.metaDetailsStreams);
-                }
-                window.location = withContinueWatchingMarker(dl.player, props.progress);
+                void openFromCard(dl);
             };
         }
         return null;
-    }, [props.deepLinks, props.progress]);
+    }, [props.deepLinks, openFromCard]);
 
-    // Continue Watching: UX Netflix-like -> click sulla tile parte direttamente
-    // il video (deepLinks.player). Seed history con episodi + streams cosi'
-    // back: player -> streams -> episodi -> board. Fallback alla pagina
-    // streams se player deepLink manca (nuovo episodio mai aperto).
     const onTileClick = React.useCallback((event) => {
         if (typeof props.onClick === 'function') {
             props.onClick(event);
@@ -179,23 +231,11 @@ const LibItem = ({ _id, removable, notifications, watched, ...props }) => {
         if (!dl) return;
         const hasSeries = typeof dl.metaDetailsVideos === 'string' && typeof dl.metaDetailsStreams === 'string' &&
             dl.metaDetailsVideos !== dl.metaDetailsStreams;
-        if (typeof dl.player === 'string') {
+        if (typeof dl.player === 'string' || hasSeries) {
             event.preventDefault();
-            if (hasSeries) {
-                window.history.pushState(null, '', dl.metaDetailsVideos);
-                window.history.pushState(null, '', dl.metaDetailsStreams);
-            } else if (typeof dl.metaDetailsStreams === 'string') {
-                window.history.pushState(null, '', dl.metaDetailsStreams);
-            }
-            window.location = withContinueWatchingMarker(dl.player, props.progress);
-            return;
+            void openFromCard(dl);
         }
-        if (hasSeries) {
-            event.preventDefault();
-            window.history.pushState(null, '', dl.metaDetailsVideos);
-            window.location = dl.metaDetailsStreams;
-        }
-    }, [props.onClick, props.deepLinks, props.progress]);
+    }, [props.onClick, props.deepLinks, openFromCard]);
 
     return (
         <MetaItem

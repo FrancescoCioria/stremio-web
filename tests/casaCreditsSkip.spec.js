@@ -1,79 +1,90 @@
 // Test del salto della sigla da Continue Watching (casaCreditsSkip.js).
 //
-// Ancorato a Silo S03E05 (13/09/2026, library ferma a 3110030 ms su 3153000) e
-// S03E07 (14/09/2026, 3239193 su 3341170). La soglia e' quella del core (0.9).
-//
-// ⚠️ `lib()` ha la forma VERA del libraryItem serializzato nel player: solo
-// `timeOffset` e `video_id`, NESSUNA `duration`. La v4.104 aveva una fixture con
-// `duration` e passava i test mentre in casa non saltava mai.
+// Ancorato a Silo S3 (14/09/2026): card su E08 al 98,3% (3289845 / 3346389),
+// E09 uscito il 28/08. La soglia e' quella del core (0.9), la scelta del
+// successivo e' MetaItem::next_video del core.
 
-const { shouldSkipCredits, CREDITS_THRESHOLD_COEF } = require('../src/common/casaCreditsSkip');
+const { decideCreditsSkip, nextVideoAfter, needsCreditsCheck, CREDITS_THRESHOLD_COEF } = require('../src/common/casaCreditsSkip');
 
-const E05 = 'tt14688458:3:5';
-const lib = (timeOffset, video_id = E05) => ({ id: 'tt14688458', state: { timeOffset, video_id } });
-const next = { id: 'tt14688458:3:6', deepLinks: { metaDetailsStreams: '#/detail/series/tt14688458/tt14688458%3A3%3A6', player: null } };
-// percentuale della card, come il core: time_offset / duration * 100
-const pct = (timeOffset, duration) => (timeOffset / duration) * 100;
-const E05_PCT = pct(3110030, 3153000);
+const NOW = Date.parse('2026-09-14T19:30:00Z');
+const ep = (s, e, released) => ({ id: `tt14688458:${s}:${e}`, season: s, episode: e, released });
+// Forma di Cinemeta: speciali (stagione 0) in testa, poi le stagioni in ordine.
+const SILO = [
+    ep(0, 1, '2023-05-01T08:00:00.000Z'),
+    ep(3, 7, '2026-08-14T08:00:00.000Z'),
+    ep(3, 8, '2026-08-21T08:00:00.000Z'),
+    ep(3, 9, '2026-08-28T08:00:00.000Z'),
+    ep(3, 10, '2026-09-04T08:00:00.000Z'),
+];
+const E08 = 'tt14688458:3:8';
+const E08_PCT = (3289845 / 3346389) * 100;
 
-describe('shouldSkipCredits', () => {
-    it('il caso Silo E05: da Continue Watching, fermo al 98%, E06 esiste -> salta', () => {
-        const r = shouldSkipCredits({ fromContinueWatching: true, progress: E05_PCT, libraryItem: lib(3110030), selectedVideoId: E05, nextVideo: next });
+describe('decideCreditsSkip', () => {
+    it('il caso Silo: card su E08 al 98% -> E09, direttamente', () => {
+        const r = decideCreditsSkip({ progress: E08_PCT, videoId: E08, videos: SILO, now: NOW });
         expect(r.skip).toBe(true);
+        expect(r.next.id).toBe('tt14688458:3:9');
     });
 
-    it('il caso Silo E07: libraryItem senza duration (forma reale), card al 97% -> salta', () => {
-        const E07 = 'tt14688458:3:7';
-        const r = shouldSkipCredits({
-            fromContinueWatching: true,
-            progress: pct(3239193, 3341170),
-            libraryItem: lib(3239193, E07),
-            selectedVideoId: E07,
-            nextVideo: { id: 'tt14688458:3:8', deepLinks: { player: '#/player/e08' } },
-        });
-        expect(r).toEqual({ skip: true, reason: 'credits' });
-    });
-
-    it('stessa situazione ma aperto a mano dalla lista episodi -> NON salta', () => {
-        const r = shouldSkipCredits({ fromContinueWatching: false, progress: E05_PCT, libraryItem: lib(3110030), selectedVideoId: E05, nextVideo: next });
-        expect(r.skip).toBe(false);
-        expect(r.reason).toBe('not-from-cw');
-    });
-
-    it('a meta\' episodio -> NON salta (la soglia e\' quella del core, 0.9)', () => {
+    it('a meta\' episodio -> NON salta (soglia del core, 0.9, ">")', () => {
         expect(CREDITS_THRESHOLD_COEF).toBe(0.9);
-        const at = (progress) => shouldSkipCredits({ fromContinueWatching: true, progress, libraryItem: lib(3110030), selectedVideoId: E05, nextVideo: next }).skip;
-        expect(at(pct(1697000, 3153000))).toBe(false);
-        // esattamente sulla soglia: il core usa ">", quindi no
-        expect(at(90)).toBe(false);
-        expect(at(90.01)).toBe(true);
+        expect(decideCreditsSkip({ progress: 50, videoId: E08, videos: SILO, now: NOW }).reason).toBe('not-in-credits');
+        expect(decideCreditsSkip({ progress: 90, videoId: E08, videos: SILO, now: NOW }).skip).toBe(false);
+        expect(decideCreditsSkip({ progress: 90.01, videoId: E08, videos: SILO, now: NOW }).skip).toBe(true);
     });
 
-    it('percentuale assente o illeggibile (link vecchio senza casaProgress) -> NON salta, nessuna eccezione', () => {
-        for (const progress of [undefined, null, NaN, 0, 'abc']) {
-            const r = shouldSkipCredits({ fromContinueWatching: true, progress, libraryItem: lib(3110030), selectedVideoId: E05, nextVideo: next });
-            expect(r.reason).toBe('not-in-credits');
-        }
+    it('lista episodi non arrivata (rete, timeout) -> NON salta, si riprende come prima', () => {
+        expect(decideCreditsSkip({ progress: E08_PCT, videoId: E08, videos: null, now: NOW }).reason).toBe('no-meta');
     });
 
-    it('episodio successivo non ancora uscito -> NON salta, si riprende dalla sigla', () => {
-        expect(shouldSkipCredits({ fromContinueWatching: true, progress: E05_PCT, libraryItem: lib(3110030), selectedVideoId: E05, nextVideo: null }).reason).toBe('no-next-video');
-        expect(shouldSkipCredits({ fromContinueWatching: true, progress: E05_PCT, libraryItem: lib(3110030), selectedVideoId: E05, nextVideo: { deepLinks: {} } }).skip).toBe(false);
+    it('episodio non riconoscibile dalla card -> NON salta', () => {
+        expect(decideCreditsSkip({ progress: E08_PCT, videoId: null, videos: SILO, now: NOW }).reason).toBe('no-video-id');
     });
 
-    it('la library punta a un ALTRO episodio -> NON salta (non e\' una ripresa)', () => {
-        const r = shouldSkipCredits({ fromContinueWatching: true, progress: E05_PCT, libraryItem: lib(3110030, 'tt14688458:3:7'), selectedVideoId: E05, nextVideo: next });
-        expect(r.skip).toBe(false);
-        expect(r.reason).toBe('library-not-on-this-video');
+    it('ultimo episodio uscito -> NON salta, si riprende dalla sigla', () => {
+        const r = decideCreditsSkip({ progress: E08_PCT, videoId: 'tt14688458:3:10', videos: SILO, now: NOW });
+        expect(r.reason).toBe('no-next-video');
+    });
+});
+
+describe('nextVideoAfter (= MetaItem::next_video del core)', () => {
+    it('successivo non ancora uscito -> null', () => {
+        const videos = [ep(3, 8, '2026-08-21T08:00:00.000Z'), ep(3, 9, '2026-09-20T08:00:00.000Z')];
+        expect(nextVideoAfter(videos, E08, NOW)).toBeNull();
     });
 
-    it('library o video selezionato mancanti -> NON salta, nessuna eccezione', () => {
-        expect(shouldSkipCredits({ fromContinueWatching: true, progress: E05_PCT, libraryItem: null, selectedVideoId: E05, nextVideo: next }).skip).toBe(false);
-        expect(shouldSkipCredits({ fromContinueWatching: true, progress: E05_PCT, libraryItem: lib(3110030), selectedVideoId: null, nextVideo: next }).skip).toBe(false);
+    it('successivo senza data -> considerato uscito', () => {
+        const videos = [ep(3, 8, '2026-08-21T08:00:00.000Z'), ep(3, 9, undefined)];
+        expect(nextVideoAfter(videos, E08, NOW).id).toBe('tt14688458:3:9');
     });
 
-    it('il successivo con deep link player (stream gia\' noto) va bene come quello a streams', () => {
-        const r = shouldSkipCredits({ fromContinueWatching: true, progress: E05_PCT, libraryItem: lib(3110030), selectedVideoId: E05, nextVideo: { deepLinks: { player: '#/player/x' } } });
-        expect(r.skip).toBe(true);
+    it('fine stagione -> la prima della stagione dopo', () => {
+        const videos = [ep(3, 10, '2026-09-04T08:00:00.000Z'), ep(4, 1, '2026-09-10T08:00:00.000Z')];
+        expect(nextVideoAfter(videos, 'tt14688458:3:10', NOW).id).toBe('tt14688458:4:1');
+    });
+
+    it('da una stagione normale NON si entra negli speciali (stagione 0)', () => {
+        const videos = [ep(3, 10, '2026-09-04T08:00:00.000Z'), ep(0, 5, '2026-09-05T08:00:00.000Z')];
+        expect(nextVideoAfter(videos, 'tt14688458:3:10', NOW)).toBeNull();
+    });
+
+    it('dentro gli speciali si resta negli speciali', () => {
+        const videos = [ep(0, 1, '2023-05-01T08:00:00.000Z'), ep(0, 2, '2023-05-02T08:00:00.000Z')];
+        expect(nextVideoAfter(videos, 'tt14688458:0:1', NOW).id).toBe('tt14688458:0:2');
+    });
+
+    it('episodio non nella lista o lista rotta -> null, nessuna eccezione', () => {
+        expect(nextVideoAfter(SILO, 'tt0000000:1:1', NOW)).toBeNull();
+        expect(nextVideoAfter(null, E08, NOW)).toBeNull();
+        expect(nextVideoAfter([null, { id: E08 }], E08, NOW)).toBeNull();
+    });
+});
+
+describe('needsCreditsCheck', () => {
+    it('solo serie oltre il 90%: tutte le altre card si aprono senza aspettare la rete', () => {
+        expect(needsCreditsCheck(E08_PCT, 'series')).toBe(true);
+        expect(needsCreditsCheck(E08_PCT, 'movie')).toBe(false);
+        expect(needsCreditsCheck(40, 'series')).toBe(false);
+        expect(needsCreditsCheck(undefined, 'series')).toBe(false);
     });
 });

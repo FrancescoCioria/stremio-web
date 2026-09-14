@@ -65,4 +65,22 @@ const warmMeta = (type, id) => {
     return p;
 };
 
-module.exports = { warmMeta, getCached, baseIdOf };
+// Lista episodi di una serie, per sapere qual e' il successivo (casaCreditsSkip).
+// ⚠️ NIENTE cache persistente, apposta (vedi FIELDS): e' la parte pesante del
+// meta. Si chiede solo al click su una card nei titoli di coda, cioe' raramente.
+// Tempo massimo di attesa dal click: oltre, si apre la card come sempre invece
+// di lasciare il divano davanti a un click che non fa niente.
+const VIDEOS_TIMEOUT_MS = 3000;
+const fetchSeriesVideos = (type, id) => {
+    const baseId = baseIdOf(id);
+    if (!type || !baseId) return Promise.resolve(null);
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), VIDEOS_TIMEOUT_MS);
+    return fetch(`${CINEMETA}${encodeURIComponent(type)}/${encodeURIComponent(baseId)}.json`, { signal: ctrl.signal })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => (data && data.meta && Array.isArray(data.meta.videos) ? data.meta.videos : null))
+        .catch(() => null)
+        .finally(() => clearTimeout(timer));
+};
+
+module.exports = { warmMeta, getCached, baseIdOf, fetchSeriesVideos };

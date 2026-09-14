@@ -38,7 +38,6 @@ const useStallWatchdog = require('./useStallWatchdog');
 const { decodeRecoveryStep, initialMemory: initialDecodeRecoveryMemory } = require('./casaDecodeRecovery');
 const { bufferAheadMs } = require('./casaClientBuffer');
 const { nextSeek, initialSeekChain } = require('stremio/common/casaSeekAccel');
-const { shouldSkipCredits } = require('stremio/common/casaCreditsSkip');
 const { nextVideoNavigation } = require('stremio/common/casaNextVideoHistory');
 const useVideo = require('./useVideo');
 const { default: useSubtitles } = require('./useSubtitles');
@@ -382,47 +381,6 @@ const Player = () => {
             handleNextVideoNavigation(deepLinks, profile.settings.bingeWatching, false);
         }
     }, [player.nextVideo, handleNextVideoNavigation, profile.settings]);
-
-    // Casa: da Continue Watching su un episodio fermo nei titoli di coda -> vai
-    // al successivo. La regola (soglia 0.9) e' quella del core, che pero' la
-    // applica solo all'Unload del player: con la tile chiusa da fuori non gira
-    // mai. Motivazione e casi in casaCreditsSkip.js. `?casaFrom=cw` lo mette
-    // LibItem al click sulla card. Una sola volta per montaggio: la navigazione
-    // smonta questo player e il core fa il resto (offset a 0, library avanzata).
-    const casaFromContinueWatching = queryParams.get('casaFrom') === 'cw';
-    // Percentuale della card (vedi LibItem): la durata non e' nel libraryItem del player.
-    const casaCwProgress = queryParams.get('casaProgress');
-    const creditsSkipDoneRef = React.useRef(false);
-    // Ultimo motivo loggato: la decisione si rivaluta a ogni aggiornamento del
-    // modello, si scrive solo quando il motivo cambia (una manciata di righe).
-    // Senza il "no" nel log la v4.104 e' rimasta muta per un giorno.
-    const creditsSkipLoggedReasonRef = React.useRef(null);
-    React.useEffect(() => {
-        if (creditsSkipDoneRef.current || !casaFromContinueWatching) return;
-        const selectedVideoId = player.selected?.streamRequest?.path?.id ?? null;
-        const decision = shouldSkipCredits({
-            fromContinueWatching: casaFromContinueWatching,
-            progress: casaCwProgress,
-            libraryItem: player.libraryItem,
-            selectedVideoId,
-            nextVideo: player.nextVideo,
-        });
-        if (creditsSkipLoggedReasonRef.current !== decision.reason) {
-            creditsSkipLoggedReasonRef.current = decision.reason;
-            casaBeacon('/debug/player-event', {
-                ev: 'casa-cw-credits-skip',
-                skip: decision.skip,
-                reason: decision.reason,
-                videoId: selectedVideoId,
-                nextVideoId: player.nextVideo?.id ?? null,
-                progress: casaCwProgress,
-                timeOffset: player.libraryItem?.state?.timeOffset ?? null,
-            });
-        }
-        if (!decision.skip) return;
-        creditsSkipDoneRef.current = true;
-        handleNextVideoNavigation(player.nextVideo.deepLinks, profile.settings.bingeWatching, false);
-    }, [casaFromContinueWatching, casaCwProgress, player.selected, player.libraryItem, player.nextVideo, handleNextVideoNavigation, profile.settings.bingeWatching]);
 
     const onVideoClick = React.useCallback(() => {
         if (video.state.paused !== null && !longPress.current) {
