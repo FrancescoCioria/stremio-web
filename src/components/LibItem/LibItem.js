@@ -12,8 +12,11 @@ const { t } = require('i18next');
 // player con `?casaFrom=cw`, cosi' se l'episodio e' fermo nei titoli di coda
 // il player apre il successivo invece della sigla (casaCreditsSkip.js). Da un
 // episodio scelto nella lista il marker non c'e' e non si salta niente.
-const withContinueWatchingMarker = (playerLink) =>
-    playerLink + (playerLink.includes('?') ? '&' : '?') + 'casaFrom=cw';
+// `casaProgress` = la percentuale della card: il player non ha altro modo di
+// saperla (nel suo libraryItem il core non serializza la durata).
+const withContinueWatchingMarker = (playerLink, progress) =>
+    playerLink + (playerLink.includes('?') ? '&' : '?') + 'casaFrom=cw' +
+    (typeof progress === 'number' && isFinite(progress) ? '&casaProgress=' + progress.toFixed(2) : '');
 
 const LibItem = ({ _id, removable, notifications, watched, ...props }) => {
     const navigate = useNavigate();
@@ -155,11 +158,11 @@ const LibItem = ({ _id, removable, notifications, watched, ...props }) => {
                     window.history.pushState(null, '', dl.metaDetailsVideos);
                     window.history.pushState(null, '', dl.metaDetailsStreams);
                 }
-                window.location = withContinueWatchingMarker(dl.player);
+                window.location = withContinueWatchingMarker(dl.player, props.progress);
             };
         }
         return null;
-    }, [props.deepLinks]);
+    }, [props.deepLinks, props.progress]);
 
     // Continue Watching: UX Netflix-like -> click sulla tile parte direttamente
     // il video (deepLinks.player). Seed history con episodi + streams cosi'
@@ -184,7 +187,7 @@ const LibItem = ({ _id, removable, notifications, watched, ...props }) => {
             } else if (typeof dl.metaDetailsStreams === 'string') {
                 window.history.pushState(null, '', dl.metaDetailsStreams);
             }
-            window.location = withContinueWatchingMarker(dl.player);
+            window.location = withContinueWatchingMarker(dl.player, props.progress);
             return;
         }
         if (hasSeries) {
@@ -192,7 +195,7 @@ const LibItem = ({ _id, removable, notifications, watched, ...props }) => {
             window.history.pushState(null, '', dl.metaDetailsVideos);
             window.location = dl.metaDetailsStreams;
         }
-    }, [props.onClick, props.deepLinks]);
+    }, [props.onClick, props.deepLinks, props.progress]);
 
     return (
         <MetaItem

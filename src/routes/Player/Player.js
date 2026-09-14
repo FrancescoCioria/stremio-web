@@ -387,27 +387,39 @@ const Player = () => {
     // LibItem al click sulla card. Una sola volta per montaggio: la navigazione
     // smonta questo player e il core fa il resto (offset a 0, library avanzata).
     const casaFromContinueWatching = queryParams.get('casaFrom') === 'cw';
+    // Percentuale della card (vedi LibItem): la durata non e' nel libraryItem del player.
+    const casaCwProgress = queryParams.get('casaProgress');
     const creditsSkipDoneRef = React.useRef(false);
+    // Ultimo motivo loggato: la decisione si rivaluta a ogni aggiornamento del
+    // modello, si scrive solo quando il motivo cambia (una manciata di righe).
+    // Senza il "no" nel log la v4.104 e' rimasta muta per un giorno.
+    const creditsSkipLoggedReasonRef = React.useRef(null);
     React.useEffect(() => {
-        if (creditsSkipDoneRef.current) return;
+        if (creditsSkipDoneRef.current || !casaFromContinueWatching) return;
         const selectedVideoId = player.selected?.streamRequest?.path?.id ?? null;
         const decision = shouldSkipCredits({
             fromContinueWatching: casaFromContinueWatching,
+            progress: casaCwProgress,
             libraryItem: player.libraryItem,
             selectedVideoId,
             nextVideo: player.nextVideo,
         });
+        if (creditsSkipLoggedReasonRef.current !== decision.reason) {
+            creditsSkipLoggedReasonRef.current = decision.reason;
+            casaBeacon('/debug/player-event', {
+                ev: 'casa-cw-credits-skip',
+                skip: decision.skip,
+                reason: decision.reason,
+                videoId: selectedVideoId,
+                nextVideoId: player.nextVideo?.id ?? null,
+                progress: casaCwProgress,
+                timeOffset: player.libraryItem?.state?.timeOffset ?? null,
+            });
+        }
         if (!decision.skip) return;
         creditsSkipDoneRef.current = true;
-        casaBeacon('/debug/player-event', {
-            ev: 'casa-cw-credits-skip',
-            videoId: selectedVideoId,
-            nextVideoId: player.nextVideo?.id ?? null,
-            timeOffset: player.libraryItem?.state?.timeOffset ?? null,
-            duration: player.libraryItem?.state?.duration ?? null,
-        });
         handleNextVideoNavigation(player.nextVideo.deepLinks, profile.settings.bingeWatching, false);
-    }, [casaFromContinueWatching, player.selected, player.libraryItem, player.nextVideo, handleNextVideoNavigation, profile.settings.bingeWatching]);
+    }, [casaFromContinueWatching, casaCwProgress, player.selected, player.libraryItem, player.nextVideo, handleNextVideoNavigation, profile.settings.bingeWatching]);
 
     const onVideoClick = React.useCallback(() => {
         if (video.state.paused !== null && !longPress.current) {
