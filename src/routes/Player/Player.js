@@ -201,6 +201,30 @@ const Player = () => {
         return immersed && !casting && video.state.paused !== null && !video.state.paused && !menusOpen;
     }, [immersed, casting, video.state.paused, menusOpen, tvNavMode]);
 
+    // Casa DEBUG (v4.111): la barra resta su all'avvio del film finche' non si
+    // preme indietro, e l'harness headless non lo riproduce. Logga OGNI cambio
+    // dei fattori che decidono `overlayHidden`, con l'ultimo evento mouse visto
+    // (il cursore sul Beelink esiste anche se trasparente): dice quale fattore
+    // tiene la barra su. Da togliere a diagnosi conclusa.
+    const overlayMouseRef = React.useRef({ n: 0 });
+    React.useEffect(() => {
+        const m = overlayMouseRef.current;
+        casaBeacon('/debug/player-event', {
+            ev: 'casa-overlay',
+            hidden: overlayHidden,
+            immersed,
+            tvNavMode,
+            casting,
+            paused: video.state.paused,
+            buffering: video.state.buffering,
+            menus: { optionsMenuOpen, subtitlesMenuOpen, audioMenuOpen, speedMenuOpen, statisticsMenuOpen, sideDrawerOpen, nextVideoPopupOpen },
+            mouse: m.n > 0 ? Object.assign({}, m, { agoMs: Date.now() - m.at }) : null,
+            activeElement: document.activeElement && document.activeElement !== document.body
+                ? `${document.activeElement.tagName}.${String(document.activeElement.className).slice(0, 60)}`
+                : null,
+        });
+    }, [overlayHidden, immersed, tvNavMode, menusOpen, video.state.paused]);
+
     const nextVideoPopupDismissed = React.useRef(false);
     const defaultAudioTrackSelected = React.useRef(false);
     const playingOnExternalDevice = React.useRef(false);
@@ -419,6 +443,15 @@ const Player = () => {
     }, []);
 
     const onContainerMouseMove = React.useCallback((event) => {
+        overlayMouseRef.current = {
+            n: overlayMouseRef.current.n + 1,
+            type: event.type,
+            bar: !!event.nativeEvent.immersePrevented,
+            target: typeof event.target?.className === 'string' ? event.target.className.slice(0, 80) : null,
+            x: event.clientX,
+            y: event.clientY,
+            at: Date.now(),
+        };
         setImmersed(false);
         if (!event.nativeEvent.immersePrevented) {
             setImmersedDebounced(true);
