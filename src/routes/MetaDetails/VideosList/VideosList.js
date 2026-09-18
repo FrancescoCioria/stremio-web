@@ -7,6 +7,8 @@ const { t } = require('i18next');
 const { useCore } = require('stremio/core');
 const { useProfile } = require('stremio/common');
 const { Image, SearchBar, Video } = require('stremio/components');
+const { mergeCasaExtraVideos } = require('stremio/common/casaExtraVideos');
+const useCasaExtraVideos = require('stremio/routes/MetaDetails/useCasaExtraVideos');
 const SeasonsBar = require('./SeasonsBar');
 const { default: EpisodePicker } = require('../EpisodePicker');
 const styles = require('./styles');
@@ -156,12 +158,15 @@ const VideosList = ({ className, metaItem, libraryItem, season, seasonOnSelect, 
         focusable.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
     }, []);
 
+    // Casa: episodi che esistono ma che Cinemeta non elenca (X Factor 2026-09-18:
+    // la lista si fermava a E01 e la puntata del 17 non era cliccabile).
+    // Il merge de-duplica contro il meta vero -> appena il core li elenca,
+    // i nostri spariscono. Vedi common/casaExtraVideos.js.
+    const metaReady = metaItem && metaItem.content.type === 'Ready' ? metaItem.content.content : null;
+    const casaExtra = useCasaExtraVideos(metaReady ? metaReady.type : null, metaReady ? metaReady.id : null);
     const videos = React.useMemo(() => {
-        return metaItem && metaItem.content.type === 'Ready' ?
-            metaItem.content.content.videos
-            :
-            [];
-    }, [metaItem]);
+        return mergeCasaExtraVideos(metaReady ? metaReady.videos : [], casaExtra, metaReady ? metaReady.id : null, metaReady ? metaReady.background : null);
+    }, [metaReady, casaExtra]);
     const seasons = React.useMemo(() => {
         return videos
             .map(({ season }) => season)
