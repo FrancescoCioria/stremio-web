@@ -8,6 +8,8 @@ const { useCore } = require('stremio/core');
 const { useProfile } = require('stremio/common');
 const { Image, SearchBar, Video } = require('stremio/components');
 const { mergeCasaExtraVideos } = require('stremio/common/casaExtraVideos');
+const { pickSeason, pickFocusVideo } = require('stremio/common/casaEpisodeFocus');
+const { casaBeacon } = require('stremio/common/casaBackend');
 const useCasaExtraVideos = require('stremio/routes/MetaDetails/useCasaExtraVideos');
 const SeasonsBar = require('./SeasonsBar');
 const { default: EpisodePicker } = require('../EpisodePicker');
@@ -178,28 +180,32 @@ const VideosList = ({ className, metaItem, libraryItem, season, seasonOnSelect, 
             })
             .sort((a, b) => (a || Number.MAX_SAFE_INTEGER) - (b || Number.MAX_SAFE_INTEGER));
     }, [videos]);
-    const selectedSeason = React.useMemo(() => {
-        if (seasons.includes(season)) {
-            return season;
-        }
-
-        const video = videos?.find((video) => video.id === libraryItem?.state.video_id);
-
-        if (video && video.season && seasons.includes(video.season)) {
-            return video.season;
-        }
-
-        const nonSpecialSeasons = seasons.filter((season) => season !== 0);
-        if (nonSpecialSeasons.length > 0) {
-            return nonSpecialSeasons[0];
-        }
-
-        if (seasons.length > 0) {
-            return seasons[0];
-        }
-
-        return null;
+    // Casa: la stagione di ripresa e' un vicolo cieco quando l'hai finita —
+    // si scavalca alla prima con qualcosa da vedere. Regola e misura in
+    // common/casaEpisodeFocus.js.
+    const seasonDecision = React.useMemo(() => {
+        return pickSeason({
+            seasons,
+            seasonFromUrl: season,
+            videos,
+            resumeVideoId: libraryItem?.state?.video_id,
+        });
     }, [seasons, season, videos, libraryItem]);
+    const selectedSeason = seasonDecision.season;
+    // Il salto e' raro: senza un evento non si saprebbe mai se ha ingaggiato.
+    const jumpLoggedRef = React.useRef(null);
+    React.useEffect(() => {
+        if (seasonDecision.reason !== 'resume-season-finished') return;
+        const key = `${metaReady?.id}:${selectedSeason}`;
+        if (jumpLoggedRef.current === key) return;
+        jumpLoggedRef.current = key;
+        casaBeacon('/debug/player-event', {
+            ev: 'casa-season-jump',
+            meta_id: metaReady?.id ?? null,
+            from: libraryItem?.state?.video_id ?? null,
+            to_season: selectedSeason,
+        });
+    }, [seasonDecision, selectedSeason, metaReady, libraryItem]);
     selectedSeasonRef.current = selectedSeason;
     const videosForSeason = React.useMemo(() => {
         return videos
@@ -232,19 +238,10 @@ const VideosList = ({ className, metaItem, libraryItem, season, seasonOnSelect, 
             return;
         }
         initialFocusDoneRef.current = selectedSeason;
-        // Priorita': l'episodio "corrente" e' quello dove l'utente sta
-        // riprendendo, NON il prossimo da vedere. Ordine:
-        //   1. selectedVideoId (libraryItem.state.video_id = ultimo che l'utente ha aperto)
-        //   2. episodio con progress > 0 (in corso)
-        //   3. ultimo watched in ordine episodio
-        //   4. primo non visto
-        //   5. primo episodio
-        const target =
-            (selectedVideoId && videosForSeason.find((v) => v.id === selectedVideoId)) ||
-            videosForSeason.find((v) => typeof v.progress === 'number' && v.progress > 0 && !v.watched) ||
-            [...videosForSeason].reverse().find((v) => v.watched) ||
-            videosForSeason.find((v) => !v.watched) ||
-            videosForSeason[0];
+        // Ordine delle priorita' in common/casaEpisodeFocus.js (puro + test):
+        // l'episodio davvero aperto per ultimo, poi uno lasciato a meta', poi
+        // il PRIMO da vedere. "Ultimo visto" solo su una stagione tutta vista.
+        const target = pickFocusVideo(videosForSeason, selectedVideoId);
         if (!target) return;
         const tid = setTimeout(() => {
             const sel = (typeof CSS !== 'undefined' && CSS.escape) ? CSS.escape(target.id) : target.id;
