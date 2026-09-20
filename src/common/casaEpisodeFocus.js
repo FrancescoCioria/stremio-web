@@ -89,8 +89,13 @@ const pickSeason = ({ seasons, seasonFromUrl, videos, resumeVideoId, now = Date.
     // Scelta esplicita dell'utente (pill o URL): non si tocca, mai.
     if (list.includes(seasonFromUrl)) return { season: seasonFromUrl, reason: 'url' };
 
+    // ⚠️ `resume === 0` (uno SPECIALE come ultimo episodio aperto) non apre la
+    // pagina sugli Speciali: upstream lo escludeva con un `video.season &&`
+    // truthy, e passando a `typeof === 'number'` lo zero sarebbe rientrato di
+    // soppiatto — un dietro-le-quinte visto una volta diventava la stagione con
+    // cui si apre la serie. Stessa invariante di nextSeasonWithSomethingToWatch.
     const resume = seasonOfVideoId(videos, resumeVideoId);
-    if (resume !== null && list.includes(resume)) {
+    if (resume !== null && resume !== 0 && list.includes(resume)) {
         if (seasonExhausted(videos, resume, now)) {
             const next = nextSeasonWithSomethingToWatch(videos, list, resume, now);
             // Niente oltre: si resta sulla stagione di ripresa (com'era).
@@ -132,4 +137,30 @@ const pickFocusVideo = (videosForSeason, selectedVideoId, now = Date.now()) => {
     );
 };
 
-module.exports = { pickSeason, pickFocusVideo, seasonExhausted, nextSeasonWithSomethingToWatch, isKnownFuture, hasAired };
+// ⚠️ La stagione mostrata e' una decisione D'INGRESSO, presa UNA volta per
+// titolo — non una funzione continua degli episodi. `watched` cambia IN
+// DIRETTA (menu della card: "Segna come visto" / "Segna il resto come
+// visto"): senza questo latch, marcare l'ultimo episodio di una stagione la
+// dichiarava conclusa e faceva sparire la lista da sotto le mani dell'utente,
+// portandolo alla stagione dopo con tanto di auto-focus. Aveva chiesto di
+// marcare un episodio, non di cambiare pagina. Stesso latch copre gli episodi
+// extra (casaExtraVideos) che arrivano tardi e farebbero oscillare la scelta a
+// pagina gia' interattiva. Trovato in review, 2026-09-20.
+//
+// `prev` = { metaId, season } tenuto dal chiamante. Ritorna null quando la
+// decisione va (ri)presa, altrimenti { next, decision }.
+const holdSeason = (prev, { metaId, seasons, seasonFromUrl }) => {
+    const list = seasons || [];
+    // La scelta esplicita dell'utente (pill/URL) vince e diventa il latch.
+    if (list.includes(seasonFromUrl)) {
+        return { next: { metaId, season: seasonFromUrl }, decision: { season: seasonFromUrl, reason: 'url' } };
+    }
+    // Titolo diverso: si ricomincia.
+    if (!prev || prev.metaId !== metaId) return null;
+    // La stagione scelta all'ingresso puo' sparire (il meta cambia sotto):
+    // in quel caso si ridecide invece di mostrare una stagione che non c'e'.
+    if (prev.season === null || prev.season === undefined || !list.includes(prev.season)) return null;
+    return { next: prev, decision: { season: prev.season, reason: 'latched' } };
+};
+
+module.exports = { pickSeason, pickFocusVideo, holdSeason, seasonExhausted, nextSeasonWithSomethingToWatch, isKnownFuture, hasAired };

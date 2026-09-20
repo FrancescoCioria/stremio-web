@@ -5,7 +5,7 @@
 // (S4 finita 10/10, S5 tutta uscita), Star Wars: Visions (S2 finita 9/9, S3
 // tutta uscita). Le altre 68 non si devono muovere.
 
-const { pickSeason, pickFocusVideo } = require('../src/common/casaEpisodeFocus');
+const { pickSeason, pickFocusVideo, holdSeason } = require('../src/common/casaEpisodeFocus');
 
 const NOW = Date.parse('2026-09-20T21:00:00Z');
 const DAY = 86400000;
@@ -136,6 +136,22 @@ describe('pickSeason', () => {
         })).toEqual({ season: 5, reason: 'resume' });
     });
 
+    it('l\'ultimo episodio aperto e\' uno SPECIALE -> non si apre sugli Speciali', () => {
+        const videos = [ep(0, 1, { watched: true }), ep(1, 1), ep(2, 1)];
+        expect(pickSeason({
+            seasons: seasonsOf(videos), seasonFromUrl: null, videos,
+            resumeVideoId: 'tt5875444:0:1', now: NOW,
+        })).toEqual({ season: 1, reason: 'first' });
+    });
+
+    it('ma gli Speciali restano scegliibili dalle pill', () => {
+        const videos = [ep(0, 1), ep(1, 1)];
+        expect(pickSeason({
+            seasons: seasonsOf(videos), seasonFromUrl: 0, videos,
+            resumeVideoId: 'tt5875444:0:1', now: NOW,
+        })).toEqual({ season: 0, reason: 'url' });
+    });
+
     it('serie mai aperta -> prima stagione non speciale', () => {
         const videos = [ep(0, 1), ep(1, 1), ep(2, 1)];
         expect(pickSeason({
@@ -187,5 +203,47 @@ describe('pickFocusVideo', () => {
 
     it('lista vuota -> niente', () => {
         expect(pickFocusVideo([], null, NOW)).toBe(null);
+    });
+});
+
+// La stagione mostrata e' una decisione d'ingresso, non una funzione continua
+// degli episodi: `watched` cambia in diretta dal menu della card.
+describe('holdSeason', () => {
+    const M = 'tt5875444';
+    const S = [1, 2, 3];
+
+    it('primo ingresso su un titolo -> si decide (null)', () => {
+        expect(holdSeason(null, { metaId: M, seasons: S, seasonFromUrl: null })).toBe(null);
+    });
+
+    it('il caso della review: marcare episodi come visti NON cambia stagione', () => {
+        const prev = { metaId: M, season: 1 };
+        // Stessa chiamata dopo che il core ha riemesso i video con watched=true.
+        const r = holdSeason(prev, { metaId: M, seasons: S, seasonFromUrl: null });
+        expect(r.decision).toEqual({ season: 1, reason: 'latched' });
+        expect(r.next).toBe(prev);
+    });
+
+    it('la scelta dalle pill vince sul latch e diventa il nuovo latch', () => {
+        const r = holdSeason({ metaId: M, season: 1 }, { metaId: M, seasons: S, seasonFromUrl: 3 });
+        expect(r.decision).toEqual({ season: 3, reason: 'url' });
+        expect(r.next).toEqual({ metaId: M, season: 3 });
+    });
+
+    it('titolo diverso -> si ridecide', () => {
+        expect(holdSeason({ metaId: 'tt999', season: 2 }, { metaId: M, seasons: S, seasonFromUrl: null })).toBe(null);
+    });
+
+    it('la stagione latchata non esiste piu\' -> si ridecide', () => {
+        expect(holdSeason({ metaId: M, season: 9 }, { metaId: M, seasons: S, seasonFromUrl: null })).toBe(null);
+    });
+
+    it('nessuna stagione ancora decisa -> si decide', () => {
+        expect(holdSeason({ metaId: M, season: null }, { metaId: M, seasons: S, seasonFromUrl: null })).toBe(null);
+    });
+
+    it('gli Speciali si possono latchare se scelti dalle pill', () => {
+        const r = holdSeason(null, { metaId: M, seasons: [0, 1], seasonFromUrl: 0 });
+        expect(r.decision).toEqual({ season: 0, reason: 'url' });
     });
 });

@@ -8,7 +8,7 @@ const { useCore } = require('stremio/core');
 const { useProfile } = require('stremio/common');
 const { Image, SearchBar, Video } = require('stremio/components');
 const { mergeCasaExtraVideos } = require('stremio/common/casaExtraVideos');
-const { pickSeason, pickFocusVideo } = require('stremio/common/casaEpisodeFocus');
+const { pickSeason, pickFocusVideo, holdSeason } = require('stremio/common/casaEpisodeFocus');
 const { casaBeacon } = require('stremio/common/casaBackend');
 const { revealCardInRail } = require('stremio/common/casaRailNav');
 const useCasaExtraVideos = require('stremio/routes/MetaDetails/useCasaExtraVideos');
@@ -33,7 +33,11 @@ const withSeason = (deepLinks, season) => {
 
 // Scroll position della lista episodi, preservata tra un click su un episodio
 // e il ritorno alla lista (bugfix upstream: keep scroll position).
-let savedScrollTop = 0;
+// ⚠️ ORIZZONTALE: il rail e' `overflow-y: hidden`, quindi la versione upstream
+// (`scrollTop`) salvava e ripristinava zero — il bugfix era morto senza dirlo.
+// Si vedeva solo quando l'auto-focus non scatta a ricomporre la vista (cioe'
+// con il focus su una season pill). Preso dalla review, 2026-09-20.
+let savedScrollLeft = 0;
 
 const VideosList = ({ className, metaItem, libraryItem, season, seasonOnSelect, selectedVideoId, onFocusedVideoChange }) => {
     const core = useCore();
@@ -103,14 +107,14 @@ const VideosList = ({ className, metaItem, libraryItem, season, seasonOnSelect, 
     // Salva la scroll position quando l'utente apre un episodio, cosi' al
     // ritorno alla lista riprende da dove era (bugfix upstream).
     const saveScrollPosition = React.useCallback(() => {
-        savedScrollTop = videosContainerRef.current?.scrollTop ?? 0;
+        savedScrollLeft = videosContainerRef.current?.scrollLeft ?? 0;
     }, []);
 
     // Ripristina lo scroll al mount (prima del paint), consumandolo subito.
     React.useLayoutEffect(() => {
-        if (savedScrollTop > 0 && videosContainerRef.current) {
-            videosContainerRef.current.scrollTop = savedScrollTop;
-            savedScrollTop = 0;
+        if (savedScrollLeft > 0 && videosContainerRef.current) {
+            videosContainerRef.current.scrollLeft = savedScrollLeft;
+            savedScrollLeft = 0;
         }
     }, []);
 
@@ -194,14 +198,33 @@ const VideosList = ({ className, metaItem, libraryItem, season, seasonOnSelect, 
     // Casa: la stagione di ripresa e' un vicolo cieco quando l'hai finita —
     // si scavalca alla prima con qualcosa da vedere. Regola e misura in
     // common/casaEpisodeFocus.js.
+    //
+    // ⚠️ E' una decisione D'INGRESSO, presa UNA volta per titolo, non una
+    // funzione continua di `videos`: `watched` cambia IN DIRETTA (menu della
+    // card -> "Segna come visto" / "Segna il resto come visto"), e senza il
+    // latch marcare l'ultimo episodio di una stagione la dichiarava conclusa
+    // e faceva sparire la lista da sotto le mani dell'utente, portandolo alla
+    // stagione dopo con tanto di auto-focus. Aveva chiesto di marcare un
+    // episodio, non di cambiare pagina. Stesso latch copre il caso in cui gli
+    // episodi extra (casaExtraVideos) arrivano tardi e fanno oscillare la
+    // decisione a pagina gia' interattiva.
+    const decidedRef = React.useRef(null);
     const seasonDecision = React.useMemo(() => {
-        return pickSeason({
+        const metaId = metaReady ? metaReady.id : null;
+        const held = holdSeason(decidedRef.current, { metaId, seasons, seasonFromUrl: season });
+        if (held) {
+            decidedRef.current = held.next;
+            return held.decision;
+        }
+        const decision = pickSeason({
             seasons,
             seasonFromUrl: season,
             videos,
             resumeVideoId: libraryItem?.state?.video_id,
         });
-    }, [seasons, season, videos, libraryItem]);
+        decidedRef.current = { metaId, season: decision.season };
+        return decision;
+    }, [seasons, season, videos, libraryItem, metaReady]);
     const selectedSeason = seasonDecision.season;
     // Il salto e' raro: senza un evento non si saprebbe mai se ha ingaggiato.
     const jumpLoggedRef = React.useRef(null);
