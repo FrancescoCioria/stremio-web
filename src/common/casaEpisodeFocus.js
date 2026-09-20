@@ -163,4 +163,4 @@ const holdSeason = (prev, { metaId, seasons, seasonFromUrl }) => {
     return { next: prev, decision: { season: prev.season, reason: 'latched' } };
 };
 
-module.exports = { pickSeason, pickFocusVideo, holdSeason, seasonExhausted, nextSeasonWithSomethingToWatch, isKnownFuture, hasAired };
+module.exports = { pickSeason, pickFocusVideo, holdSeason };

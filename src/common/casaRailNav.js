@@ -79,4 +79,4 @@ const revealCardInRail = (rowScroll, card, dir = 0) => {
     }
 };
 
-module.exports = { revealCardInRail, ensureRailTrail, RAIL_REVEAL_PAD };
+module.exports = { revealCardInRail };
