@@ -10,6 +10,7 @@ const { Image, SearchBar, Video } = require('stremio/components');
 const { mergeCasaExtraVideos } = require('stremio/common/casaExtraVideos');
 const { pickSeason, pickFocusVideo } = require('stremio/common/casaEpisodeFocus');
 const { casaBeacon } = require('stremio/common/casaBackend');
+const { revealCardInRail } = require('stremio/common/casaRailNav');
 const useCasaExtraVideos = require('stremio/routes/MetaDetails/useCasaExtraVideos');
 const SeasonsBar = require('./SeasonsBar');
 const { default: EpisodePicker } = require('../EpisodePicker');
@@ -150,14 +151,24 @@ const VideosList = ({ className, metaItem, libraryItem, season, seasonOnSelect, 
         const current = e.target.closest('[data-video-id]');
         if (!current) return;
         const target = e.key === 'ArrowRight' ? current.nextElementSibling : current.previousElementSibling;
-        if (!target || !target.dataset || !target.dataset.videoId) return;
+        // ⚠️ Da qui l'evento va CONSUMATO in OGNI uscita, anche quando non c'e'
+        // dove andare: il bordo della lista e' un muro. Senza, le frecce di
+        // troppo (tenere premuto arriva sempre oltre il primo episodio) finivano
+        // allo scroll nativo del browser, e uno scroll dell'utente ANNULLA lo
+        // smooth scroll in corso — quello che stava riportando il rail a inizio
+        // stagione. Misurato il 2026-09-20 su 8 pressioni a 40ms: il rail si
+        // fermava a 941px invece di 0 e ci restava. E' il "tornare al primo
+        // funzionava male" riportato dal campo, e Board.js aveva gia' questa
+        // regola (la copia locale no).
         e.preventDefault();
         e.stopPropagation();
+        if (!target || !target.dataset || !target.dataset.videoId) return;
         const focusable = target.querySelector('[tabindex], a, button') || target;
         focusable.focus({ preventScroll: true });
-        // Wrapper ha display: contents (no box) -> scrollIntoView e' no-op.
-        // Scrolla l'elemento focusable, che ha box layout vero.
-        focusable.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        // Reveal-if-needed, non ri-centrare: il re-center a ogni freccia faceva
+        // balzare il rail avanti e indietro e rendeva melassa il ritorno al
+        // primo episodio (Board.js l'aveva gia' buttato via anni fa).
+        revealCardInRail(container, target, e.key === 'ArrowRight' ? 1 : -1);
     }, []);
 
     // Casa: episodi che esistono ma che Cinemeta non elenca (X Factor 2026-09-18:
@@ -217,6 +228,15 @@ const VideosList = ({ className, metaItem, libraryItem, season, seasonOnSelect, 
             });
     }, [videos, selectedSeason]);
 
+    // Ordine delle priorita' in common/casaEpisodeFocus.js (puro + test):
+    // l'episodio davvero aperto per ultimo, poi uno lasciato a meta', poi il
+    // PRIMO da vedere. "Ultimo visto" solo su una stagione tutta vista.
+    // ⚠️ Marcato anche nel DOM (`data-casa-focus`): la SeasonsBar ci arriva
+    // con ArrowDown e non ha modo di ricalcolarlo.
+    const focusTarget = React.useMemo(() => {
+        return pickFocusVideo(videosForSeason, selectedVideoId);
+    }, [videosForSeason, selectedVideoId]);
+
     // Default focus: al primo load di una stagione porta il focus sul primo
     // episodio NON VISTO (o il primo in assoluto se sono tutti visti), cosi'
     // l'utente da telecomando trova subito il punto di ripresa. IMPORTANTE:
@@ -238,10 +258,7 @@ const VideosList = ({ className, metaItem, libraryItem, season, seasonOnSelect, 
             return;
         }
         initialFocusDoneRef.current = selectedSeason;
-        // Ordine delle priorita' in common/casaEpisodeFocus.js (puro + test):
-        // l'episodio davvero aperto per ultimo, poi uno lasciato a meta', poi
-        // il PRIMO da vedere. "Ultimo visto" solo su una stagione tutta vista.
-        const target = pickFocusVideo(videosForSeason, selectedVideoId);
+        const target = focusTarget;
         if (!target) return;
         const tid = setTimeout(() => {
             const sel = (typeof CSS !== 'undefined' && CSS.escape) ? CSS.escape(target.id) : target.id;
@@ -270,8 +287,13 @@ const VideosList = ({ className, metaItem, libraryItem, season, seasonOnSelect, 
             return;
         }
         const hasSelectedVideo = videosForSeason.some((v) => v.id === selectedVideoId);
+        // ⚠️ `left`, non `top`: il rail episodi scrolla in ORIZZONTALE
+        // (`overflow-y: hidden`), quindi `scrollTo({top:0})` era un no-op sul
+        // solo asse che conta. Cambiando stagione dalle pill il rail restava
+        // dov'era la stagione precedente — in fondo, se l'avevi finita — e si
+        // atterrava sugli ultimi episodi della stagione nuova.
         if (!hasSelectedVideo && videosContainerRef.current) {
-            videosContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+            videosContainerRef.current.scrollTo({ left: 0, behavior: 'smooth' });
         }
     }, [selectedSeason]);
 
@@ -363,6 +385,7 @@ const VideosList = ({ className, metaItem, libraryItem, season, seasonOnSelect, 
                                                 key={index}
                                                 className={styles['video-wrapper']}
                                                 data-video-id={video.id}
+                                                data-casa-focus={focusTarget && video.id === focusTarget.id ? '1' : undefined}
                                             >
                                                 <Video
                                                     id={video.id}

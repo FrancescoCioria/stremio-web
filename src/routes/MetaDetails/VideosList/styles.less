@@ -72,15 +72,31 @@
         padding: 2.5rem 2rem 2.5rem;
         overflow-x: auto;
         overflow-y: hidden;
-        scroll-snap-type: x proximity;
+        /* NIENTE scroll-snap: lo scroll del rail e' guidato via JS
+         * (revealCardInRail, common/casaRailNav.js). Con scroll-snap-type il
+         * browser ri-aggancia allo snap point al focus/scale della card,
+         * dando un micro-balzo avanti/indietro a ogni freccia. Stessa scelta
+         * gia' fatta sui rail della home (MetaRow/styles.less). */
+        overflow-anchor: none;
 
         &>* {
             flex: none;
-            scroll-snap-align: start;
         }
 
         &::-webkit-scrollbar {
             display: none;
+        }
+
+        /* Vuoto di coda: lo spazio dove starebbe la card DOPO l'ultima, cosi'
+         * arrivando in fondo alla stagione il ritmo non cambia e l'ultimo
+         * episodio non resta incollato al bordo destro. La larghezza la
+         * scrive revealCardInRail dalla card vera.
+         * ⚠️ Pseudo-elemento e non `padding-right`: in un flex che scrolla il
+         * padding di coda e' ignorato da `scrollWidth`. */
+        &::after {
+            content: '';
+            flex: none;
+            width: var(--casa-rail-trail, 20rem);
         }
 
         /* Il wrapper esiste solo per il data-video-id (focus tracking).

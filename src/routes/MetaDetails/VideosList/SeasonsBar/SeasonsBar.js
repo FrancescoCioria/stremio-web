@@ -5,6 +5,7 @@ const PropTypes = require('prop-types');
 const classnames = require('classnames');
 const { t } = require('i18next');
 const { Button } = require('stremio/components');
+const { revealCardInRail } = require('stremio/common/casaRailNav');
 const SeasonsBarPlaceholder = require('./SeasonsBarPlaceholder');
 const styles = require('./styles');
 
@@ -41,13 +42,23 @@ const SeasonsBar = ({ className, seasons, season, onSelect }) => {
         const root = rootRef.current;
         if (!root) return;
         if (e.key === 'ArrowDown') {
-            // Vai alla prima card episodio nel VideosList sottostante.
+            // Scendi nella lista episodi. ⚠️ Sull'episodio GIUSTO, non sul
+            // primo del DOM: scegliendo la stagione dalle pill l'auto-focus
+            // del VideosList non scatta (non deve rubare il focus mentre
+            // l'utente sta ancora scorrendo le stagioni), quindi il bersaglio
+            // se lo porta dietro il DOM — `data-casa-focus`, scritto da
+            // VideosList con la regola di casaEpisodeFocus.js.
             const content = root.closest('[class*="metadetails-content"]') || root.parentElement?.parentElement;
-            const videoCard = content?.querySelector('[class*="videos-container"] [data-video-id] [tabindex], [class*="videos-container"] [data-video-id] a, [class*="videos-container"] [data-video-id] button');
+            const rail = content?.querySelector('[class*="videos-container"]');
+            const wrapper = rail?.querySelector('[data-casa-focus="1"]') || rail?.querySelector('[data-video-id]');
+            const videoCard = wrapper?.querySelector('[tabindex], a, button') || wrapper;
             if (!videoCard) return;
             e.preventDefault();
             e.stopPropagation();
             videoCard.focus({ preventScroll: true });
+            // ⚠️ `preventScroll` + niente reveal = si atterra su una card fuori
+            // schermo: il focus c'e' ma non si vede niente di selezionato.
+            revealCardInRail(rail, wrapper, 0);
             return;
         }
         if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
