@@ -104,8 +104,13 @@ const pickSeason = ({ seasons, seasonFromUrl, videos, resumeVideoId, now = Date.
         return { season: resume, reason: 'resume' };
     }
 
+    // ⚠️ La stagione PIU' BASSA, calcolata, non "la prima dell'array": l'array
+    // arriva nell'ordine di VISUALIZZAZIONE, e quando le righe sono passate a
+    // "piu' recente in alto" una serie mai aperta si apriva sulla Stagione 6
+    // invece che sulla 1 — la decisione dipendeva in silenzio dall'ordine in
+    // cui la pagina sceglie di disegnare (2026-09-21).
     const nonSpecial = list.filter((s) => s !== 0);
-    if (nonSpecial.length > 0) return { season: nonSpecial[0], reason: 'first' };
+    if (nonSpecial.length > 0) return { season: Math.min(...nonSpecial), reason: 'first' };
     if (list.length > 0) return { season: list[0], reason: 'first-special' };
     return { season: null, reason: 'no-seasons' };
 };
@@ -163,4 +168,52 @@ const holdSeason = (prev, { metaId, seasons, seasonFromUrl }) => {
     return { next: prev, decision: { season: prev.season, reason: 'latched' } };
 };
 
-module.exports = { pickSeason, pickFocusVideo, holdSeason };
+// Stato di una stagione per la sua intestazione (handoff Claude Design,
+// 2026-09-21): il chip "IN CORSO" e il contatore a destra.
+//
+// ⚠️ "In corso" e' uno stato della STAGIONE, non la stagione a fuoco ne'
+// quella scelta dall'auto-focus: iniziata (almeno un episodio visto o a meta')
+// e con ancora qualcosa di uscito da vedere. Legarlo alla stagione d'ingresso
+// avrebbe messo "IN CORSO" sulla Stagione 1 di una serie mai aperta — che e'
+// dove l'auto-focus atterra quando non c'e' niente da riprendere.
+const seasonSummary = (videos, now = Date.now()) => {
+    const list = videos || [];
+    const available = list.filter((v) => !isKnownFuture(v, now));
+    const watched = available.filter((v) => v.watched === true).length;
+    const started = watched > 0 || list.some((v) => typeof v.progress === 'number' && v.progress > 0);
+    const unwatchedAvailable = available.length - watched;
+    return {
+        total: list.length,
+        available: available.length,
+        watched,
+        inProgress: started && unwatchedAvailable > 0,
+        allWatched: available.length > 0 && unwatchedAvailable === 0 && available.length === list.length,
+    };
+};
+
+// Il contatore a destra dell'intestazione. Una frase sola, la piu' utile:
+// quanti ne mancano all'uscita batte "tutti visti" (su una stagione in onda
+// e' l'informazione che serve), che batte il semplice conteggio.
+const seasonCountLabel = (summary, { extra = false } = {}) => {
+    const { total, available, allWatched } = summary;
+    if (extra) return `${total} extra`;
+    const ep = (n) => (n === 1 ? 'episodio' : 'episodi');
+    if (available < total) return `${available} di ${total} ${ep(total)} disponibili`;
+    if (allWatched) return `${total} ${ep(total)} \u00b7 tutti visti`;
+    return `${total} ${ep(total)}`;
+};
+
+// Ordine delle righe: la stagione piu' RECENTE in alto (scelta dell'utente
+// in review, 2026-09-21), gli Extra (stagione 0) SEMPRE in fondo.
+// Misurato sulla library vera: il 51% delle serie ha una stagione 0, spesso
+// PIU' GROSSA della serie (The Last of Us 55 extra contro 16 episodi, Rick
+// and Morty 113 contro 91), fatta di recap, spot e dietro le quinte — e in 41
+// serie l'ultimo episodio aperto non e' MAI stato uno speciale. In fondo non
+// diventa mai la riga vicina della stagione che si sta guardando.
+const compareSeasons = (a, b) => {
+    if (a === 0 && b !== 0) return 1;
+    if (b === 0 && a !== 0) return -1;
+    return b - a;
+};
+
+module.exports = { pickSeason, pickFocusVideo, holdSeason, seasonSummary, seasonCountLabel, compareSeasons };

@@ -152,6 +152,14 @@ describe('pickSeason', () => {
         })).toEqual({ season: 0, reason: 'url' });
     });
 
+    it('REGRESSIONE: serie mai aperta con le stagioni in ordine DECRESCENTE (come le disegna la pagina) -> la 1, non la piu\' recente', () => {
+        const videos = [ep(3, 1), ep(2, 1), ep(1, 1), ep(0, 1)];
+        expect(pickSeason({
+            seasons: [3, 2, 1, 0], seasonFromUrl: null, videos,
+            resumeVideoId: null, now: NOW,
+        })).toEqual({ season: 1, reason: 'first' });
+    });
+
     it('serie mai aperta -> prima stagione non speciale', () => {
         const videos = [ep(0, 1), ep(1, 1), ep(2, 1)];
         expect(pickSeason({
@@ -245,5 +253,52 @@ describe('holdSeason', () => {
     it('gli Speciali si possono latchare se scelti dalle pill', () => {
         const r = holdSeason(null, { metaId: M, seasons: [0, 1], seasonFromUrl: 0 });
         expect(r.decision).toEqual({ season: 0, reason: 'url' });
+    });
+});
+
+// Intestazione di stagione (handoff Claude Design, 2026-09-21).
+const { seasonSummary, seasonCountLabel, compareSeasons } = require('../src/common/casaEpisodeFocus');
+
+describe('seasonSummary / seasonCountLabel', () => {
+    it('Slow Horses S6 al 20/09: 1 uscito e visto, 5 in arrivo -> "1 di 6 episodi disponibili"', () => {
+        const s6 = [ep(6, 1, { watched: true, daysAgo: 4 }), ...[2, 3, 4, 5, 6].map((e) => ep(6, e, { daysAgo: -(e - 1) * 7 }))];
+        const s = seasonSummary(s6, NOW);
+        expect(s).toMatchObject({ total: 6, available: 1, watched: 1 });
+        expect(seasonCountLabel(s)).toBe('1 di 6 episodi disponibili');
+    });
+
+    it('stagione tutta uscita e tutta vista -> "tutti visti", non in corso', () => {
+        const s5 = [1, 2, 3].map((e) => ep(5, e, { watched: true }));
+        const s = seasonSummary(s5, NOW);
+        expect(s.inProgress).toBe(false);
+        expect(seasonCountLabel(s)).toBe('3 episodi · tutti visti');
+    });
+
+    it('IN CORSO = iniziata e con ancora qualcosa di uscito da vedere', () => {
+        expect(seasonSummary([ep(5, 1, { watched: true }), ep(5, 2)], NOW).inProgress).toBe(true);
+        expect(seasonSummary([ep(5, 1, { progress: 30 }), ep(5, 2)], NOW).inProgress).toBe(true);
+    });
+
+    it('REGRESSIONE: una stagione mai iniziata NON e\' in corso (e\' li\' che atterra l\'auto-focus su una serie nuova)', () => {
+        expect(seasonSummary([ep(1, 1), ep(1, 2)], NOW).inProgress).toBe(false);
+    });
+
+    it('iniziata ma il resto non e\' ancora uscito -> non in corso (non c\'e\' niente da guardare)', () => {
+        const s6 = [ep(6, 1, { watched: true, daysAgo: 4 }), ep(6, 2, { daysAgo: -3 })];
+        expect(seasonSummary(s6, NOW).inProgress).toBe(false);
+    });
+
+    it('un episodio solo -> singolare', () => {
+        expect(seasonCountLabel(seasonSummary([ep(1, 1)], NOW))).toBe('1 episodio');
+    });
+
+    it('extra -> "N extra"', () => {
+        expect(seasonCountLabel(seasonSummary([ep(0, 1), ep(0, 2)], NOW), { extra: true })).toBe('2 extra');
+    });
+});
+
+describe('compareSeasons', () => {
+    it('la piu\' recente in alto, gli extra (0) sempre in fondo', () => {
+        expect([1, 0, 3, 2, 6].sort(compareSeasons)).toEqual([6, 3, 2, 1, 0]);
     });
 });

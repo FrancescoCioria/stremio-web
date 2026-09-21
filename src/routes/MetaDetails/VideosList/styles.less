@@ -2,6 +2,7 @@
 
 @import (reference) '~@stremio/stremio-colors/less/stremio-colors.less';
 @import (reference) '~stremio/common/screen-sizes.less';
+@import (reference) '../casaSeriesTokens.less';
 
 .videos-list-container {
     display: flex;
@@ -81,23 +82,52 @@
         scroll-margin-bottom: 0.25rem;
         margin-bottom: 2rem;
 
-        .season-title {
-            /* Allineato al margine sinistro dell'hero (.meta-preview), cosi'
-             * titolo della stagione e titolo della serie stanno sulla stessa
-             * colonna: senza il pannello a delimitarla, l'allineamento e'
-             * l'unica cosa che tiene insieme la pagina. */
-            padding: 0 4rem;
-            padding-left: max(1rem, calc(4rem - var(--safe-area-inset-left)));
-            margin-bottom: 0.5rem;
-            font-size: 2.1rem;
+        /* Intestazione di stagione: B1 dell'handoff. Tutte le stagioni hanno
+         * la STESSA intestazione — cambiarne la taglia col focus farebbe
+         * saltare la pagina a ogni freccia; a distinguere quella in corso
+         * c'e' il chip. */
+        .season-header {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            gap: (16 * @lp);
+            margin-bottom: (18 * @lp);
+            /* Allineato al margine sinistro dell'hero; a destra il margine di
+             * sicurezza dell'handoff (il contatore non tocca il bordo). */
+            padding: 0 @safe-x 0 max(1rem, calc(4rem - var(--safe-area-inset-left)));
 
-            /* TV 55" a ~3 m: vedi `html.casa-tv` in src/index.js. */
-            :global(html.casa-tv) & {
-                font-size: 2.35rem;
+            .season-title {
+                flex: none;
+                font-size: (27 * @tp);
+                font-weight: 700;
+                letter-spacing: (-0.3 * @tp);
+                color: @ink-primary;
             }
-            font-weight: 700;
-            letter-spacing: -0.01em;
-            color: var(--primary-foreground-color);
+
+            /* Chip e badge avvolgono TESTO: padding e raggio scalano col
+             * testo (@tp), non col layout, o le proporzioni attorno alle
+             * lettere cambiano. */
+            .season-chip {
+                flex: none;
+                padding: (5 * @tp) (11 * @tp);
+                border-radius: (6 * @tp);
+                border: 1px solid rgba(74, 222, 128, 0.35);
+                background: rgba(74, 222, 128, 0.15);
+                color: @green-text;
+                font-size: (12 * @tp);
+                font-weight: 800;
+                letter-spacing: (0.8 * @tp);
+            }
+
+            .season-spacer {
+                flex: 1;
+            }
+
+            .season-count {
+                flex: none;
+                font-size: (15 * @tp);
+                color: @ink-secondary;
+            }
         }
 
         .season-rail {

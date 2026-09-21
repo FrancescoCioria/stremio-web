@@ -7,7 +7,7 @@ const { t } = require('i18next');
 const { useCore } = require('stremio/core');
 const { Image, Video } = require('stremio/components');
 const { mergeCasaExtraVideos } = require('stremio/common/casaExtraVideos');
-const { pickSeason, pickFocusVideo, holdSeason } = require('stremio/common/casaEpisodeFocus');
+const { pickSeason, pickFocusVideo, holdSeason, seasonSummary, seasonCountLabel, compareSeasons } = require('stremio/common/casaEpisodeFocus');
 const { casaBeacon } = require('stremio/common/casaBackend');
 const { revealCardInRail } = require('stremio/common/casaRailNav');
 const useCasaExtraVideos = require('stremio/routes/MetaDetails/useCasaExtraVideos');
@@ -156,7 +156,8 @@ const VideosList = ({ className, metaItem, libraryItem, season, selectedVideoId,
                     typeof season === 'number' &&
                     seasons.indexOf(season) === index;
             })
-            .sort((a, b) => (a || Number.MAX_SAFE_INTEGER) - (b || Number.MAX_SAFE_INTEGER));
+            // La piu' recente in alto, gli Extra in fondo: vedi compareSeasons.
+            .sort(compareSeasons);
     }, [videos]);
 
     // Una riga per stagione, in ordine crescente, con gli Speciali (stagione 0)
@@ -172,13 +173,21 @@ const VideosList = ({ className, metaItem, libraryItem, season, selectedVideoId,
         if (seasons.length === 0) {
             return videos.length > 0 ? [{ season: null, label: null, videos }] : [];
         }
-        return seasons.map((s) => ({
-            season: s,
-            label: s > 0 ? t('SEASON_NUMBER', { season: s }) : t('SPECIAL'),
-            videos: videos
+        return seasons.map((s) => {
+            const rowVideos = videos
                 .filter((video) => video.season === s)
-                .sort((a, b) => a.episode - b.episode),
-        }));
+                .sort((a, b) => a.episode - b.episode);
+            const summary = seasonSummary(rowVideos);
+            const extra = s === 0;
+            return {
+                season: s,
+                // Italiano come il resto della pagina serie (handoff).
+                label: extra ? 'Extra' : `Stagione ${s}`,
+                videos: rowVideos,
+                inProgress: !extra && summary.inProgress,
+                countLabel: seasonCountLabel(summary, { extra }),
+            };
+        });
     }, [seasons, videos]);
 
     // Su quale riga si atterra. ⚠️ Decisione D'INGRESSO, presa una volta per
@@ -486,7 +495,17 @@ const VideosList = ({ className, metaItem, libraryItem, season, selectedVideoId,
                             <div key={row.season === null ? 'all' : row.season} className={styles['season-row']} data-season-row={row.season === null ? '' : row.season}>
                                 {
                                     row.label !== null ?
-                                        <div className={styles['season-title']} title={row.label}>{row.label}</div>
+                                        <div className={styles['season-header']}>
+                                            <div className={styles['season-title']}>{row.label}</div>
+                                            {
+                                                row.inProgress ?
+                                                    <div className={styles['season-chip']}>IN CORSO</div>
+                                                    :
+                                                    null
+                                            }
+                                            <div className={styles['season-spacer']} />
+                                            <div className={styles['season-count']}>{row.countLabel}</div>
+                                        </div>
                                         :
                                         null
                                 }

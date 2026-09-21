@@ -1,0 +1,52 @@
+// Copyright (C) 2017-2026 Smart code 203358507
+//
+// Token della pagina SERIE (handoff Claude Design "Series Detail", 2026-09-21).
+// L'handoff e' scritto in px a 1920x1080. Qui ogni misura si scrive nei SUOI
+// px moltiplicati per uno di questi due fattori, cosi' si legge contro il
+// README dell'handoff senza fare conti a mente.
+//
+// ⚠️ DUE fattori, non uno, ed e' deliberato:
+//
+// @lp — LAYOUT (margini, larghezze, altezze, gap). Il canvas di 1920 scalato
+// sullo schermo vero: la tile gira a 2259 CSS px di larghezza con root a
+// 17,6 px (16 x lo zoom Casa 1.1), quindi 1 px dell'handoff = 2259/1920 =
+// 1,177 CSS px = 0,0669 rem. In rem e non in vw perche' lo zoom Casa
+// (common/casaUiScale.js) scala SOLO il rem: in vw il testo crescerebbe e le
+// scatole no.
+//
+// @tp — TESTO. NON il canvas scalato: tradotte alla lettera, sinossi e
+// metadati dell'handoff tornavano SOTTO la soglia di lettura comoda a 3 m
+// (sinossi 9,9 arcmin contro i >=12' misurati nella v4.79, cioe' il difetto
+// che quella versione aveva corretto). 0,1 rem per px ricade esattamente sulla
+// tabella tarata della v4.79: sinossi 19 px -> 1,9 rem (identica), badge 12 px
+// -> 1,2 rem (tarati 1,25). Le GERARCHIE dell'handoff restano identiche:
+// cambia solo il livello di base.
+//
+// Se sulla TV il testo sembra troppo grande rispetto alle scatole, la leva e'
+// @tp — un numero solo, non una caccia alle font-size.
+@lp: 0.0669rem;
+@tp: 0.1rem;
+
+// Colori (tabella "Design Tokens" dell'handoff).
+@green: #4ade80;
+@green-text: #84e9a6;
+@green-fill: rgba(74, 222, 128, 0.13);
+@green-border: rgba(74, 222, 128, 0.38);
+@green-ring: rgba(74, 222, 128, 0.85);
+@green-ink: #06240f;
+@ink-primary: #fff;
+@ink-body: rgba(255, 255, 255, 0.86);
+@ink-secondary: rgba(255, 255, 255, 0.66);
+// ⚠️ PAVIMENTO per qualsiasi testo: sotto 0.62 non si scende e non si compone
+// con un `opacity` di un contenitore (l'handoff ci si e' gia' fatto male:
+// 0.5 x alpha = 1,94:1 di contrasto).
+@ink-tertiary: rgba(255, 255, 255, 0.62);
+@surface-neutral: rgba(255, 255, 255, 0.08);
+@surface-neutral-border: rgba(255, 255, 255, 0.14);
+@surface-upcoming: rgba(255, 255, 255, 0.045);
+@surface-placeholder: #14141a;
+@focus-ring: rgba(255, 255, 255, 0.3);
+
+// Margini di sicurezza.
+@safe-x: (80 * @lp);
+@safe-bottom: (44 * @lp);
