@@ -193,34 +193,32 @@ const SeriesHero = ({ className, name, logo, genres, seasonCount, episode, episo
                         <div className={styles['wordmark']}>{name}</div>
                 }
             </div>
-            {
-                episode ?
-                    <div className={styles['identity']}>
-                        <span className={styles['code']}>{code(episode)}</span>
-                        <span className={styles['episode-title']}>{episode.title || episode.name || ''}</span>
-                    </div>
-                    :
-                    null
-            }
-            {
-                metaParts.length > 0 ?
-                    <div className={styles['meta-row']}>
-                        {metaParts.map((part, i) => (
-                            <React.Fragment key={i}>
-                                {i > 0 ? <span className={styles['dot']} /> : null}
-                                {part}
-                            </React.Fragment>
-                        ))}
-                    </div>
-                    :
-                    null
-            }
-            {
-                typeof summary === 'string' && summary.length > 0 ?
-                    <p className={styles['summary']}>{summary}</p>
-                    :
-                    null
-            }
+            {/* Sempre presente (alta una riga anche vuota): l'episodio in
+                evidenza arriva DOPO il primo render, e comparendo spingeva giu'
+                tutta la pagina. */}
+            <div className={styles['identity']}>
+                {
+                    episode ?
+                        <React.Fragment>
+                            <span className={styles['code']}>{code(episode)}</span>
+                            <span className={styles['episode-title']}>{episode.title || episode.name || ''}</span>
+                        </React.Fragment>
+                        :
+                        null
+                }
+            </div>
+            {/* Sempre presente, anche vuota: se sparisse su un episodio senza
+                data la pagina salterebbe di una riga. */}
+            <div className={styles['meta-row']}>
+                {metaParts.map((part, i) => (
+                    <React.Fragment key={i}>
+                        {i > 0 ? <span className={styles['dot']} /> : null}
+                        {part}
+                    </React.Fragment>
+                ))}
+            </div>
+            {/* Sempre presente, con l'altezza di tre righe: vedi styles. */}
+            <p className={styles['summary']}>{typeof summary === 'string' ? summary : ''}</p>
             <div ref={actionsRef} className={styles['actions']} onKeyDown={onActionsKeyDown} data-casa-hero-actions={''}>
                 {
                     action !== null ?

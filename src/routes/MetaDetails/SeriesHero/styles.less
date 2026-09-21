@@ -8,6 +8,12 @@
 @mono: ui-monospace, 'SF Mono', Menlo, monospace;
 
 .series-hero {
+    /* ⚠️ Il fork ha `* { overflow: hidden }` GLOBALE (App/styles.less): ogni
+     * contenitore ritaglia i figli se non lo si dice. Qui ritagliava l'anello
+     * di focus delle pill (sopra e sotto), la riga delle azioni a destra
+     * (mancavano pulsanti) e il menu ⋯ che si apre SOPRA il pulsante — visto
+     * sulla TV, i test controllavano il focus e non l'immagine. */
+    overflow: visible;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
@@ -74,6 +80,7 @@
         gap: (16 * @lp);
         margin-bottom: (11 * @lp);
         max-width: 100%;
+        min-height: (32 * @tp * 1.25);
 
         .code {
             flex: none;
@@ -85,7 +92,8 @@
 
         .episode-title {
             min-width: 0;
-            font-size: (38 * @tp);
+            /* 38 dell'handoff -> 32: richiesta dell'utente guardandolo sulla TV. */
+            font-size: (32 * @tp);
             font-weight: 700;
             letter-spacing: (-0.8 * @tp);
             color: @ink-primary;
@@ -101,7 +109,11 @@
         align-items: center;
         gap: (13 * @lp);
         margin-bottom: (22 * @lp);
-        font-size: (16 * @tp);
+        /* 16 dell'handoff -> 20: sulla TV non si leggevano (richiesta
+         * dell'utente). Sempre presente e alta una riga anche vuota: cambiando
+         * episodio la pagina non deve saltare. */
+        font-size: (20 * @tp);
+        min-height: 1.3em;
         color: @ink-tertiary;
 
         .rating {
@@ -129,10 +141,16 @@
         -webkit-line-clamp: 3;
         -webkit-box-orient: vertical;
         overflow: hidden;
+        /* ⚠️ Sempre l'altezza di TRE righe, anche se la sinossi ne occupa una:
+         * l'hero descrive l'episodio a fuoco, e con l'altezza che seguiva il
+         * testo ogni freccia fra episodi di sinossi diversa faceva saltare
+         * tutta la pagina sotto (segnalato dalla TV). */
+        height: calc(1.5em * 3);
     }
 
     /* A6 */
     .actions {
+        overflow: visible;
         display: flex;
         align-items: center;
         gap: (14 * @lp);
@@ -173,6 +191,7 @@
     }
 
     .primary-wrap {
+        overflow: visible;
         position: relative;
         display: flex;
         flex-direction: column;
@@ -245,6 +264,7 @@
     }
 
     .secondary {
+        overflow: visible;
         display: flex;
         align-items: center;
         gap: (10 * @lp);
@@ -324,6 +344,7 @@
 
     /* Menu ⋯: si apre SOPRA il pulsante (sotto c'e' la lista). */
     .more-wrap {
+        overflow: visible;
         position: relative;
 
         .menu {
