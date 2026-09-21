@@ -6,7 +6,9 @@ const { useTranslation } = require('react-i18next');
 const classnames = require('classnames');
 const { useCore } = require('stremio/core');
 const { useContentGamepadNavigation } = require('stremio/services/GamepadNavigation');
-const { withCoreSuspender } = require('stremio/common');
+const { withCoreSuspender, useProfile } = require('stremio/common');
+const { backdropFor } = require('stremio/common/casaBackdrop');
+const CasaBackdrop = require('./CasaBackdrop');
 // TV fork: niente HorizontalNavBar (nessuna top bar su TV).
 const { VerticalNavBar, DelayedRenderer, Image, MetaPreview, ModalDialog } = require('stremio/components');
 const useEpisodeRuntimes = require('stremio/common/useEpisodeRuntimes');
@@ -96,6 +98,18 @@ const MetaDetails = () => {
         setFeaturedVideo(undefined);
     }, [id]);
     const heroVideo = focusedVideo || featuredVideo || null;
+    // ⚠️ DOPO heroVideo: dichiarato prima, era un errore a runtime (TDZ) che
+    // il lint non vede.
+    // Lo sfondo della pagina: la foto dell'EPISODIO (quello a fuoco, o quello in
+    // evidenza; sulla pagina torrent quello scelto), con dissolvenza fra una
+    // foto e l'altra — handoff Claude Design. Film: il loro sfondo. Regola e
+    // eccezioni (spoiler, niente foto) in common/casaBackdrop.js.
+    const profile = useProfile();
+    const hideSpoilers = !!(profile && profile.settings && profile.settings.hideSpoilers);
+    const backdropSrc = !metaReady ? null :
+        isSeriesView ? backdropFor({ video: heroVideo, background: metaReady.background, hideSpoilers }) :
+            isSeriesStreams ? backdropFor({ video, background: metaReady.background, hideSpoilers }) :
+                metaReady.background;
     const heroRuntimes = useEpisodeRuntimes(type, id, heroVideo?.season);
     const heroRuntime = typeof heroVideo?.episode === 'number' && heroRuntimes.season === heroVideo.season ?
         heroRuntimes.runtimes[String(heroVideo.episode)] ?? null : null;
@@ -249,11 +263,9 @@ const MetaDetails = () => {
                     // a sinistra e alla lista in basso su QUALSIASI foto. Non si
                     // tolgono e non si schiariscono cambiando immagine.
                     <div className={styles['series-backdrop']}>
-                        <Image
-                            className={styles['series-backdrop-image']}
-                            src={metaReady.background}
-                            renderFallback={renderBackgroundImageFallback}
-                            alt={' '}
+                        <CasaBackdrop
+                            imageClassName={styles['series-backdrop-image']}
+                            src={backdropSrc}
                         />
                         <div className={styles['series-scrim-h']} />
                         <div className={styles['series-scrim-v']} />
