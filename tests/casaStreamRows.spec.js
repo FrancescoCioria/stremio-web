@@ -18,6 +18,12 @@ describe('displayRows', () => {
         expect(rows.map((r) => r.label)).toEqual(['Tutti']);
         expect(rows[0].streams).toHaveLength(2);
     });
+    it('REGRESSIONE: un "1078p" e\' un 1080p, non va nella riga delle basse (Silo, visto sulla TV)', () => {
+        expect(displayRows([s('silo', 1078)])[1]).toMatchObject({ label: '1080p' });
+    });
+    it('e un "2076p" e\' un 4K', () => {
+        expect(displayRows([s('x', 2076)])[1]).toMatchObject({ label: '4K' });
+    });
     it('480p va nella riga delle basse (720p)', () => {
         expect(displayRows([s('z', 480)])[1]).toMatchObject({ label: '720p' });
     });

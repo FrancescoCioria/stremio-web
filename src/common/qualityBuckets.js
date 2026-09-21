@@ -109,10 +109,14 @@ const formatAvgSize = (bytes) => {
 // indovina come fa heightToBucket per la race (li' serve a non perdere un
 // candidato, qui metterlo nella riga 1080p sarebbe una dichiarazione falsa).
 // ⚠️ "720p" raccoglie anche 480p e sotto: e' "la riga delle basse".
+// ⚠️ Soglie con TOLLERANZA, non i numeri nominali: i nomi dei rip non sono
+// esatti — un "1078p" (Silo S03, visto sulla TV il 2026-09-21) finiva nella
+// riga delle basse perche' 1078 < 1080. A meta' strada fra le risoluzioni:
+// 4K da 1800, 1080p da 900 (in mezzo non esiste niente di reale).
 const DISPLAY_ROWS = [
-    { key: '4k', label: BUCKET_LABEL[BUCKET_4K], test: (h) => h >= 2160 },
-    { key: '1080p', label: BUCKET_LABEL[BUCKET_1080], test: (h) => h >= 1080 && h < 2160 },
-    { key: '720p', label: BUCKET_LABEL[BUCKET_720], test: (h) => h > 0 && h < 1080 },
+    { key: '4k', label: BUCKET_LABEL[BUCKET_4K], test: (h) => h >= 1800 },
+    { key: '1080p', label: BUCKET_LABEL[BUCKET_1080], test: (h) => h >= 900 && h < 1800 },
+    { key: '720p', label: BUCKET_LABEL[BUCKET_720], test: (h) => h > 0 && h < 900 },
 ];
 const displayRows = (streams) => {
     const list = Array.isArray(streams) ? streams : [];

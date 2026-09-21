@@ -248,7 +248,11 @@
 
     .stream-row {
         scroll-margin-top: 1rem;
-        scroll-margin-bottom: 0.25rem;
+        /* Aria in fondo sull'ULTIMA riga (allineata in basso con block:'end'):
+         * con 0.25rem la card toccava il bordo dello schermo (visto sulla TV).
+         * Qui si puo': le card torrent sono alte e la riga precedente spunta
+         * comunque. */
+        scroll-margin-bottom: 2rem;
         margin-bottom: (26 * @lp);
 
         .stream-row-header {
@@ -281,7 +285,9 @@
             /* Le card stream sono larghe e scalano al focus: piu' aria della
              * rail episodi. */
             gap: 3rem;
-            padding: (14 * @lp) @safe-x (8 * @lp);
+            /* Sotto piu' aria che sopra: la card scala al focus e la rail ritaglia
+             * (overflow-y hidden), con 8px il bordo basso della card toccava. */
+            padding: (14 * @lp) @safe-x (24 * @lp);
             overflow-x: auto;
             overflow-y: hidden;
             /* NIENTE scroll-snap: lo scroll e' guidato via JS
