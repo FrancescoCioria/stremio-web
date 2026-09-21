@@ -50,6 +50,11 @@ const SeriesHero = ({ className, name, logo, genres, seasonCount, episode, episo
     // aveva in MetaPreview (Letterboxd, RT, "Disponibile dal"), e tra le azioni
     // c'e' "Visto". Niente primario: sotto c'e' subito la riga dei torrent.
     const isMovie = kind === 'movie';
+    // ⚠️ Il ⋯ esiste solo se il suo menu ha almeno una voce. Un film NON in
+    // libreria non ne ha (niente "segna la stagione", niente "rimuovi"): il ⋯
+    // apriva un riquadro VUOTO, il focus non ci entrava, le frecce finivano al
+    // polyfill e il riquadro restava aperto — trovato in review.
+    const hasMenuItems = typeof onMarkSeasonWatched === 'function' || !!inLibrary;
     const navigate = useNavigate();
     const { onLiked, onLoved, liked, loved } = useRating(ratingInfo);
     const loveDisabled = ratingInfo?.type !== 'Ready';
@@ -326,49 +331,51 @@ const SeriesHero = ({ className, name, logo, genres, seasonCount, episode, episo
                         <Button className={classnames(styles['icon-button'], { [styles['on']]: loved })} title={loved ? 'Non lo amo piu\'' : 'Lo amo'} onClick={loveDisabled ? null : onLoved} data-hero-action={''}>
                             <Icon className={styles['icon']} name={loved ? 'heart' : 'heart-outline'} />
                         </Button>
-                        <div className={styles['more-wrap']}>
-                            <Button ref={moreRef} className={styles['icon-button']} title={'Altro'} onClick={() => openMenu('list')} data-hero-action={''}>
-                                <Icon className={styles['icon']} name={'more-horizontal'} />
-                            </Button>
-                            {
-                                menu !== null ?
-                                    <div ref={menuRef} className={styles['menu']} onKeyDown={onMenuKeyDown} data-hero-menu={''}>
-                                        {
-                                            menu === 'list' ?
-                                                <React.Fragment>
-                                                    {
-                                                        typeof onMarkSeasonWatched === 'function' ?
-                                                            <Button className={styles['menu-item']} onClick={() => { onMarkSeasonWatched(); closeMenu(); }}>
-                                                                {featuredSeasonWatched ? 'Togli il visto dalla stagione' : 'Segna la stagione come vista'}
-                                                            </Button>
-                                                            :
-                                                            null
-                                                    }
-                                                    {
-                                                        inLibrary ?
-                                                            <Button className={classnames(styles['menu-item'], styles['danger'])} onClick={() => setMenu('confirm-remove')}>
-                                                                Rimuovi dalla libreria
-                                                            </Button>
-                                                            :
-                                                            null
-                                                    }
-                                                </React.Fragment>
-                                                :
-                                                <React.Fragment>
-                                                    <div className={styles['menu-question']}>Rimuovere dalla libreria?</div>
-                                                    <Button className={styles['menu-item']} data-menu-default={''} onClick={() => closeMenu()}>
-                                                        Annulla
-                                                    </Button>
-                                                    <Button className={classnames(styles['menu-item'], styles['danger'])} onClick={() => { if (typeof onRemoveFromLibrary === 'function') onRemoveFromLibrary(); closeMenu(); }}>
-                                                        Rimuovi
-                                                    </Button>
-                                                </React.Fragment>
-                                        }
-                                    </div>
-                                    :
-                                    null
-                            }
-                        </div>
+                        {hasMenuItems ?
+                            <div className={styles['more-wrap']}>
+                                <Button ref={moreRef} className={styles['icon-button']} title={'Altro'} onClick={() => openMenu('list')} data-hero-action={''}>
+                                    <Icon className={styles['icon']} name={'more-horizontal'} />
+                                </Button>
+                                {
+                                    menu !== null ?
+                                        <div ref={menuRef} className={styles['menu']} onKeyDown={onMenuKeyDown} data-hero-menu={''}>
+                                            {
+                                                menu === 'list' ?
+                                                    <React.Fragment>
+                                                        {
+                                                            typeof onMarkSeasonWatched === 'function' ?
+                                                                <Button className={styles['menu-item']} onClick={() => { onMarkSeasonWatched(); closeMenu(); }}>
+                                                                    {featuredSeasonWatched ? 'Togli il visto dalla stagione' : 'Segna la stagione come vista'}
+                                                                </Button>
+                                                                :
+                                                                null
+                                                        }
+                                                        {
+                                                            inLibrary ?
+                                                                <Button className={classnames(styles['menu-item'], styles['danger'])} onClick={() => setMenu('confirm-remove')}>
+                                                                    Rimuovi dalla libreria
+                                                                </Button>
+                                                                :
+                                                                null
+                                                        }
+                                                    </React.Fragment>
+                                                    :
+                                                    <React.Fragment>
+                                                        <div className={styles['menu-question']}>Rimuovere dalla libreria?</div>
+                                                        <Button className={styles['menu-item']} data-menu-default={''} onClick={() => closeMenu()}>
+                                                            Annulla
+                                                        </Button>
+                                                        <Button className={classnames(styles['menu-item'], styles['danger'])} onClick={() => { if (typeof onRemoveFromLibrary === 'function') onRemoveFromLibrary(); closeMenu(); }}>
+                                                            Rimuovi
+                                                        </Button>
+                                                    </React.Fragment>
+                                            }
+                                        </div>
+                                        :
+                                        null
+                                }
+                            </div>
+                            : null}
                     </div>
                 </div>}
         </div>
