@@ -6,6 +6,9 @@
 .videos-list-container {
     display: flex;
     flex-direction: column;
+    /* ⚠️ Senza `min-height: 0` un flex item non si lascia rimpicciolire sotto
+     * il contenuto: lo scroller non scrollerebbe, crescerebbe. */
+    min-height: 0;
 
     .message-container {
         flex: 1;
@@ -43,80 +46,94 @@
         }
     }
 
-    .seasons-bar {
-        flex: none;
+    /* Scroller VERTICALE delle righe stagione, la stessa forma di
+     * `.board-content` nella home. */
+    .seasons-scroll {
+        flex: 1;
+        min-height: 0;
         align-self: stretch;
-        margin: 0.5rem 1rem 1rem 1rem;
-    }
-
-    .search-bar {
-        flex: none;
-        align-self: stretch;
-        margin: 0 1.5rem 1rem 1.5rem;
-
-        &:first-child {
-            margin-top: 1rem;
-        }
-    }
-
-    .videos-container {
-        flex: none;
-        align-self: stretch;
-        display: flex;
-        flex-direction: row;
-        gap: 1.5rem;
-        /* Padding verticale abbondante: la scale(1.08) + il box-shadow
-         * della thumbnail hanno bisogno di respirare, altrimenti vengono
-         * croppati dall'overflow (overflow-x auto implica anche y auto
-         * nel box model CSS). */
-        padding: 2.5rem 2rem 2.5rem;
-        overflow-x: auto;
-        overflow-y: hidden;
-        /* NIENTE scroll-snap: lo scroll del rail e' guidato via JS
-         * (revealCardInRail, common/casaRailNav.js). Con scroll-snap-type il
-         * browser ri-aggancia allo snap point al focus/scale della card,
-         * dando un micro-balzo avanti/indietro a ogni freccia. Stessa scelta
-         * gia' fatta sui rail della home (MetaRow/styles.less). */
+        overflow-y: auto;
+        overflow-x: hidden;
         overflow-anchor: none;
-
-        &>* {
-            flex: none;
-        }
+        padding: 1.5rem 0 0 0;
+        /* ⚠️ Vuoto in fondo: la nav verticale fa `scrollIntoView({block:
+         * 'start'})`, che allinea la riga al TOP dello scroller — ma
+         * sull'ULTIMA riga non c'e' contenuto sotto, quindi lo scroll finisce
+         * prima e la riga resta a meta' schermo ("non sale abbastanza").
+         * Dev'essere piu' dell'altezza dello scroller meno una riga, cosi'
+         * QUALSIASI stagione puo' salire in cima. Stessa scelta della home. */
+        padding-bottom: 16rem;
 
         &::-webkit-scrollbar {
             display: none;
         }
-
-        /* Vuoto di coda: lo spazio dove starebbe la card DOPO l'ultima, cosi'
-         * arrivando in fondo alla stagione il ritmo non cambia e l'ultimo
-         * episodio non resta incollato al bordo destro. La larghezza la
-         * scrive revealCardInRail dalla card vera.
-         * ⚠️ Pseudo-elemento e non `padding-right`: in un flex che scrolla il
-         * padding di coda e' ignorato da `scrollWidth`. */
-        &::after {
-            content: '';
-            flex: none;
-            width: var(--casa-rail-trail, 20rem);
-        }
-
-        /* Il wrapper esiste solo per il data-video-id (focus tracking).
-         * display: contents lo toglie dal layout. */
-        .video-wrapper {
-            display: contents;
-        }
     }
 
-    .videos-scroll-container {
-        flex: none;
-        align-self: stretch;
-        display: flex;
-        flex-direction: row;
-        gap: 1rem;
-        padding: 0.5rem 2rem 1rem;
-        overflow: hidden;
+    .season-row {
+        /* Cushion sopra, cosi' con block:'start' il TITOLO della riga non
+         * finisce tagliato contro il bordo dello scroller. */
+        scroll-margin-top: 1rem;
+        margin-bottom: 2rem;
 
-        &>* {
-            flex: none;
+        .season-title {
+            padding: 0 2rem;
+            margin-bottom: 0.5rem;
+            font-size: 2.1rem;
+
+            /* TV 55" a ~3 m: vedi `html.casa-tv` in src/index.js. */
+            :global(html.casa-tv) & {
+                font-size: 2.35rem;
+            }
+            font-weight: 700;
+            letter-spacing: -0.01em;
+            color: var(--primary-foreground-color);
+        }
+
+        .season-rail {
+            display: flex;
+            flex-direction: row;
+            align-items: stretch;
+            gap: 1.5rem;
+            /* Padding verticale: la scale al focus e il box-shadow della
+             * thumbnail hanno bisogno di respirare, altrimenti vengono
+             * croppati (overflow-x auto implica overflow-y auto nel box
+             * model CSS). */
+            padding: 1.5rem 2rem;
+            overflow-x: auto;
+            overflow-y: hidden;
+            /* NIENTE scroll-snap: lo scroll e' guidato via JS
+             * (revealCardInRail, common/casaRailNav.js). Con scroll-snap-type
+             * il browser ri-aggancia allo snap point al focus/scale della
+             * card, dando un micro-balzo a ogni freccia. Stessa scelta dei
+             * rail della home (MetaRow/styles.less). */
+            overflow-anchor: none;
+
+            &>* {
+                flex: none;
+            }
+
+            &::-webkit-scrollbar {
+                display: none;
+            }
+
+            /* Vuoto di coda: lo spazio dove starebbe la card DOPO l'ultima,
+             * cosi' arrivando in fondo alla stagione il ritmo non cambia e
+             * l'ultimo episodio non resta incollato al bordo destro. La
+             * larghezza la scrive revealCardInRail dalla card vera.
+             * ⚠️ Pseudo-elemento e non `padding-right`: in un flex che scrolla
+             * il padding di coda e' ignorato da `scrollWidth`. */
+            &::after {
+                content: '';
+                flex: none;
+                width: var(--casa-rail-trail, 20rem);
+            }
+
+            /* Il wrapper esiste solo per il data-video-id (focus tracking e
+             * nav). display: contents lo toglie dal layout — rect e larghezza
+             * si prendono dal figlio, vedi `boxOf` in casaRailNav.js. */
+            .video-wrapper {
+                display: contents;
+            }
         }
     }
 }
@@ -125,8 +142,9 @@
     .videos-list-container {
         overflow: visible;
 
-        .videos-container {
-            overflow: auto;
+        .seasons-scroll {
+            overflow: visible;
+            padding-bottom: 2rem;
         }
     }
 }

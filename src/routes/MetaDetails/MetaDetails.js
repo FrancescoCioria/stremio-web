@@ -161,9 +161,6 @@ const MetaDetails = () => {
             });
         }
     }, [metaDetails.libraryItem]);
-    const seasonOnSelect = React.useCallback((event) => {
-        setSeason(event.value);
-    }, [setSeason]);
     const handleEpisodeSearch = React.useCallback((season, episode) => {
         const searchVideoHash = encodeURIComponent(`${urlParams.id}:${season}:${episode}`);
         const url = location.pathname;
@@ -312,7 +309,7 @@ const MetaDetails = () => {
                                 libraryItem={metaDetails.libraryItem}
                                 season={season}
                                 selectedVideoId={metaDetails.libraryItem?.state?.video_id}
-                                seasonOnSelect={seasonOnSelect}
+                                onSeasonOpened={setSeason}
                                 onFocusedVideoChange={setFocusedVideoId}
                             />
                             :
