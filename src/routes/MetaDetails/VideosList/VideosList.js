@@ -53,7 +53,12 @@ const withSeason = (deepLinks, season) => {
 // ⚠️ Una richiesta per stagione all'apertura, deliberato: mediana 2 stagioni
 // sulla library vera, e il backend le tiene in cache 24h.
 const SeasonRow = ({ row, metaType, metaId, focusTargetId, selectedVideoId, onOpen, onMarkVideoAsWatched, onMarkSeasonAsWatched }) => {
-    const runtimes = useEpisodeRuntimes(metaType, metaId, row.season);
+    // ⚠️ Sugli Extra (stagione 0) la durata NON si chiede: TMDB e Cinemeta
+    // numerano gli speciali in modo diverso (Rick and Morty: 37 contro 113, lo
+    // speciale 2 di Cinemeta e' uno spot, quello di TMDB un'altra cosa), e la
+    // card mostrerebbe durate sbagliate ma credibili — l'errore che la durata
+    // "reale" esiste per evitare. Senza, si omette. Preso in review.
+    const runtimes = useEpisodeRuntimes(metaType, metaId, row.season === 0 ? null : row.season);
     const seasonWatched = row.videos.every((video) => video.watched);
     return (
         <div className={styles['season-row']} data-season-row={row.season === null ? '' : row.season}>
