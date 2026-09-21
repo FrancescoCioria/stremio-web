@@ -288,6 +288,17 @@ describe('seasonSummary / seasonCountLabel', () => {
         expect(seasonSummary(s6, NOW).inProgress).toBe(false);
     });
 
+    it('REGRESSIONE: episodi visti + segnaposto SENZA DATA -> non e\' in corso (non c\'e\' niente da guardare)', () => {
+        const noDate = (e) => ({ id: `tt0804484:4:${e}`, season: 4, episode: e, released: null, upcoming: false, watched: false, progress: 0 });
+        const s4 = [ep(4, 1, { watched: true }), ep(4, 2, { watched: true }), noDate(3)];
+        expect(seasonSummary(s4, NOW).inProgress).toBe(false);
+    });
+
+    it('ma nel CONTATORE un episodio senza data resta disponibile (le serie vecchie spesso le date non le hanno)', () => {
+        const noDate = (e) => ({ id: `tt1:1:${e}`, season: 1, episode: e, released: null, upcoming: false, watched: false, progress: 0 });
+        expect(seasonCountLabel(seasonSummary([noDate(1), noDate(2)], NOW))).toBe('2 episodi');
+    });
+
     it('un episodio solo -> singolare', () => {
         expect(seasonCountLabel(seasonSummary([ep(1, 1)], NOW))).toBe('1 episodio');
     });

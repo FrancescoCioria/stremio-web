@@ -160,9 +160,9 @@ const VideosList = ({ className, metaItem, libraryItem, season, selectedVideoId,
             .sort(compareSeasons);
     }, [videos]);
 
-    // Una riga per stagione, in ordine crescente, con gli Speciali (stagione 0)
-    // in fondo — e' l'ordine delle pill di prima, e l'ordine naturale di una
-    // serie. L'auto-focus porta comunque sulla riga giusta.
+    // Una riga per stagione, nell'ordine di `seasons`: la piu' recente in
+    // alto, gli Extra (stagione 0) in fondo (vedi compareSeasons). Dove si
+    // atterra lo decide l'auto-focus, non l'ordine.
     const seasonRows = React.useMemo(() => {
         // ⚠️ Episodi senza stagione numerica (meta di canali/tv, o una riga
         // di extra-videos con `season` non numerica): `seasons` li scarta,

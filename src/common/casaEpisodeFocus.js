@@ -178,15 +178,25 @@ const holdSeason = (prev, { metaId, seasons, seasonFromUrl }) => {
 // dove l'auto-focus atterra quando non c'e' niente da riprendere.
 const seasonSummary = (videos, now = Date.now()) => {
     const list = videos || [];
+    // ⚠️ Due regole diverse per due domande diverse, scritte apposta:
+    // - il CONTATORE e' una descrizione: un episodio senza data non e'
+    //   "futuro" (le serie vecchie spesso le date non le hanno), e contarlo
+    //   come non uscito farebbe dire "0 di 10 episodi disponibili";
+    // - il chip IN CORSO e' una PROMESSA ("c'e' qualcosa da guardare adesso"),
+    //   quindi vuole la prova: un episodio non visto con una data vera nel
+    //   passato (`hasAired`). Con la regola del contatore, tre episodi visti
+    //   piu' due segnaposto senza data (Foundation S4) accendevano "IN CORSO"
+    //   su una stagione in cui non c'e' niente da guardare. Preso in review.
     const available = list.filter((v) => !isKnownFuture(v, now));
     const watched = available.filter((v) => v.watched === true).length;
     const started = watched > 0 || list.some((v) => typeof v.progress === 'number' && v.progress > 0);
+    const somethingToWatch = list.some((v) => hasAired(v, now) && v.watched !== true);
     const unwatchedAvailable = available.length - watched;
     return {
         total: list.length,
         available: available.length,
         watched,
-        inProgress: started && unwatchedAvailable > 0,
+        inProgress: started && somethingToWatch,
         allWatched: available.length > 0 && unwatchedAvailable === 0 && available.length === list.length,
     };
 };
