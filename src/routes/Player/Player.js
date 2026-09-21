@@ -207,6 +207,7 @@ const Player = () => {
     // (il cursore sul Beelink esiste anche se trasparente): dice quale fattore
     // tiene la barra su. Da togliere a diagnosi conclusa.
     const overlayMouseRef = React.useRef({ n: 0 });
+    const overlayIgnoredBeaconRef = React.useRef(0);
     React.useEffect(() => {
         const m = overlayMouseRef.current;
         casaBeacon('/debug/player-event', {
@@ -443,6 +444,30 @@ const Player = () => {
     }, []);
 
     const onContainerMouseMove = React.useCallback((event) => {
+        // Casa (v4.128): un `mouseover` NON e' attivita' del mouse. Sul Beelink il
+        // cursore (trasparente) resta parcheggiato dov'e'; quando il DOM sotto di
+        // lui cambia (la barra che si nasconde all'avvio del film) Firefox rifa'
+        // l'hit-test e sintetizza un `mouseover` senza che nulla si sia mosso.
+        // Se il cursore sta sopra la barra, quell'evento la riaccendeva E ne
+        // cancellava il timer (`immersePrevented`) -> barra su per sempre, finche'
+        // non si premeva indietro (log 2026-09-21 18:55:42: mouseover sul titolo
+        // 46ms dopo hidden:true, zero mousemove). Un mouse vero che si muove
+        // manda sempre anche `mousemove`: e' quello l'unico segnale.
+        if (event.type === 'mouseover') {
+            const now = Date.now();
+            const lastMove = overlayMouseRef.current.type === 'mousemove' ? overlayMouseRef.current.at : 0;
+            if (now - lastMove > 1000 && now - overlayIgnoredBeaconRef.current > 5000) {
+                overlayIgnoredBeaconRef.current = now;
+                casaBeacon('/debug/player-event', {
+                    ev: 'casa-overlay-ignored',
+                    bar: !!event.nativeEvent.immersePrevented,
+                    target: typeof event.target?.className === 'string' ? event.target.className.slice(0, 80) : null,
+                    x: event.clientX,
+                    y: event.clientY,
+                });
+            }
+            return;
+        }
         overlayMouseRef.current = {
             n: overlayMouseRef.current.n + 1,
             type: event.type,
