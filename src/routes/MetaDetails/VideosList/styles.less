@@ -56,12 +56,11 @@
         overflow-x: hidden;
         overflow-anchor: none;
         padding: 1.5rem 0 0 0;
-        /* ⚠️ Vuoto in fondo: la nav verticale fa `scrollIntoView({block:
-         * 'start'})`, che allinea la riga al TOP dello scroller — ma
-         * sull'ULTIMA riga non c'e' contenuto sotto, quindi lo scroll finisce
-         * prima e la riga resta a meta' schermo ("non sale abbastanza").
-         * Dev'essere piu' dell'altezza dello scroller meno una riga, cosi'
-         * QUALSIASI stagione puo' salire in cima. Stessa scelta della home. */
+        /* ⚠️ Vuoto in fondo: la nav allinea la riga al TOP dello scroller, ma
+         * senza contenuto sotto lo scroll finisce prima e la riga resta a
+         * meta' schermo ("non sale abbastanza"). Serve a far salire in cima
+         * la PENULTIMA (l'ultima ormai si allinea in basso, vedi revealRow),
+         * quindi dev'essere piu' dell'altezza dello scroller meno una riga. */
         padding-bottom: 16rem;
 
         &::-webkit-scrollbar {
@@ -71,12 +70,24 @@
 
     .season-row {
         /* Cushion sopra, cosi' con block:'start' il TITOLO della riga non
-         * finisce tagliato contro il bordo dello scroller. */
+         * finisce tagliato contro il bordo dello scroller. Quello sotto vale
+         * per l'ULTIMA riga, che si allinea in basso con block:'end' (vedi
+         * revealRow in VideosList.js): senza, finirebbe incollata al bordo. */
         scroll-margin-top: 1rem;
+        /* ⚠️ Piccolo apposta: ogni rem qui la paga la riga PRECEDENTE, che
+         * dell'ultima e' l'unica cosa visibile in cima. A 1.5rem si vedevano
+         * solo date e badge orfani; cosi' spunta anche il bordo basso delle
+         * miniature, che e' cio' che fa leggere "c'e' una riga sopra". */
+        scroll-margin-bottom: 0.25rem;
         margin-bottom: 2rem;
 
         .season-title {
-            padding: 0 2rem;
+            /* Allineato al margine sinistro dell'hero (.meta-preview), cosi'
+             * titolo della stagione e titolo della serie stanno sulla stessa
+             * colonna: senza il pannello a delimitarla, l'allineamento e'
+             * l'unica cosa che tiene insieme la pagina. */
+            padding: 0 4rem;
+            padding-left: max(1rem, calc(4rem - var(--safe-area-inset-left)));
             margin-bottom: 0.5rem;
             font-size: 2.1rem;
 
@@ -98,7 +109,8 @@
              * thumbnail hanno bisogno di respirare, altrimenti vengono
              * croppati (overflow-x auto implica overflow-y auto nel box
              * model CSS). */
-            padding: 1.5rem 2rem;
+            padding: 1.5rem 4rem;
+            padding-left: max(1rem, calc(4rem - var(--safe-area-inset-left)));
             overflow-x: auto;
             overflow-y: hidden;
             /* NIENTE scroll-snap: lo scroll e' guidato via JS

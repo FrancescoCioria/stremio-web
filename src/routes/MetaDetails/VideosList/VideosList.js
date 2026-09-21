@@ -226,6 +226,28 @@ const VideosList = ({ className, metaItem, libraryItem, season, selectedVideoId,
         return row ? pickFocusVideo(row.videos, selectedVideoId) : null;
     }, [seasonRows, focusSeason, selectedVideoId]);
 
+    // ⚠️ Si vede SEMPRE una riga vicina: quella DOPO se c'e', altrimenti quella
+    // PRIMA. E' il rovescio verticale del vuoto di coda delle rail — dove puoi
+    // andare non si scopre premendo, si vede. Sull'ultima riga `block:'end'`
+    // la incolla in basso e lascia sbucare la precedente in cima; sulle altre
+    // `block:'start'` porta il titolo in cima e la successiva sbuca sotto.
+    //
+    // ⚠️ Si usa scrollIntoView e non due conti a mano apposta: rispetta
+    // `scroll-margin-top/bottom`, cioe' i cuscinetti stanno nel CSS accanto
+    // alle misure a cui appartengono invece che in due costanti JS.
+    //
+    // ⚠️ Con UNA sola stagione il target calcolato e' negativo e il browser lo
+    // taglia a 0: la riga resta in cima, che e' giusto.
+    //
+    // NB: la home fa diversamente apposta (l'ultima riga sale in cima e sotto
+    // resta il vuoto) — li' le righe sono tante e il vuoto in fondo e' il
+    // segnale che la lista e' finita. Qui le stagioni sono 2 nella mediana:
+    // perdere di vista l'unica vicina sarebbe perdere meta' della pagina.
+    const revealRow = (row, behavior) => {
+        if (!row) return;
+        row.scrollIntoView({ behavior, block: row.nextElementSibling ? 'start' : 'end' });
+    };
+
     // Memoria dell'ultima card per riga: passando da riga A card 5 a riga B e
     // tornando su, il focus torna su A card 5 e non su A card 0 (che sarebbe
     // fuori schermo, con "niente di selezionato" a vedersi). WeakMap con key
@@ -271,11 +293,10 @@ const VideosList = ({ className, metaItem, libraryItem, season, selectedVideoId,
             const focusable = focusTargetEl.querySelector('[tabindex], a, button') || focusTargetEl;
             focusable.focus({ preventScroll: true });
             lastCardByRowRef.current.set(target, focusTargetEl);
-            // block:'start' allinea il TITOLO della riga col bordo alto dello
-            // scroller (meno lo scroll-margin-top). 'nearest' non scrollava se
-            // la riga era gia' parzialmente in vista, lasciando il titolo
-            // tagliato sopra.
-            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            // 'nearest' non scrollava quando la riga era gia' parzialmente in
+            // vista, lasciando il titolo tagliato sopra: serve un allineamento
+            // esplicito (vedi revealRow).
+            revealRow(target, 'smooth');
             revealCardInRail(target.querySelector('[data-season-rail]'), focusTargetEl, 0);
             return;
         }
@@ -316,7 +337,7 @@ const VideosList = ({ className, metaItem, libraryItem, season, selectedVideoId,
         const el = wrapper.querySelector('[tabindex], a, button') || wrapper;
         el.focus({ preventScroll: true });
         lastCardByRowRef.current.set(row, wrapper);
-        row.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        revealRow(row, 'smooth');
         revealCardInRail(row.querySelector('[data-season-rail]'), wrapper, 0);
         return true;
     }, []);
@@ -379,7 +400,7 @@ const VideosList = ({ className, metaItem, libraryItem, season, selectedVideoId,
             initialFocusDoneRef.current = key;
             const landed = card.closest('[data-season-row]');
             if (landed) {
-                landed.scrollIntoView({ behavior: 'instant', block: 'start' });
+                revealRow(landed, 'instant');
                 lastCardByRowRef.current.set(landed, card);
                 revealCardInRail(landed.querySelector('[data-season-rail]'), card, 0);
             }

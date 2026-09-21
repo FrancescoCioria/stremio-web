@@ -119,16 +119,27 @@
              * restano alti quanto il loro contenuto, ancorati in alto. */
             align-self: stretch;
             min-height: 0;
-            /* Margine laterale per non far arrivare la lista edge-to-edge
-             * (sopra la sidebar a sx e oltre il bordo dx). */
+        }
+
+        /* Gli stream sono ancora un CONTENITORE (un pannello di scelte sopra
+         * lo sfondo): pannello scuro e margine restano loro. */
+        .streams-list {
+            align-self: start;
             margin: 0 4rem;
             border-radius: var(--border-radius);
             background-color: rgba(0, 0, 0, 0.4);
             backdrop-filter: blur(15px);
         }
 
-        .streams-list {
-            align-self: start;
+        /* La lista episodi NON e' piu' un contenitore: da quando e' una riga
+         * per stagione e' la pagina stessa, come le righe della home. Il
+         * pannello scuro la faceva sembrare un pannello dentro la pagina, e
+         * con lo scroller a tutta altezza diventava un rettangolo nero che
+         * arrivava al bordo. Le righe si allineano al margine dell'hero. */
+        .videos-list {
+            margin: 0;
+            background: none;
+            backdrop-filter: none;
         }
     }
 }
