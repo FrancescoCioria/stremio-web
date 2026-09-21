@@ -298,9 +298,9 @@
 .series-menu-host {
     .context-menu-container {
         z-index: 3;
-        min-width: (300 * @tp);
-        padding: (8 * @tp);
-        border-radius: (14 * @tp);
+        min-width: calc(300 * @tp);
+        padding: calc(8 * @tp);
+        border-radius: calc(14 * @tp);
         border: 1px solid @surface-neutral-border;
         background: rgba(14, 14, 20, 0.97);
         box-shadow: 0 (14 * @lp) (40 * @lp) rgba(0, 0, 0, 0.6);
@@ -314,8 +314,8 @@
                 display: flex;
                 flex-direction: row;
                 align-items: center;
-                padding: (12 * @tp) (14 * @tp);
-                border-radius: (10 * @tp);
+                padding: calc(12 * @tp) calc(14 * @tp);
+                border-radius: calc(10 * @tp);
                 outline: none;
 
                 /* Classe raddoppiata: batte `.button-container:focus` del kit.
@@ -331,7 +331,7 @@
                 }
 
                 .context-menu-option-label {
-                    font-size: (17 * @tp);
+                    font-size: calc(17 * @tp);
                     font-weight: 600;
                     color: @ink-primary;
                     white-space: nowrap;

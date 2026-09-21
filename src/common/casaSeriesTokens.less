@@ -24,8 +24,20 @@
 //
 // Se sulla TV il testo sembra troppo grande rispetto alle scatole, la leva e'
 // @tp — un numero solo, non una caccia alle font-size.
+//
+// ⚠️ TV contro Mac, COME NELLA HOME: lo stesso bundle serve la TV a ~3 m e
+// la web app sul Mac a ~60 cm, e il discriminante e' `html.casa-tv`
+// (hostname, vedi src/index.js). Il testo e' una variabile CSS
+// (`--casa-tp`, definita sulla radice della pagina in MetaDetails/
+// styles.less): 0,1 rem sulla TV, ~12% in meno sul Mac — lo stesso scarto
+// che la home usa fra i due (MetaRow 2.1 -> 2.35rem). Per questo si scrive
+// `calc(N * @tp)` e non `(N * @tp)`: LESS non sa moltiplicare una var().
+// Il LAYOUT resta in rem fisso: il rem segue gia' i breakpoint per larghezza
+// dello schermo e lo zoom Casa.
 @lp: 0.0669rem;
-@tp: 0.1rem;
+@tp: var(--casa-tp);
+@tp-tv: 0.1rem;
+@tp-mac: 0.088rem;
 
 // Colori (tabella "Design Tokens" dell'handoff).
 @green: #4ade80;

@@ -2,6 +2,7 @@
 
 @import (reference) '~@stremio/stremio-colors/less/stremio-colors.less';
 @import (reference) '~stremio/common/screen-sizes.less';
+@import (reference) '~stremio/common/casaSeriesTokens.less';
 
 :import('~stremio/components/ModalDialog/styles.less') {
     modal-dialog-container: modal-dialog-container;
@@ -9,6 +10,14 @@
 }
 
 .metadetails-container {
+    /* Fattore del TESTO della pagina serie: vedi casaSeriesTokens.less. Sulla
+     * radice della pagina, cosi' lo ereditano hero, righe, card e menu. */
+    --casa-tp: @tp-mac;
+
+    :global(html.casa-tv) & {
+        --casa-tp: @tp-tv;
+    }
+
     display: flex;
     flex-direction: column;
     width: 100%;

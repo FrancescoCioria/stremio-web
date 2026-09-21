@@ -54,19 +54,19 @@
             right: (10 * @lp);
             display: flex;
             align-items: center;
-            gap: (5 * @tp);
-            padding: (5 * @tp) (10 * @tp);
-            border-radius: (7 * @tp);
+            gap: calc(5 * @tp);
+            padding: calc(5 * @tp) calc(10 * @tp);
+            border-radius: calc(7 * @tp);
             background: rgba(6, 6, 10, 0.84);
             color: rgba(255, 255, 255, 0.82);
-            font-size: (12 * @tp);
+            font-size: calc(12 * @tp);
             font-weight: 700;
-            letter-spacing: (0.6 * @tp);
+            letter-spacing: calc(0.6 * @tp);
             pointer-events: none;
 
             .badge-icon {
-                width: (12 * @tp);
-                height: (12 * @tp);
+                width: calc(12 * @tp);
+                height: calc(12 * @tp);
                 color: inherit;
             }
 
@@ -107,7 +107,7 @@
             background: @surface-upcoming;
 
             .upcoming-number {
-                font-size: (52 * @tp);
+                font-size: calc(52 * @tp);
                 font-weight: 800;
                 line-height: 1;
                 /* Decorativo: il numero e' gia' nel titolo sotto, qui e' una
@@ -116,9 +116,9 @@
             }
 
             .upcoming-date {
-                font-size: (13 * @tp);
+                font-size: calc(13 * @tp);
                 font-weight: 700;
-                letter-spacing: (1.4 * @tp);
+                letter-spacing: calc(1.4 * @tp);
                 color: rgba(255, 255, 255, 0.66);
             }
         }
@@ -126,7 +126,7 @@
 
     .title {
         margin-top: (12 * @lp);
-        font-size: (18 * @tp);
+        font-size: calc(18 * @tp);
         font-weight: 600;
         color: @ink-primary;
         white-space: nowrap;
@@ -136,7 +136,7 @@
 
     .meta {
         margin-top: (4 * @lp);
-        font-size: (14 * @tp);
+        font-size: calc(14 * @tp);
         /* ⚠️ Pavimento del contrasto dell'handoff (0.62). L'handoff stesso
          * lo violava su due stati (0.5 sulla card in corso, 0.55 sul titolo
          * dei futuri): qui si rispetta la regola, non l'eccezione. */

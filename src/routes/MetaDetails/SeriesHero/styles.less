@@ -42,8 +42,8 @@
         gap: (14 * @lp);
         margin-bottom: (20 * @lp);
         font-family: @mono;
-        font-size: (13 * @tp);
-        letter-spacing: (3.5 * @tp);
+        font-size: calc(13 * @tp);
+        letter-spacing: calc(3.5 * @tp);
         /* ⚠️ L'handoff la vuole a 0.45: sotto il SUO pavimento di contrasto
          * (0.62). Vince la regola. */
         color: @ink-tertiary;
@@ -63,9 +63,9 @@
 
         .wordmark {
             max-width: (830 * @lp);
-            font-size: (54 * @tp);
+            font-size: calc(54 * @tp);
             font-weight: 300;
-            letter-spacing: (11 * @tp);
+            letter-spacing: calc(11 * @tp);
             line-height: 0.94;
             text-transform: uppercase;
             color: @ink-primary;
@@ -80,22 +80,22 @@
         gap: (16 * @lp);
         margin-bottom: (11 * @lp);
         max-width: 100%;
-        min-height: (32 * @tp * 1.25);
+        min-height: calc(32 * @tp * 1.25);
 
         .code {
             flex: none;
-            font-size: (19 * @tp);
+            font-size: calc(19 * @tp);
             font-weight: 700;
-            letter-spacing: (1 * @tp);
+            letter-spacing: calc(1 * @tp);
             color: @green;
         }
 
         .episode-title {
             min-width: 0;
             /* 38 dell'handoff -> 32: richiesta dell'utente guardandolo sulla TV. */
-            font-size: (32 * @tp);
+            font-size: calc(32 * @tp);
             font-weight: 700;
-            letter-spacing: (-0.8 * @tp);
+            letter-spacing: calc(-0.8 * @tp);
             color: @ink-primary;
             white-space: nowrap;
             overflow: hidden;
@@ -112,13 +112,13 @@
         /* 16 dell'handoff -> 20: sulla TV non si leggevano (richiesta
          * dell'utente). Sempre presente e alta una riga anche vuota: cambiando
          * episodio la pagina non deve saltare. */
-        font-size: (20 * @tp);
+        font-size: calc(20 * @tp);
         min-height: 1.3em;
         color: @ink-tertiary;
 
         .rating {
             display: inline-flex;
-            gap: (6 * @tp);
+            gap: calc(6 * @tp);
             font-weight: 600;
             color: #f0c040;
         }
@@ -133,7 +133,7 @@
     .summary {
         margin: 0 0 (30 * @lp);
         max-width: (690 * @lp);
-        font-size: (19 * @tp);
+        font-size: calc(19 * @tp);
         line-height: 1.5;
         color: @ink-body;
         text-wrap: pretty;
@@ -200,11 +200,11 @@
         .primary {
             display: inline-flex;
             align-items: center;
-            gap: (14 * @tp);
+            gap: calc(14 * @tp);
             /* Imbottitura verticale sul LAYOUT, orizzontale sul testo: il
              * pulsante resta largo attorno alle parole ma non gonfia l'hero. */
-            padding: (14 * @lp) (28 * @tp);
-            border-radius: (14 * @tp);
+            padding: (14 * @lp) calc(28 * @tp);
+            border-radius: calc(14 * @tp);
             background: #fff;
             color: #0a0a0f;
             transition: box-shadow 140ms ease-out, transform 140ms ease-out;
@@ -214,25 +214,25 @@
                 width: 0;
                 height: 0;
                 border-style: solid;
-                border-width: (11 * @tp) 0 (11 * @tp) (18 * @tp);
+                border-width: calc(11 * @tp) 0 calc(11 * @tp) calc(18 * @tp);
                 border-color: transparent transparent transparent #0a0a0f;
             }
 
             .primary-labels {
                 display: flex;
                 flex-direction: column;
-                gap: (2 * @tp);
+                gap: calc(2 * @tp);
                 text-align: left;
             }
 
             .primary-label {
-                font-size: (21 * @tp);
+                font-size: calc(21 * @tp);
                 font-weight: 700;
-                letter-spacing: (-0.2 * @tp);
+                letter-spacing: calc(-0.2 * @tp);
             }
 
             .primary-sublabel {
-                font-size: (14 * @tp);
+                font-size: calc(14 * @tp);
                 font-weight: 500;
                 color: rgba(10, 10, 15, 0.6);
             }
@@ -275,12 +275,12 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        gap: (9 * @tp);
-        border-radius: (12 * @tp);
+        gap: calc(9 * @tp);
+        border-radius: calc(12 * @tp);
         border: 1px solid @surface-neutral-border;
         background: @surface-neutral;
         color: rgba(255, 255, 255, 0.9);
-        font-size: (16 * @tp);
+        font-size: calc(16 * @tp);
         font-weight: 600;
         transition: background-color 140ms ease-out, border-color 140ms ease-out, color 140ms ease-out, box-shadow 140ms ease-out, transform 140ms ease-out;
 
@@ -302,38 +302,38 @@
     }
 
     .pill {
-        padding: (14 * @tp) (20 * @tp);
+        padding: calc(14 * @tp) calc(20 * @tp);
 
         .pill-icon {
             flex: none;
-            width: (15 * @tp);
-            height: (15 * @tp);
+            width: calc(15 * @tp);
+            height: calc(15 * @tp);
             color: inherit;
         }
 
         .notif-dot {
             flex: none;
-            width: (8 * @tp);
-            height: (8 * @tp);
+            width: calc(8 * @tp);
+            height: calc(8 * @tp);
             border-radius: 999px;
             border: 1.5px solid currentColor;
 
             &.on {
                 border-color: @green;
                 background: @green;
-                box-shadow: 0 0 (9 * @tp) rgba(74, 222, 128, 0.8);
+                box-shadow: 0 0 calc(9 * @tp) rgba(74, 222, 128, 0.8);
             }
         }
     }
 
     .icon-button {
-        width: (52 * @tp);
-        height: (52 * @tp);
+        width: calc(52 * @tp);
+        height: calc(52 * @tp);
         padding: 0;
 
         .icon {
-            width: (20 * @tp);
-            height: (20 * @tp);
+            width: calc(20 * @tp);
+            height: calc(20 * @tp);
             color: rgba(255, 255, 255, 0.75);
         }
 
@@ -354,24 +354,24 @@
             z-index: 10;
             display: flex;
             flex-direction: column;
-            min-width: (320 * @tp);
-            padding: (8 * @tp);
-            border-radius: (14 * @tp);
+            min-width: calc(320 * @tp);
+            padding: calc(8 * @tp);
+            border-radius: calc(14 * @tp);
             border: 1px solid @surface-neutral-border;
             background: rgba(14, 14, 20, 0.97);
             box-shadow: 0 (14 * @lp) (40 * @lp) rgba(0, 0, 0, 0.6);
 
             .menu-question {
-                padding: (10 * @tp) (14 * @tp);
-                font-size: (16 * @tp);
+                padding: calc(10 * @tp) calc(14 * @tp);
+                font-size: calc(16 * @tp);
                 font-weight: 600;
                 color: @ink-secondary;
             }
 
             .menu-item {
-                padding: (12 * @tp) (14 * @tp);
-                border-radius: (10 * @tp);
-                font-size: (17 * @tp);
+                padding: calc(12 * @tp) calc(14 * @tp);
+                border-radius: calc(10 * @tp);
+                font-size: calc(17 * @tp);
                 font-weight: 600;
                 color: @ink-primary;
                 white-space: nowrap;
