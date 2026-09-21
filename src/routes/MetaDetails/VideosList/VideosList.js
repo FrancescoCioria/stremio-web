@@ -50,9 +50,17 @@ const withSeason = (deepLinks, season) => {
 // ritorno. ⚠️ Qui e' `scrollTop` per davvero: lo scroller delle righe e'
 // verticale (quello ORIZZONTALE e' la rail dentro ogni riga, e la sua
 // posizione la ricompone l'auto-focus).
-let savedScrollTop = 0;
+//
+// ⚠️ Porta con se' il TITOLO a cui appartiene, e si consuma quando lo scroller
+// COMPARE (dentro la callback ref), non in un layout effect al mount: se il
+// primo render e' il ramo Loading lo scroller non esiste ancora, e un effect
+// con `[]` non torna piu' — cioe' falliva proprio nel caso per cui esiste
+// (tornare dagli stream con il meta ancora in volo). Peggio: il valore
+// stantio restava li' e si applicava al prossimo titolo aperto, che partiva
+// scrollato a un punto che non significava niente.
+let savedScroll = null;
 
-const VideosList = ({ className, metaItem, libraryItem, season, selectedVideoId, onSeasonOpened, onFocusedVideoChange }) => {
+const VideosList = ({ className, metaItem, libraryItem, season, selectedVideoId, onSeasonOpened, onEpisodeSearch, onFocusedVideoChange }) => {
     const core = useCore();
 
     // Track quale episodio ha il focus adesso (non clicked, solo focused) cosi'
@@ -82,11 +90,16 @@ const VideosList = ({ className, metaItem, libraryItem, season, selectedVideoId,
             onFocusedVideoChangeRef.current(null);
         }
     }, []);
+    const metaIdRef = React.useRef(null);
     const setScrollerRef = React.useCallback((el) => {
         const prev = scrollerRef.current;
         if (prev && prev._casaTvCleanup) prev._casaTvCleanup();
         scrollerRef.current = el;
         if (!el) return;
+        if (savedScroll && savedScroll.metaId === metaIdRef.current) {
+            el.scrollTop = savedScroll.scrollTop;
+        }
+        savedScroll = null;
         const onFocusIn = (e) => {
             let n = e.target;
             while (n && n !== el) {
@@ -118,19 +131,14 @@ const VideosList = ({ className, metaItem, libraryItem, season, selectedVideoId,
     const onSeasonOpenedRef = React.useRef(onSeasonOpened);
     onSeasonOpenedRef.current = onSeasonOpened;
     const saveScrollPosition = React.useCallback((videoSeason) => {
-        savedScrollTop = scrollerRef.current?.scrollTop ?? 0;
+        savedScroll = { metaId: metaIdRef.current, scrollTop: scrollerRef.current?.scrollTop ?? 0 };
         if (typeof videoSeason === 'number' && typeof onSeasonOpenedRef.current === 'function') {
             onSeasonOpenedRef.current(videoSeason);
         }
     }, []);
-    React.useLayoutEffect(() => {
-        if (savedScrollTop > 0 && scrollerRef.current) {
-            scrollerRef.current.scrollTop = savedScrollTop;
-            savedScrollTop = 0;
-        }
-    }, []);
 
     const metaReady = metaItem && metaItem.content.type === 'Ready' ? metaItem.content.content : null;
+    metaIdRef.current = metaReady ? metaReady.id : null;
     // Casa: episodi che esistono ma che Cinemeta non elenca (X Factor
     // 2026-09-18). Il merge de-duplica contro il meta vero -> appena il core li
     // elenca, i nostri spariscono. Vedi common/casaExtraVideos.js.
@@ -155,6 +163,15 @@ const VideosList = ({ className, metaItem, libraryItem, season, selectedVideoId,
     // in fondo — e' l'ordine delle pill di prima, e l'ordine naturale di una
     // serie. L'auto-focus porta comunque sulla riga giusta.
     const seasonRows = React.useMemo(() => {
+        // ⚠️ Episodi senza stagione numerica (meta di canali/tv, o una riga
+        // di extra-videos con `season` non numerica): `seasons` li scarta,
+        // e costruire le righe SOLO da `seasons` li faceva sparire dalla
+        // pagina — che mostrava "nessun episodio" avendone in mano. Prima il
+        // filtro ripiegava su tutti i video quando la stagione era null. Una
+        // riga sola, senza titolo: non c'e' una stagione da annunciare.
+        if (seasons.length === 0) {
+            return videos.length > 0 ? [{ season: null, label: null, videos }] : [];
+        }
         return seasons.map((s) => ({
             season: s,
             label: s > 0 ? t('SEASON_NUMBER', { season: s }) : t('SPECIAL'),
@@ -281,6 +298,45 @@ const VideosList = ({ className, metaItem, libraryItem, season, selectedVideoId,
         revealCardInRail(currentRow.querySelector('[data-season-rail]'), target, e.key === 'ArrowRight' ? 1 : -1);
     }, []);
 
+    // ⚠️ Il ritorno dall'hero alla lista. L'uscita verso l'alto la governiamo
+    // noi, ma la discesa no: MetaPreview e ActionButton non hanno handler, e
+    // senza questo ArrowDown finirebbe allo spatial-navigation polyfill, che
+    // fa un focus() NUDO — niente preventScroll, niente reveal nella rail,
+    // niente memoria della colonna: si atterra su una card a caso col titolo
+    // della stagione tagliato sopra il viewport. E' lo stesso motivo per cui
+    // Board.js tiene il suo handler. Prima ci pensavano le pill.
+    const enterFirstRow = React.useCallback(() => {
+        const root = scrollerRef.current;
+        const row = root && root.querySelector('[data-season-row]');
+        if (!row) return false;
+        // Si torna DOVE si era: dall'hero si esce solo dalla prima riga.
+        const remembered = lastCardByRowRef.current.get(row);
+        const wrapper = (remembered && row.contains(remembered)) ? remembered : row.querySelector('[data-video-id]');
+        if (!wrapper) return false;
+        const el = wrapper.querySelector('[tabindex], a, button') || wrapper;
+        el.focus({ preventScroll: true });
+        lastCardByRowRef.current.set(row, wrapper);
+        row.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        revealCardInRail(row.querySelector('[data-season-rail]'), wrapper, 0);
+        return true;
+    }, []);
+    React.useEffect(() => {
+        const root = scrollerRef.current;
+        const content = root && root.closest('[class*="metadetails-content"]');
+        if (!content) return;
+        const onHeroKeyDown = (e) => {
+            if (e.key !== 'ArrowDown') return;
+            const ae = document.activeElement;
+            if (!ae || !ae.closest || !ae.closest('[class*="action-buttons-container"]')) return;
+            if (enterFirstRow()) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+        };
+        content.addEventListener('keydown', onHeroKeyDown);
+        return () => content.removeEventListener('keydown', onHeroKeyDown);
+    }, [enterFirstRow, seasonRows.length]);
+
     // Auto-focus d'ingresso: una volta per titolo, sulla riga e sull'episodio
     // scelti sopra. ⚠️ Non ruba il focus se l'utente sta gia' navigando.
     // ⚠️ "Fatto" si segna quando il focus ATTERRA, non quando lo si schedula.
@@ -310,16 +366,22 @@ const VideosList = ({ className, metaItem, libraryItem, season, selectedVideoId,
         pendingFocusRef.current = setTimeout(() => {
             scheduledFocusRef.current = null;
             const sel = (typeof CSS !== 'undefined' && CSS.escape) ? CSS.escape(id) : id;
-            const card = root.querySelector(`[data-video-id="${sel}"]`);
+            // ⚠️ Se la card esatta non si trova, si ripiega sulla prima della
+            // riga invece di arrendersi: senza focus il telecomando e' inerte
+            // e nessun re-render verrebbe a riprovare — un vicolo cieco muto.
+            const row = root.querySelector(`[data-season-row="${focusSeason === null ? '' : focusSeason}"]`);
+            const card = root.querySelector(`[data-video-id="${sel}"]`) ||
+                (row && row.querySelector('[data-video-id]')) ||
+                root.querySelector('[data-video-id]');
             if (!card) return;
             const el = card.querySelector('[tabindex], a, button') || card;
             el.focus({ preventScroll: true });
             initialFocusDoneRef.current = key;
-            const row = card.closest('[data-season-row]');
-            if (row) {
-                row.scrollIntoView({ behavior: 'instant', block: 'start' });
-                lastCardByRowRef.current.set(row, card);
-                revealCardInRail(row.querySelector('[data-season-rail]'), card, 0);
+            const landed = card.closest('[data-season-row]');
+            if (landed) {
+                landed.scrollIntoView({ behavior: 'instant', block: 'start' });
+                lastCardByRowRef.current.set(landed, card);
+                revealCardInRail(landed.querySelector('[data-season-rail]'), card, 0);
             }
         }, 0);
         return () => {
@@ -348,12 +410,6 @@ const VideosList = ({ className, metaItem, libraryItem, season, selectedVideoId,
         });
     };
 
-    const onSeasonSearch = (value) => {
-        if (!value) return;
-        const row = scrollerRef.current?.querySelector(`[data-season-row="${value}"]`);
-        if (row) row.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    };
-
     if (!metaItem || metaItem.content.type === 'Loading') {
         return (
             <div className={classnames(className, styles['videos-list-container'])}>
@@ -375,7 +431,12 @@ const VideosList = ({ className, metaItem, libraryItem, season, selectedVideoId,
         return (
             <div className={classnames(className, styles['videos-list-container'])}>
                 <div className={styles['message-container']}>
-                    <EpisodePicker className={styles['episode-picker']} onSubmit={onSeasonSearch} />
+                    {/* ⚠️ Deve navigare all'EPISODIO, non "scegliere una
+                        stagione": questo ramo si disegna solo quando di righe
+                        non ce n'e' NESSUNA, quindi non c'e' niente su cui
+                        scorrere. Cablato allo stesso handler che usa la
+                        pagina stream. */}
+                    <EpisodePicker className={styles['episode-picker']} onSubmit={onEpisodeSearch} />
                     <Image className={styles['image']} src={require('/assets/images/empty.png')} alt={' '} />
                     <div className={styles['label']}>{t('ERR_NO_VIDEOS_FOR_META')}</div>
                 </div>
@@ -390,9 +451,14 @@ const VideosList = ({ className, metaItem, libraryItem, season, selectedVideoId,
                     seasonRows.map((row) => {
                         const seasonWatched = row.videos.every((video) => video.watched);
                         return (
-                            <div key={row.season} className={styles['season-row']} data-season-row={row.season}>
-                                <div className={styles['season-title']} title={row.label}>{row.label}</div>
-                                <div className={styles['season-rail']} data-season-rail={row.season}>
+                            <div key={row.season === null ? 'all' : row.season} className={styles['season-row']} data-season-row={row.season === null ? '' : row.season}>
+                                {
+                                    row.label !== null ?
+                                        <div className={styles['season-title']} title={row.label}>{row.label}</div>
+                                        :
+                                        null
+                                }
+                                <div className={styles['season-rail']} data-season-rail={row.season === null ? '' : row.season}>
                                     {
                                         row.videos.map((video) => (
                                             <div
@@ -439,6 +505,7 @@ VideosList.propTypes = {
     season: PropTypes.number,
     selectedVideoId: PropTypes.string,
     onSeasonOpened: PropTypes.func,
+    onEpisodeSearch: PropTypes.func,
     onFocusedVideoChange: PropTypes.func,
 };
 

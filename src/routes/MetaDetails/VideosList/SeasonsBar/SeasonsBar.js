@@ -46,7 +46,11 @@ const SeasonsBar = ({ className, seasons, season, onSelect }) => {
             // la pagina episodi non usa piu' questa barra (ha una riga per
             // stagione) e l'unico chiamante rimasto e' il pannello laterale
             // del player, che ha un contenitore tutto suo.
-            const videoCard = root.parentElement?.querySelector('[class*="video-container"] [tabindex], [class*="video-container"] a, [class*="video-container"] button');
+            // ⚠️ `video-container` sta SULL'elemento focusable (Video.js lo
+            // mette sul Button, che rende un div con tabIndex 0), non su un
+            // suo antenato: cercarne un discendente focusable non matcha mai
+            // — e senza match l'evento non veniva nemmeno consumato.
+            const videoCard = root.parentElement?.querySelector('[class*="video-container"]');
             if (!videoCard) return;
             e.preventDefault();
             e.stopPropagation();

@@ -310,6 +310,7 @@ const MetaDetails = () => {
                                 season={season}
                                 selectedVideoId={metaDetails.libraryItem?.state?.video_id}
                                 onSeasonOpened={setSeason}
+                                onEpisodeSearch={handleEpisodeSearch}
                                 onFocusedVideoChange={setFocusedVideoId}
                             />
                             :
