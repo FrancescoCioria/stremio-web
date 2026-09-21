@@ -60,14 +60,44 @@ const buildCasaVideo = (metaId, v, fallbackThumbnail) => {
     };
 };
 
+// ⚠️ Il visto della riga extra lo ricostruiamo NOI dalla library, perche' il
+// core non puo' scriverlo: il suo bitfield `watched` e' indicizzato sugli
+// episodi che Cinemeta elenca, e per uno che non elenca non ha una casella.
+// Caso reale (X Factor S20E02, 2026-09-21): guardata la sera prima per 122
+// minuti su 144, e la pagina la dava NON vista — con Riprendi e il focus
+// d'ingresso proponeva "Guarda S20E02", un episodio gia' visto.
+//
+// L'unica traccia e' sull'item: `video_id` = l'ULTIMO episodio aperto. Quindi
+// si ricostruisce solo QUELLO (gli extra guardati prima restano non visti:
+// difetto residuo, scritto). Segnali, tutti del core e verificati:
+// - timeOffset > 0 -> lasciato a meta': progresso = offset/durata;
+// - timeOffset === 0 dopo averlo riprodotto (timeWatched > 0) -> il player ha
+//   superato il 90% (CREDITS_THRESHOLD_COEF di stremio-core, models/player.rs:
+//   oltre quella soglia azzera l'offset all'uscita) -> visto.
+// Nessuna soglia nostra: niente numeri da tarare.
+const libraryProgress = (state, id) => {
+    if (!state || state.video_id !== id) return null;
+    const offset = Number(state.timeOffset) || 0;
+    const duration = Number(state.duration) || 0;
+    if (offset > 0) {
+        return duration > 0 ? { watched: false, progress: Math.min(100, (offset / duration) * 100) } : null;
+    }
+    return (Number(state.timeWatched) || 0) > 0 ? { watched: true, progress: 0 } : null;
+};
+
 // Fonde le righe mancanti in quelle del core. Puro: niente rete, niente React.
-const mergeCasaExtraVideos = (videos, extra, metaId, fallbackThumbnail) => {
+// `libraryState` = libraryItem.state (o null): vedi libraryProgress.
+const mergeCasaExtraVideos = (videos, extra, metaId, fallbackThumbnail, libraryState = null) => {
     if (!Array.isArray(extra) || extra.length === 0 || !metaId) return videos;
     const have = new Set((videos || []).map((v) => v && v.id));
     const add = extra
         .filter((v) => v && typeof v.id === 'string' && !have.has(v.id))
-        .map((v) => buildCasaVideo(metaId, v, fallbackThumbnail));
+        .map((v) => {
+            const row = buildCasaVideo(metaId, v, fallbackThumbnail);
+            const lib = libraryProgress(libraryState, row.id);
+            return lib ? { ...row, ...lib } : row;
+        });
     return add.length > 0 ? (videos || []).concat(add) : videos;
 };
 
-module.exports = { buildCasaVideo, mergeCasaExtraVideos };
+module.exports = { buildCasaVideo, mergeCasaExtraVideos, libraryProgress };

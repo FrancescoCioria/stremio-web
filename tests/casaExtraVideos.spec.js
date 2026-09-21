@@ -5,7 +5,7 @@
 // riga sparisce da sola (se no si vedrebbe doppia proprio nel giorno in cui
 // il ritardo di TVDB rientra).
 
-const { buildCasaVideo, mergeCasaExtraVideos } = require('../src/common/casaExtraVideos');
+const { buildCasaVideo, mergeCasaExtraVideos, libraryProgress } = require('../src/common/casaExtraVideos');
 
 const META = 'tt1194223';
 const CORE_E1 = { id: 'tt1194223:20:1', title: 'Episode 1', season: 20, episode: 1, watched: true };
@@ -70,5 +70,40 @@ describe('buildCasaVideo', () => {
         expect(v.released).toBeNull();
         const bad = buildCasaVideo(META, { ...EXTRA_E2, released: 'non-una-data' });
         expect(bad.released).toBeNull();
+    });
+});
+
+// Il visto della riga extra, ricostruito dalla library (il bitfield del core
+// non ha una casella per un episodio che Cinemeta non elenca).
+// Stato VERO di X Factor il 2026-09-21: S20E02 guardata la sera prima.
+const XF_STATE = {
+    lastWatched: '2026-09-20T19:24:56.479Z',
+    timeWatched: 7344554, timeOffset: 0, duration: 8635050,
+    timesWatched: 13, flaggedWatched: 1,
+    video_id: 'tt1194223:20:2',
+};
+
+describe('libraryProgress (visto della riga extra)', () => {
+    it('X Factor S20E02: offset azzerato dopo 122 min su 144 -> VISTA', () => {
+        expect(libraryProgress(XF_STATE, 'tt1194223:20:2')).toEqual({ watched: true, progress: 0 });
+    });
+    it('lasciata a meta\' -> progresso da offset/durata', () => {
+        const st = { ...XF_STATE, timeOffset: 4317525 };
+        const r = libraryProgress(st, 'tt1194223:20:2');
+        expect(r.watched).toBe(false);
+        expect(Math.round(r.progress)).toBe(50);
+    });
+    it('un altro episodio (non l\'ultimo aperto) -> nessuna informazione', () => {
+        expect(libraryProgress(XF_STATE, 'tt1194223:20:3')).toBe(null);
+    });
+    it('aperta ma mai riprodotta (timeWatched 0) -> non vista', () => {
+        expect(libraryProgress({ ...XF_STATE, timeWatched: 0 }, 'tt1194223:20:2')).toBe(null);
+    });
+    it('niente library (ospite) -> nessuna informazione', () => {
+        expect(libraryProgress(null, 'tt1194223:20:2')).toBe(null);
+    });
+    it('il merge la marca vista', () => {
+        const out = mergeCasaExtraVideos([], [{ id: 'tt1194223:20:2', season: 20, episode: 2, title: 'Puntata 2', released: '2026-09-17T19:00:00.000Z' }], 'tt1194223', null, XF_STATE);
+        expect(out[0].watched).toBe(true);
     });
 });

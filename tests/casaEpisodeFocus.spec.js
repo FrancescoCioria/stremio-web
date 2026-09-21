@@ -217,9 +217,21 @@ describe('pickFocusVideo', () => {
         expect(pickFocusVideo(s5, null, NOW).id).toBe('tt5875444:5:2');
     });
 
-    it('l\'episodio davvero aperto per ultimo vince su tutto', () => {
-        const s5 = [1, 2, 3].map((e) => ep(5, e, { watched: true }));
+    it('l\'episodio aperto per ultimo e NON finito vince su tutto', () => {
+        const s5 = [ep(5, 1, { watched: true }), ep(5, 2, { progress: 30 }), ep(5, 3)];
         expect(pickFocusVideo(s5, 'tt5875444:5:2', NOW).id).toBe('tt5875444:5:2');
+    });
+
+    it('REGRESSIONE: l\'aperto per ultimo e\' FINITO e il successivo e\' uscito -> il successivo, non "Rivedi"', () => {
+        // Clarkson's Farm dal vivo: E3 aperto e visto, E4 uscito e non visto.
+        const s5 = [ep(5, 1, { watched: true }), ep(5, 2, { watched: true }), ep(5, 3, { watched: true }), ep(5, 4)];
+        expect(pickFocusVideo(s5, 'tt5875444:5:3', NOW).id).toBe('tt5875444:5:4');
+    });
+
+    it('aperto per ultimo un episodio VECCHIO ma visto fino in fondo alla stagione -> l\'ultimo visto, non quello aperto', () => {
+        // The White Lotus dal vivo: aperta la E2, viste fino alla E8.
+        const s3 = [1, 2, 3, 4].map((e) => ep(3, e, { watched: true }));
+        expect(pickFocusVideo(s3, 'tt5875444:3:2', NOW).id).toBe('tt5875444:3:4');
     });
 
     it('uno lasciato a meta\' viene prima del primo non visto', () => {

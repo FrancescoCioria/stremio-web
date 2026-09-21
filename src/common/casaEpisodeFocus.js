@@ -154,8 +154,14 @@ const pickFocusVideo = (videosForSeason, selectedVideoId, now = Date.now()) => {
     const list = videosForSeason || [];
     if (list.length === 0) return null;
     return (
-        // 1. L'episodio che l'utente ha aperto per ultimo, se e' in questa stagione.
-        (selectedVideoId && list.find((v) => v.id === selectedVideoId)) ||
+        // 1. L'episodio aperto per ultimo, se e' in questa stagione E NON L'HAI
+        //    FINITO. ⚠️ Se l'hai finito non e' un punto di ripresa: la regola
+        //    vinceva comunque e il pulsante primario diceva "Rivedi S5E3" con la
+        //    E4 gia' uscita e non vista — misurato sui visti veri, 9 serie su 57
+        //    (Clarkson's Farm, Pantheon, Black Doves...), cioe' Riprendi
+        //    inutile nel caso piu' comune. Finito -> si cade sulle regole
+        //    sotto, che contano dall'ULTIMO VISTO (regola dell'utente).
+        (selectedVideoId && list.find((v) => v.id === selectedVideoId && v.watched !== true)) ||
         // 2. Uno lasciato a meta'.
         list.find((v) => typeof v.progress === 'number' && v.progress > 0 && !v.watched) ||
         // 3. Il primo da vedere DOPO L'ULTIMO VISTO — non il primo non visto

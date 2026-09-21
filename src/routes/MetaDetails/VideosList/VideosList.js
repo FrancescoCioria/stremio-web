@@ -233,8 +233,8 @@ const VideosList = ({ className, metaItem, libraryItem, season, selectedVideoId,
     // elenca, i nostri spariscono. Vedi common/casaExtraVideos.js.
     const casaExtra = useCasaExtraVideos(metaReady ? metaReady.type : null, metaReady ? metaReady.id : null);
     const videos = React.useMemo(() => {
-        return mergeCasaExtraVideos(metaReady ? metaReady.videos : [], casaExtra, metaReady ? metaReady.id : null, metaReady ? metaReady.background : null);
-    }, [metaReady, casaExtra]);
+        return mergeCasaExtraVideos(metaReady ? metaReady.videos : [], casaExtra, metaReady ? metaReady.id : null, metaReady ? metaReady.background : null, libraryItem ? libraryItem.state : null);
+    }, [metaReady, casaExtra, libraryItem]);
 
     const seasons = React.useMemo(() => {
         return videos
