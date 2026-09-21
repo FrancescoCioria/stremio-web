@@ -1,0 +1,188 @@
+// Copyright (C) 2017-2026 Smart code 203358507
+//
+// Card episodio della pagina SERIE (variante `casa-series` di Video), dal
+// handoff Claude Design "Series Detail" (2026-09-21). Misure nei px
+// dell'handoff x @lp (layout) / @tp (testo): vedi casaSeriesTokens.less.
+
+@import (reference) '~stremio/common/casaSeriesTokens.less';
+
+.series-card {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    width: (340 * @lp);
+    background: none;
+    outline: none;
+    /* Il focus scala verso l'INIZIO della rail, cosi' la card a fuoco non
+     * sfora a sinistra oltre il margine di sicurezza. */
+    transform-origin: left center;
+    transition: transform 140ms ease-out;
+
+    .thumb {
+        position: relative;
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        border-radius: (12 * @lp);
+        overflow: hidden;
+        background: @surface-placeholder;
+        transition: box-shadow 140ms ease-out;
+
+        .image {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+
+            &.blurred {
+                filter: blur(1.2rem);
+                transform: scale(1.1);
+            }
+        }
+
+        /* Badge DENTRO la miniatura: prima galleggiavano fuori, sotto la card. */
+        .badge {
+            position: absolute;
+            top: (10 * @lp);
+            right: (10 * @lp);
+            display: flex;
+            align-items: center;
+            gap: (5 * @tp);
+            padding: (5 * @tp) (10 * @tp);
+            border-radius: (7 * @tp);
+            background: rgba(6, 6, 10, 0.84);
+            color: rgba(255, 255, 255, 0.82);
+            font-size: (12 * @tp);
+            font-weight: 700;
+            letter-spacing: (0.6 * @tp);
+            pointer-events: none;
+
+            .badge-icon {
+                width: (12 * @tp);
+                height: (12 * @tp);
+                color: inherit;
+            }
+
+            &.current {
+                background: @green;
+                color: @green-ink;
+                font-weight: 800;
+            }
+        }
+
+        .resume {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: (5 * @lp);
+            background: rgba(6, 6, 10, 0.65);
+
+            .resume-fill {
+                height: 100%;
+                background: @green;
+            }
+        }
+
+        /* Episodio futuro: niente immagine e niente play. Il play grigio di
+         * prima sembrava un'immagine non caricata E prometteva una
+         * riproduzione che non esiste. */
+        .upcoming {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: (6 * @lp);
+            border-radius: inherit;
+            border: 1px dashed @surface-neutral-border;
+            background: @surface-upcoming;
+
+            .upcoming-number {
+                font-size: (52 * @tp);
+                font-weight: 800;
+                line-height: 1;
+                /* Decorativo: il numero e' gia' nel titolo sotto, qui e' una
+                 * texture. Per questo puo' stare sotto il pavimento. */
+                color: rgba(255, 255, 255, 0.18);
+            }
+
+            .upcoming-date {
+                font-size: (13 * @tp);
+                font-weight: 700;
+                letter-spacing: (1.4 * @tp);
+                color: rgba(255, 255, 255, 0.66);
+            }
+        }
+    }
+
+    .title {
+        margin-top: (12 * @lp);
+        font-size: (18 * @tp);
+        font-weight: 600;
+        color: @ink-primary;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .meta {
+        margin-top: (4 * @lp);
+        font-size: (14 * @tp);
+        /* ⚠️ Pavimento del contrasto dell'handoff (0.62). L'handoff stesso
+         * lo violava su due stati (0.5 sulla card in corso, 0.55 sul titolo
+         * dei futuri): qui si rispetta la regola, non l'eccezione. */
+        color: @ink-tertiary;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    &.state-watched {
+        .title {
+            color: rgba(255, 255, 255, 0.7);
+        }
+        .meta {
+            color: rgba(255, 255, 255, 0.64);
+        }
+    }
+
+    &.state-inProgress {
+        .thumb {
+            box-shadow: 0 0 0 (3 * @lp) @green-ring, 0 (12 * @lp) (34 * @lp) rgba(0, 0, 0, 0.55);
+        }
+        .title {
+            font-weight: 700;
+        }
+    }
+
+    &.state-upcoming {
+        .title {
+            color: @ink-tertiary;
+        }
+    }
+
+    /* ⚠️ Il Button del kit disegna il focus con `.button-container:focus
+     * { outline-style: solid }`, che ha una pseudo-classe in piu' del nostro
+     * `outline: none` e quindi vince: ne usciva un contorno di 3px attorno a
+     * TUTTA la card, titolo compreso (visto nello screenshot, non nel DOM).
+     * Classe raddoppiata per la specificita', non !important. */
+    &&:focus,
+    &&:focus-visible {
+        outline: none;
+    }
+
+    /* FOCUS: anello BIANCO. Il verde e' riservato allo stato "in corso",
+     * altrimenti le due cose si leggono uguali (regola dell'handoff).
+     * ⚠️ `:focus` E `:focus-visible`: su WebKit il secondo non matcha quando
+     * il focus lo sposta uno script — cioe' sempre, con la nav del
+     * telecomando (vedi CLAUDE.md, "Focus delle card"). */
+    &:focus,
+    &:focus-visible {
+        transform: scale(1.03);
+
+        .thumb {
+            box-shadow: 0 0 0 (3 * @lp) rgba(255, 255, 255, 0.95), 0 (12 * @lp) (34 * @lp) rgba(0, 0, 0, 0.55);
+        }
+    }
+}

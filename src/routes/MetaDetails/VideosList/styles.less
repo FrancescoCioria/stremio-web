@@ -2,7 +2,7 @@
 
 @import (reference) '~@stremio/stremio-colors/less/stremio-colors.less';
 @import (reference) '~stremio/common/screen-sizes.less';
-@import (reference) '../casaSeriesTokens.less';
+@import (reference) '~stremio/common/casaSeriesTokens.less';
 
 .videos-list-container {
     display: flex;
@@ -133,8 +133,8 @@
         .season-rail {
             display: flex;
             flex-direction: row;
-            align-items: stretch;
-            gap: 1.5rem;
+            align-items: flex-start;
+            gap: (20 * @lp);
             /* Padding verticale: la scale al focus e il box-shadow della
              * thumbnail hanno bisogno di respirare, altrimenti vengono
              * croppati (overflow-x auto implica overflow-y auto nel box

@@ -11,6 +11,8 @@ const { pickSeason, pickFocusVideo, holdSeason, seasonSummary, seasonCountLabel,
 const { casaBeacon } = require('stremio/common/casaBackend');
 const { revealCardInRail } = require('stremio/common/casaRailNav');
 const useCasaExtraVideos = require('stremio/routes/MetaDetails/useCasaExtraVideos');
+const useEpisodeRuntimes = require('stremio/common/useEpisodeRuntimes');
+const { episodeState } = require('stremio/common/casaEpisodeCard');
 const { default: EpisodePicker } = require('../EpisodePicker');
 const styles = require('./styles');
 
@@ -44,6 +46,88 @@ const withSeason = (deepLinks, season) => {
     const link = deepLinks.metaDetailsStreams;
     if (link.includes('?')) return deepLinks;
     return { ...deepLinks, metaDetailsStreams: `${link}?season=${season}` };
+};
+
+// Una riga stagione. Componente a se' per poter chiedere le durate REALI della
+// sua stagione (un hook per stagione: non si chiama un hook in un ciclo).
+// ⚠️ Una richiesta per stagione all'apertura, deliberato: mediana 2 stagioni
+// sulla library vera, e il backend le tiene in cache 24h.
+const SeasonRow = ({ row, metaType, metaId, focusTargetId, selectedVideoId, onOpen, onMarkVideoAsWatched, onMarkSeasonAsWatched }) => {
+    const runtimes = useEpisodeRuntimes(metaType, metaId, row.season);
+    const seasonWatched = row.videos.every((video) => video.watched);
+    return (
+        <div className={styles['season-row']} data-season-row={row.season === null ? '' : row.season}>
+            {
+                row.label !== null ?
+                    <div className={styles['season-header']}>
+                        <div className={styles['season-title']}>{row.label}</div>
+                        {
+                            row.inProgress ?
+                                <div className={styles['season-chip']}>IN CORSO</div>
+                                :
+                                null
+                        }
+                        <div className={styles['season-spacer']} />
+                        <div className={styles['season-count']}>{row.countLabel}</div>
+                    </div>
+                    :
+                    null
+            }
+            <div className={styles['season-rail']} data-season-rail={row.season === null ? '' : row.season}>
+                {
+                    row.videos.map((video) => {
+                        // ⚠️ Un episodio FUTURO non si apre: niente deep link e
+                        // niente onSelect, quindi OK non fa niente. Resta a fuoco
+                        // (lo si legge), non e' un vicolo cieco: le frecce vanno.
+                        const upcoming = episodeState(video) === 'upcoming';
+                        const runtime = runtimes.season === row.season && typeof runtimes.runtimes[video.episode] === 'number'
+                            ? runtimes.runtimes[video.episode]
+                            : null;
+                        return (
+                            <div
+                                key={video.id}
+                                className={styles['video-wrapper']}
+                                data-video-id={video.id}
+                                data-casa-focus={video.id === focusTargetId ? '1' : undefined}
+                            >
+                                <Video
+                                    variant={'casa-series'}
+                                    runtime={runtime}
+                                    id={video.id}
+                                    title={video.title}
+                                    thumbnail={video.thumbnail}
+                                    season={video.season}
+                                    episode={video.episode}
+                                    released={video.released}
+                                    upcoming={video.upcoming}
+                                    watched={video.watched}
+                                    progress={video.progress}
+                                    deepLinks={upcoming ? null : withSeason(video.deepLinks, video.season)}
+                                    scheduled={video.scheduled}
+                                    seasonWatched={seasonWatched}
+                                    selected={video.id === selectedVideoId}
+                                    onSelect={upcoming ? null : () => onOpen(video.season)}
+                                    onMarkVideoAsWatched={onMarkVideoAsWatched}
+                                    onMarkSeasonAsWatched={onMarkSeasonAsWatched}
+                                />
+                            </div>
+                        );
+                    })
+                }
+            </div>
+        </div>
+    );
+};
+
+SeasonRow.propTypes = {
+    row: PropTypes.object.isRequired,
+    metaType: PropTypes.string,
+    metaId: PropTypes.string,
+    focusTargetId: PropTypes.string,
+    selectedVideoId: PropTypes.string,
+    onOpen: PropTypes.func.isRequired,
+    onMarkVideoAsWatched: PropTypes.func.isRequired,
+    onMarkSeasonAsWatched: PropTypes.func.isRequired,
 };
 
 // Scroll verticale della lista, preservato tra l'apertura di un episodio e il
@@ -489,60 +573,19 @@ const VideosList = ({ className, metaItem, libraryItem, season, selectedVideoId,
         <div className={classnames(className, styles['videos-list-container'])}>
             <div ref={setScrollerRef} className={styles['seasons-scroll']} onKeyDown={onKeyDown}>
                 {
-                    seasonRows.map((row) => {
-                        const seasonWatched = row.videos.every((video) => video.watched);
-                        return (
-                            <div key={row.season === null ? 'all' : row.season} className={styles['season-row']} data-season-row={row.season === null ? '' : row.season}>
-                                {
-                                    row.label !== null ?
-                                        <div className={styles['season-header']}>
-                                            <div className={styles['season-title']}>{row.label}</div>
-                                            {
-                                                row.inProgress ?
-                                                    <div className={styles['season-chip']}>IN CORSO</div>
-                                                    :
-                                                    null
-                                            }
-                                            <div className={styles['season-spacer']} />
-                                            <div className={styles['season-count']}>{row.countLabel}</div>
-                                        </div>
-                                        :
-                                        null
-                                }
-                                <div className={styles['season-rail']} data-season-rail={row.season === null ? '' : row.season}>
-                                    {
-                                        row.videos.map((video) => (
-                                            <div
-                                                key={video.id}
-                                                className={styles['video-wrapper']}
-                                                data-video-id={video.id}
-                                                data-casa-focus={focusTarget && video.id === focusTarget.id ? '1' : undefined}
-                                            >
-                                                <Video
-                                                    id={video.id}
-                                                    title={video.title}
-                                                    thumbnail={video.thumbnail}
-                                                    season={video.season}
-                                                    episode={video.episode}
-                                                    released={video.released}
-                                                    upcoming={video.upcoming}
-                                                    watched={video.watched}
-                                                    progress={video.progress}
-                                                    deepLinks={withSeason(video.deepLinks, video.season)}
-                                                    scheduled={video.scheduled}
-                                                    seasonWatched={seasonWatched}
-                                                    selected={video.id === selectedVideoId}
-                                                    onSelect={() => saveScrollPosition(video.season)}
-                                                    onMarkVideoAsWatched={onMarkVideoAsWatched}
-                                                    onMarkSeasonAsWatched={onMarkSeasonAsWatched}
-                                                />
-                                            </div>
-                                        ))
-                                    }
-                                </div>
-                            </div>
-                        );
-                    })
+                    seasonRows.map((row) => (
+                        <SeasonRow
+                            key={row.season === null ? 'all' : row.season}
+                            row={row}
+                            metaType={metaReady ? metaReady.type : null}
+                            metaId={metaReady ? metaReady.id : null}
+                            focusTargetId={focusTarget ? focusTarget.id : null}
+                            selectedVideoId={selectedVideoId}
+                            onOpen={saveScrollPosition}
+                            onMarkVideoAsWatched={onMarkVideoAsWatched}
+                            onMarkSeasonAsWatched={onMarkSeasonAsWatched}
+                        />
+                    ))
                 }
             </div>
         </div>

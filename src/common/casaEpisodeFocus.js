@@ -226,4 +226,4 @@ const compareSeasons = (a, b) => {
     return b - a;
 };
 
-module.exports = { pickSeason, pickFocusVideo, holdSeason, seasonSummary, seasonCountLabel, compareSeasons };
+module.exports = { pickSeason, pickFocusVideo, holdSeason, seasonSummary, seasonCountLabel, compareSeasons, isKnownFuture };

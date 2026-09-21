@@ -12,9 +12,17 @@ const { Button, Image, Popup } = require('stremio/components');
 const useBinaryState = require('stremio/common/useBinaryState');
 const useProfile = require('stremio/common/useProfile');
 const VideoPlaceholder = require('./VideoPlaceholder');
+const { episodeState, episodeMeta, upcomingAirLabel, paddedEpisode } = require('stremio/common/casaEpisodeCard');
 const styles = require('./styles');
+const seriesStyles = require('./seriesCard.less');
 
-const Video = ({ className, id, title, thumbnail, season, episode, released, upcoming, watched, progress, scheduled, seasonWatched, selected, deepLinks, onSelect, onMarkVideoAsWatched, onMarkSeasonAsWatched, ...props }) => {
+// Casa: `variant="casa-series"` = la card della pagina SERIE (handoff Claude
+// Design, 2026-09-21), con `runtime` = minuti reali dell'episodio o null.
+// Variante e non componente nuovo apposta: il menu contestuale qui sotto
+// (tasto Menu del telecomando, focus che torna alla card, FocusLock) ha le
+// sue cicatrici, e una copia divergerebbe. Senza variante (player, menu
+// episodi) la card resta quella di sempre.
+const Video = ({ className, id, title, thumbnail, season, episode, released, upcoming, watched, progress, scheduled, seasonWatched, selected, deepLinks, onSelect, onMarkVideoAsWatched, onMarkSeasonAsWatched, variant, runtime, ...props }) => {
     const routeFocused = useRouteFocused();
     const profile = useProfile();
     const navigate = useNavigate();
@@ -150,6 +158,12 @@ const Video = ({ className, id, title, thumbnail, season, episode, released, upc
         const blurThumbnail = profile.settings.hideSpoilers && season && episode && !watched;
 
         React.useEffect(() => {
+            // ⚠️ Non sulla pagina serie: li' lo scroll lo governa VideosList
+            // (auto-focus + revealRow + revealCardInRail). Questo scroll
+            // smooth partiva al mount sull'ultimo episodio aperto e correva
+            // contro l'auto-focus — invisibile nei test headless (da ospite
+            // `selected` non e' mai vero), sulla TV loggata si'.
+            if (variant === 'casa-series') return;
             if (selected && ref.current) {
                 if ((progress && watched) || !watched) {
                     ref.current.scrollIntoView({
@@ -160,6 +174,66 @@ const Video = ({ className, id, title, thumbnail, season, episode, released, upc
                 }
             }
         }, [selected]);
+
+        if (variant === 'casa-series') {
+            const video = { watched, progress, released, upcoming };
+            const state = episodeState(video);
+            const airLabel = state === 'upcoming' ? upcomingAirLabel(released) : null;
+            const hasThumb = typeof thumbnail === 'string' && thumbnail.length > 0;
+            return (
+                <Button {...props} ref={ref} className={classnames(className, seriesStyles['series-card'], seriesStyles[`state-${state}`])} title={title}>
+                    <div className={seriesStyles['thumb']}>
+                        {
+                            state === 'upcoming' ?
+                                <div className={seriesStyles['upcoming']}>
+                                    <div className={seriesStyles['upcoming-number']}>{paddedEpisode(episode)}</div>
+                                    {airLabel !== null ? <div className={seriesStyles['upcoming-date']}>{airLabel}</div> : null}
+                                </div>
+                                :
+                                <React.Fragment>
+                                    {
+                                        hasThumb ?
+                                            <Image
+                                                className={classnames(seriesStyles['image'], { [seriesStyles['blurred']]: blurThumbnail })}
+                                                src={thumbnail}
+                                                alt={' '}
+                                                renderFallback={() => null}
+                                            />
+                                            :
+                                            null
+                                    }
+                                    {
+                                        state === 'watched' ?
+                                            <div className={seriesStyles['badge']}>
+                                                <Icon className={seriesStyles['badge-icon']} name={'checkmark'} />
+                                                VISTO
+                                            </div>
+                                            :
+                                            state === 'inProgress' ?
+                                                <div className={classnames(seriesStyles['badge'], seriesStyles['current'])}>IN CORSO</div>
+                                                :
+                                                null
+                                    }
+                                    {
+                                        state === 'inProgress' ?
+                                            <div className={seriesStyles['resume']}>
+                                                <div className={seriesStyles['resume-fill']} style={{ width: `${Math.min(100, progress)}%` }} />
+                                            </div>
+                                            :
+                                            null
+                                    }
+                                </React.Fragment>
+                        }
+                    </div>
+                    <div className={seriesStyles['title']}>
+                        {episode !== null && !isNaN(episode) ? `${episode}. ` : null}
+                        {typeof title === 'string' && title.length > 0 ? title : id}
+                    </div>
+                    <div className={seriesStyles['meta']}>{episodeMeta(video, runtime)}</div>
+                    {children}
+                </Button>
+            );
+        }
 
         return (
             <Button {...props} ref={ref} className={classnames(className, styles['video-container'], { [styles['selected']]: selected })} title={title}>
@@ -233,7 +307,7 @@ const Video = ({ className, id, title, thumbnail, season, episode, released, upc
                 {children}
             </Button>
         );
-    }, [selected]);
+    }, [selected, variant, runtime, profile.settings.hideSpoilers]);
     const renderMenu = React.useMemo(() => function renderMenu() {
         return (
             <div ref={menuContentRef} className={styles['context-menu-content']} onPointerDown={popupMenuOnPointerDown} onContextMenu={popupMenuOnContextMenu} onClick={popupMenuOnClick} onKeyDown={popupMenuOnKeyDown}>
@@ -301,6 +375,8 @@ Video.propTypes = {
     onSelect: PropTypes.func,
     onMarkVideoAsWatched: PropTypes.func,
     onMarkSeasonAsWatched: PropTypes.func,
+    variant: PropTypes.oneOf(['casa-series']),
+    runtime: PropTypes.number,
 };
 
 module.exports = Video;
