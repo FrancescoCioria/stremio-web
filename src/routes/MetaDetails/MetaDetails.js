@@ -235,17 +235,6 @@ const MetaDetails = () => {
             });
         }
     }, [metaDetails.libraryItem]);
-    // ⋯ -> "Azzera": solo RewindLibraryItem (punto di ripresa a
-    // zero), NON DismissNotificationItem come faceva la X della card. Offerto solo
-    // se c'e' davvero un punto di ripresa.
-    const clearResume = React.useMemo(() => {
-        const item = metaDetails.libraryItem;
-        if (!item || !(item.state?.timeOffset > 0)) return null;
-        return () => core.transport.dispatch({
-            action: 'Ctx',
-            args: { action: 'RewindLibraryItem', args: item._id }
-        });
-    }, [metaDetails.libraryItem]);
     const handleEpisodeSearch = React.useCallback((season, episode) => {
         const searchVideoHash = encodeURIComponent(`${urlParams.id}:${season}:${episode}`);
         const url = location.pathname;
@@ -363,7 +352,6 @@ const MetaDetails = () => {
                                             onRemoveFromLibrary={removeFromLibrary}
                                             watched={!!metaReady.watched}
                                             onToggleWatched={toggleWatched}
-                                            onClearResume={clearResume}
                                             ratingInfo={metaDetails.ratingInfo}
                                         />
                                         :
@@ -412,7 +400,6 @@ const MetaDetails = () => {
                                                     onToggleNotifications={metaDetails.libraryItem ? toggleNotifications : null}
                                                     ratingInfo={metaDetails.ratingInfo}
                                                     onMarkSeasonWatched={markFeaturedSeasonWatched}
-                                                    onClearResume={clearResume}
                                                     // Il RITORNO dagli stream (stagione nell'URL) tiene
                                                     // il focus nella lista: li' si era scelto un episodio.
                                                     autoFocus={typeof season !== 'number'}

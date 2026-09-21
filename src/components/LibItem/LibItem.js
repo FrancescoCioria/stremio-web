@@ -50,6 +50,7 @@ const LibItem = ({ _id, removable, notifications, watched, ...props }) => {
         return [
             { label: 'LIBRARY_PLAY', value: 'play' },
             { label: 'LIBRARY_DETAILS', value: 'details' },
+            { label: 'LIBRARY_RESUME_DISMISS', value: 'dismiss' },
             { label: watched ? 'CTX_MARK_UNWATCHED' : 'CTX_MARK_WATCHED', value: 'watched' },
             { label: 'LIBRARY_REMOVE', value: 'remove' },
         ].filter(({ value }) => {
@@ -60,12 +61,15 @@ const LibItem = ({ _id, removable, notifications, watched, ...props }) => {
                     return props.deepLinks && (typeof props.deepLinks.metaDetailsVideos === 'string' || typeof props.deepLinks.metaDetailsStreams === 'string');
                 case 'watched':
                     return typeof watched !== 'undefined' && props.deepLinks && (typeof props.deepLinks.metaDetailsVideos === 'string' || typeof props.deepLinks.metaDetailsStreams === 'string');
+                case 'dismiss':
+                    return typeof _id === 'string' && props.progress !== null && !isNaN(props.progress) && props.progress > 0;
                 case 'remove':
                     return typeof _id === 'string' && removable;
             }
         }).map((option) => ({
             ...option,
-            label: t(option.label)
+            // Casa: "Azzera" e' nostra, non passa dalle traduzioni upstream.
+            label: option.value === 'dismiss' ? 'Azzera' : t(option.label)
         }));
     }, [_id, removable, props.progress, props.deepLinks, watched]);
 
@@ -104,6 +108,24 @@ const LibItem = ({ _id, removable, notifications, watched, ...props }) => {
                                     id: _id,
                                     is_watched: !watched
                                 }
+                            }
+                        });
+                    }
+
+                    break;
+                }
+                case 'dismiss': {
+                    // Casa: "Azzera" = SOLO RewindLibraryItem (punto di ripresa a zero, la card
+                    // esce da Continue Watching). Upstream il dismiss spegneva anche la notifica
+                    // dei nuovi episodi (DismissNotificationItem): effetto invisibile e non
+                    // richiesto, tolto su richiesta dell'utente (2026-09-21) — le notifiche si
+                    // gestiscono dalla pagina dettagli.
+                    if (typeof _id === 'string') {
+                        core.transport.dispatch({
+                            action: 'Ctx',
+                            args: {
+                                action: 'RewindLibraryItem',
+                                args: _id
                             }
                         });
                     }

@@ -2,20 +2,37 @@
 
 const React = require('react');
 const PropTypes = require('prop-types');
+const { useCore } = require('stremio/core');
 const LibItem = require('stremio/components/LibItem');
 
-// Casa: niente "X" di dismiss sulla card. Il dismiss upstream azzera il punto
-// di ripresa E spegne la notifica dei nuovi episodi: due effetti, uno dei quali
-// invisibile, a una pressione sulla home. Scelta dell'utente (2026-09-21): se
-// serve si fa dalla pagina dettagli (⋯ -> "Azzera", che
-// azzera SOLO il punto di ripresa). Tolto anche dal menu contestuale (LibItem).
 const ContinueWatchingItem = ({ _id, notifications, ...props }) => {
+    const core = useCore();
+
+    // Casa: la X della card = "Azzera" = SOLO RewindLibraryItem (punto di ripresa a zero, la card
+    // esce da Continue Watching). Upstream il dismiss spegneva anche la notifica
+    // dei nuovi episodi (DismissNotificationItem): effetto invisibile e non
+    // richiesto, tolto su richiesta dell'utente (2026-09-21) — le notifiche si
+    // gestiscono dalla pagina dettagli.
+    const onDismissClick = React.useCallback((event) => {
+        event.preventDefault();
+        if (typeof _id === 'string') {
+            core.transport.dispatch({
+                action: 'Ctx',
+                args: {
+                    action: 'RewindLibraryItem',
+                    args: _id
+                }
+            });
+        }
+    }, [_id]);
+
     return (
         <LibItem
             {...props}
             _id={_id}
             posterChangeCursor={true}
             notifications={notifications}
+            onDismissClick={onDismissClick}
         />
     );
 };

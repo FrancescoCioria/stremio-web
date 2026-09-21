@@ -44,7 +44,7 @@ const formatDate = (d) => d.toLocaleDateString('it-IT', { day: 'numeric', month:
 // polyfill porta il focus dove capita (stessa regola delle rail).
 const ACTION_SELECTOR = '[data-hero-action]';
 
-const SeriesHero = ({ className, name, logo, genres, seasonCount, episode, episodeRuntime, seriesDescription, imdbRating, featured, featuredRuntime, featuredSeasonWatched, trailerHref, inLibrary, onAddToLibrary, onRemoveFromLibrary, showNotifications, notificationsEnabled, onToggleNotifications, ratingInfo, onMarkSeasonWatched, autoFocus, infoOnly, kind, movieRuntime, year, letterboxdRating, rtScore, digitalReleaseLabel, watched, onToggleWatched, onClearResume }) => {
+const SeriesHero = ({ className, name, logo, genres, seasonCount, episode, episodeRuntime, seriesDescription, imdbRating, featured, featuredRuntime, featuredSeasonWatched, trailerHref, inLibrary, onAddToLibrary, onRemoveFromLibrary, showNotifications, notificationsEnabled, onToggleNotifications, ratingInfo, onMarkSeasonWatched, autoFocus, infoOnly, kind, movieRuntime, year, letterboxdRating, rtScore, digitalReleaseLabel, watched, onToggleWatched }) => {
     // Casa, 2026-09-21: anche i FILM (richiesta dell'utente). Stesso hero,
     // senza episodio: il kicker dice FILM, i metadati portano cio' che il film
     // aveva in MetaPreview (Letterboxd, RT, "Disponibile dal"), e tra le azioni
@@ -54,7 +54,7 @@ const SeriesHero = ({ className, name, logo, genres, seasonCount, episode, episo
     // libreria non ne ha (niente "segna la stagione", niente "rimuovi"): il ⋯
     // apriva un riquadro VUOTO, il focus non ci entrava, le frecce finivano al
     // polyfill e il riquadro restava aperto — trovato in review.
-    const hasMenuItems = typeof onMarkSeasonWatched === 'function' || typeof onClearResume === 'function' || !!inLibrary;
+    const hasMenuItems = typeof onMarkSeasonWatched === 'function' || !!inLibrary;
     const navigate = useNavigate();
     const { onLiked, onLoved, liked, loved } = useRating(ratingInfo);
     const loveDisabled = ratingInfo?.type !== 'Ready';
@@ -351,17 +351,6 @@ const SeriesHero = ({ className, name, logo, genres, seasonCount, episode, episo
                                                                 null
                                                         }
                                                         {
-                                                            // Azzera SOLO il punto di ripresa (i visti e le
-                                                            // notifiche restano): e' il posto del vecchio
-                                                            // dismiss di Continue Watching, tolto dalla card.
-                                                            typeof onClearResume === 'function' ?
-                                                                <Button className={styles['menu-item']} onClick={() => { onClearResume(); closeMenu(); }}>
-                                                                    Azzera
-                                                                </Button>
-                                                                :
-                                                                null
-                                                        }
-                                                        {
                                                             inLibrary ?
                                                                 <Button className={classnames(styles['menu-item'], styles['danger'])} onClick={() => setMenu('confirm-remove')}>
                                                                     Rimuovi dalla libreria
@@ -410,7 +399,6 @@ SeriesHero.propTypes = {
     inLibrary: PropTypes.bool,
     onAddToLibrary: PropTypes.func,
     onRemoveFromLibrary: PropTypes.func,
-    onClearResume: PropTypes.func,
     showNotifications: PropTypes.bool,
     notificationsEnabled: PropTypes.bool,
     onToggleNotifications: PropTypes.func,
