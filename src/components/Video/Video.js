@@ -181,7 +181,7 @@ const Video = ({ className, id, title, thumbnail, season, episode, released, upc
             const airLabel = state === 'upcoming' ? upcomingAirLabel(released) : null;
             const hasThumb = typeof thumbnail === 'string' && thumbnail.length > 0;
             return (
-                <Button {...props} ref={ref} className={classnames(className, seriesStyles['series-card'], seriesStyles[`state-${state}`])} title={title}>
+                <Button {...props} ref={ref} className={classnames(className, seriesStyles['series-card'], seriesStyles[`state-${state}`], styles['series-menu-host'])} title={title}>
                     <div className={seriesStyles['thumb']}>
                         {
                             state === 'upcoming' ?
@@ -309,6 +309,29 @@ const Video = ({ className, id, title, thumbnail, season, episode, released, upc
         );
     }, [selected, variant, runtime, profile.settings.hideSpoilers]);
     const renderMenu = React.useMemo(() => function renderMenu() {
+        if (variant === 'casa-series') {
+            // Italiano come il resto della pagina serie. Niente "Guarda" su un
+            // episodio FUTURO: li' non fa niente e lasciava il menu aperto.
+            const future = episodeState({ watched, progress, released, upcoming }) === 'upcoming';
+            return (
+                <div ref={menuContentRef} className={styles['context-menu-content']} onPointerDown={popupMenuOnPointerDown} onContextMenu={popupMenuOnContextMenu} onClick={popupMenuOnClick} onKeyDown={popupMenuOnKeyDown}>
+                    {
+                        !future ?
+                            <Button className={styles['context-menu-option-container']} title={'Guarda'}>
+                                <div className={styles['context-menu-option-label']}>Guarda</div>
+                            </Button>
+                            :
+                            null
+                    }
+                    <Button className={styles['context-menu-option-container']} title={watched ? 'Segna come non visto' : 'Segna come visto'} onClick={toggleWatchedOnClick}>
+                        <div className={styles['context-menu-option-label']}>{watched ? 'Segna come non visto' : 'Segna come visto'}</div>
+                    </Button>
+                    <Button className={styles['context-menu-option-container']} title={seasonWatched ? 'Togli il visto alla stagione' : 'Segna la stagione come vista'} onClick={toggleWatchedSeasonOnClick}>
+                        <div className={styles['context-menu-option-label']}>{seasonWatched ? 'Togli il visto alla stagione' : 'Segna la stagione come vista'}</div>
+                    </Button>
+                </div>
+            );
+        }
         return (
             <div ref={menuContentRef} className={styles['context-menu-content']} onPointerDown={popupMenuOnPointerDown} onContextMenu={popupMenuOnContextMenu} onClick={popupMenuOnClick} onKeyDown={popupMenuOnKeyDown}>
                 <Button className={styles['context-menu-option-container']} title={t('CTX_WATCH')}>
@@ -322,7 +345,7 @@ const Video = ({ className, id, title, thumbnail, season, episode, released, upc
                 </Button>
             </div>
         );
-    }, [watched, seasonWatched, toggleWatchedOnClick, toggleWatchedSeasonOnClick, popupMenuOnContextMenu, popupMenuOnKeyDown]);
+    }, [watched, seasonWatched, toggleWatchedOnClick, toggleWatchedSeasonOnClick, popupMenuOnContextMenu, popupMenuOnKeyDown, variant, progress, released, upcoming]);
     React.useEffect(() => {
         if (!routeFocused) {
             closeMenu();

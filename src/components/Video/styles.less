@@ -2,6 +2,7 @@
 
 @import (reference) '~@stremio/stremio-colors/less/stremio-colors.less';
 @import (reference) '~stremio/common/screen-sizes.less';
+@import (reference) '~stremio/common/casaSeriesTokens.less';
 
 :import('~stremio/components/Popup/styles.less') {
     context-menu-container: menu-container;
@@ -283,6 +284,57 @@
                     font-size: 1rem;
                     font-weight: 500;
                     color:var(--primary-foreground-color);
+                }
+            }
+        }
+    }
+}
+
+/* Casa: il menu contestuale della card della pagina SERIE (variante
+ * `casa-series`). ⚠️ Tutti gli stili del menu qui sopra sono annidati sotto
+ * `.video-container`, che la card nuova non ha: il menu restava SENZA STILE
+ * (niente padding, niente sfondo al focus, testo scuro su scuro — segnalato
+ * dalla TV il 2026-09-21). Stesso linguaggio del menu ⋯ dell'hero. */
+.series-menu-host {
+    .context-menu-container {
+        z-index: 3;
+        min-width: (300 * @tp);
+        padding: (8 * @tp);
+        border-radius: (14 * @tp);
+        border: 1px solid @surface-neutral-border;
+        background: rgba(14, 14, 20, 0.97);
+        box-shadow: 0 (14 * @lp) (40 * @lp) rgba(0, 0, 0, 0.6);
+
+        .context-menu-content {
+            --spatial-navigation-contain: contain;
+            display: flex;
+            flex-direction: column;
+
+            .context-menu-option-container {
+                display: flex;
+                flex-direction: row;
+                align-items: center;
+                padding: (12 * @tp) (14 * @tp);
+                border-radius: (10 * @tp);
+                outline: none;
+
+                /* Classe raddoppiata: batte `.button-container:focus` del kit.
+                 * ⚠️ `&.classe`, NON `&&`: in LESS `&` e' l'INTERA catena dei
+                 * padri, quindi `&&` in una regola annidata la duplica tutta e
+                 * ne esce un selettore che non corrisponde a niente — la voce a
+                 * fuoco restava senza evidenziatore (visto nello screenshot). */
+                &.context-menu-option-container:focus,
+                &.context-menu-option-container:focus-visible {
+                    outline: none;
+                    background: rgba(255, 255, 255, 0.14);
+                    box-shadow: inset 0 0 0 (2 * @lp) rgba(255, 255, 255, 0.9);
+                }
+
+                .context-menu-option-label {
+                    font-size: (17 * @tp);
+                    font-weight: 600;
+                    color: @ink-primary;
+                    white-space: nowrap;
                 }
             }
         }
