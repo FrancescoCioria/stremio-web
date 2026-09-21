@@ -27,6 +27,13 @@ const ROW = '[data-stream-row]';
 const RAIL = '[data-stream-rail]';
 const CARD = '[data-stream-card]';
 
+// Da QUALE riga si e' aperto l'ultimo torrent. Di modulo perche' andando al
+// player la lista si smonta. ⚠️ Serve al ritorno: lo stesso torrent sta in due
+// righe (Tutti e la sua qualita'), e tornare sulla copia in "Tutti" quando lo si
+// era aperto dalla riga 1080p metteva il focus su una card SCORSA FUORI
+// SCHERMO — telecomando che sembra spento (trovato in review).
+let lastOpened = null; // { rowKey, key }
+
 const ALL_ADDONS_KEY = 'ALL';
 // Modalita' "Auto": niente lista di torrent da scegliere a mano, ma 3 card
 // 4K/1080p/720p con recap (n. torrent + size media). Al click parte la race
@@ -376,6 +383,15 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
     // con il focus vivo su una di loro risponde 'none' (non si ruba).
     const streamRows = React.useMemo(() => qualityBuckets.displayRows(filteredStreams), [filteredStreams]);
     const scrollerRef = React.useRef(null);
+    // ⚠️ L'elemento anche in STATO: il listener "Giu' dall'hero" qui sotto deve
+    // riagganciarsi quando lo scroller viene RICREATO (stream di nuovo in
+    // caricamento e poi pronti). Con le dipendenze sul numero di righe restava
+    // attaccato al nodo vecchio — Giu' dalle azioni del film non faceva niente.
+    const [scrollerEl, setScrollerEl] = React.useState(null);
+    const setScrollerRef = React.useCallback((el) => {
+        scrollerRef.current = el;
+        setScrollerEl(el);
+    }, []);
     const lastCardByRowRef = React.useRef(new WeakMap());
     // L'ultima card che ha avuto il focus: dall'hero si torna li'.
     const lastListCardRef = React.useRef(null);
@@ -403,7 +419,7 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
     // non hanno una nav loro, e senza questo Giu' finirebbe al polyfill). Si
     // torna sull'ultima card a fuoco, altrimenti sulla prima di "Tutti".
     React.useEffect(() => {
-        const root = scrollerRef.current;
+        const root = scrollerEl;
         const content = root && root.closest('[class*="metadetails-content"]');
         if (!content) return;
         const onHeroKeyDown = (e) => {
@@ -420,7 +436,7 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
         };
         content.addEventListener('keydown', onHeroKeyDown);
         return () => content.removeEventListener('keydown', onHeroKeyDown);
-    }, [streamRows.length]);
+    }, [scrollerEl]);
 
     // Nav frecce ←/→ tra le 3 card qualita' (Auto), stesso pattern deterministico
     // di onStreamsKeyDown (il polyfill spatial-nav a volte non trova la card
@@ -492,16 +508,26 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
         const container = streamsContainerRef.current;
         if (!container || filteredStreams.length === 0 || !routeFocused) return;
         const ae = document.activeElement;
-        if (ae && ae.closest && ae.closest('[class*="addon-pill"]')) return; // sui filtri addon: non rubare
         const nothingFocused = !ae || ae === document.body; // focus sul NULLA (elemento smontato)
-        const focusInList = !!(ae && !nothingFocused && container.contains(ae));
+        // ⚠️ "Nella lista" = in QUALSIASI riga, non solo in "Tutti": se no chi
+        // naviga la riga 1080p non "molla" mai il torrent ricordato (drop-want
+        // scatta solo con focusInList) e al primo focus perso veniva riportato
+        // a forza su "Tutti". Trovato in review.
+        const scroller = scrollerRef.current;
+        const focusInList = !!(ae && !nothingFocused && (scroller ? scroller.contains(ae) : container.contains(ae)));
         const wantKey = wantStreamKeyRef.current;
 
         // wantKey e' GLOBALE (un solo slot, non per-video): su un film mai aperto
         // e' la chiave di un ALTRO film e wantIdx resta -1. Vedi streamFocus.js:
         // quel caso DEVE cadere sulla prima card, non lasciare il focus nel vuoto.
         const wantIdx = wantKey ? filteredStreams.findIndex((s) => streamKey(s) === wantKey) : -1;
-        const target = wantIdx >= 0 ? focusableAt(container, wantIdx) : null;
+        // Il bersaglio sta nella riga DA CUI lo si era aperto (vedi lastOpened);
+        // se quella riga non c'e' piu', la copia in "Tutti".
+        const fromRow = wantIdx >= 0 && scroller && lastOpened && lastOpened.key === wantKey && lastOpened.rowKey !== 'all' ?
+            [...scroller.querySelectorAll(`[data-stream-row="${lastOpened.rowKey}"] ${CARD}`)].find((c) => c.dataset.streamKey === wantKey) :
+            null;
+        const target = fromRow ? (fromRow.querySelector('[tabindex], a, button') || fromRow) :
+            (wantIdx >= 0 ? focusableAt(container, wantIdx) : null);
         const action = decideStreamFocus({
             wantIdx: target ? wantIdx : -1, // card voluta non ancora montata = come non trovata
             nothingFocused,
@@ -515,29 +541,31 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
         // riga "Tutti" partiva scorsa a meta', prima card tagliata a sinistra,
         // appena un riordino spostava la card. Ora la regola delle rail della
         // home (revealCardInRail: in vista solo se serve, la prima a scroll 0).
-        const reveal = (el) => {
-            const card = el && el.closest ? el.closest(CARD) : null;
-            if (card) revealCardInRail(container, card, 0);
+        // ⚠️ In vista vuol dire la RIGA e la card nella sua rail (landOn), non
+        // solo la rail di "Tutti": con le righe, "Tutti" puo' essere scorsa
+        // sopra lo schermo e un focus con preventScroll ci atterrava al buio.
+        const cardOf = (el) => (el && el.closest ? el.closest(CARD) : null);
+        const land = (el) => {
+            const card = cardOf(el);
+            if (card) landOn(card, { rowSel: ROW, railSel: RAIL, lastCardByRow: lastCardByRowRef.current, behavior: 'instant' });
         };
         switch (action) {
             case 'reassert-want':
-                target.focus({ preventScroll: true }); // focus perso da un remount, o conferma
-                if (!focusInList) reveal(target); // in vista solo se era perso
+                if (focusInList) target.focus({ preventScroll: true }); // conferma, gia' in vista
+                else land(target); // ritorno dal player o focus perso: focus + in vista
                 break;
             case 'drop-want':
                 wantStreamKeyRef.current = null; // l'utente si e' spostato altrove -> molla
                 break;
-            case 'focus-first': {
-                const el = container.querySelector('[tabindex], a, button');
-                if (el) {
-                    el.focus({ preventScroll: true });
-                    reveal(el);
-                }
+            case 'focus-first':
+                land(container.querySelector('[tabindex], a, button'));
+                break;
+            case 'keep-in-view': {
+                // tieni in vista nei re-sort, nella rail della card (non sempre "Tutti")
+                const card = cardOf(ae);
+                if (card) revealCardInRail(card.closest(RAIL), card, 0);
                 break;
             }
-            case 'keep-in-view':
-                reveal(ae); // tieni in vista nei re-sort
-                break;
             default: // 'none': focus fuori dalla lista di proposito, non rubarlo
                 break;
         }
@@ -650,7 +678,7 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
                                 </div>
                                 :
                                 <React.Fragment>
-                                    <div className={styles['streams-scroll']} ref={scrollerRef} onKeyDown={onRowsKeyDown} onFocus={onRowsFocus}>
+                                    <div className={styles['streams-scroll']} ref={setScrollerRef} onKeyDown={onRowsKeyDown} onFocus={onRowsFocus}>
                                         {streamRows.map((row) => (
                                             <div key={row.key} className={styles['stream-row']} data-stream-row={row.key}>
                                                 <div className={styles['stream-row-header']}>
@@ -669,6 +697,7 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
                                                             key={[stream.infoHash || stream.url || stream.name || index, stream.fileIdx, stream.addonName].join('|')}
                                                             className={styles['stream-wrapper']}
                                                             data-stream-card={''}
+                                                            data-stream-key={streamKey(stream)}
                                                         >
                                                             <Stream
                                                                 /* key STABILE per identita' del torrent (non l'indice):
@@ -690,16 +719,23 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
                                                                 health={stream.health}
                                                                 healthChecking={stream.healthChecking}
                                                                 packByName={stream.packByName}
-                                                                onClick={stream.onClick}
+                                                                onClick={() => {
+                                                                    lastOpened = { rowKey: row.key, key: streamKey(stream) };
+                                                                    stream.onClick();
+                                                                }}
                                                             />
                                                         </div>
                                                     ))}
                                                     {
                                                         row.key === 'all' && showInstallAddonsButton ?
-                                                            <Button className={styles['install-button-container']} title={t('ADDON_CATALOGUE_MORE')} href={'#/addons'}>
-                                                                <Icon className={styles['icon']} name={'addons'} />
-                                                                <div className={styles['label']}>{t('ADDON_CATALOGUE_MORE')}</div>
-                                                            </Button>
+                                                            // Card anche lui, se no la nav a righe non ci arriva
+                                                            // (solo account ospite/nuovo, non quello di casa).
+                                                            <div className={styles['stream-wrapper']} data-stream-card={''}>
+                                                                <Button className={styles['install-button-container']} title={t('ADDON_CATALOGUE_MORE')} href={'#/addons'}>
+                                                                    <Icon className={styles['icon']} name={'addons'} />
+                                                                    <div className={styles['label']}>{t('ADDON_CATALOGUE_MORE')}</div>
+                                                                </Button>
+                                                            </div>
                                                             :
                                                             null
                                                     }

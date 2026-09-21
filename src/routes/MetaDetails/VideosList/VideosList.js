@@ -189,10 +189,15 @@ const VideosList = ({ className, metaItem, libraryItem, season, selectedVideoId,
         }
     }, []);
     const metaIdRef = React.useRef(null);
+    // L'elemento anche in STATO, per il listener "Giu' dall'hero" (vedi
+    // StreamsList: agganciato al numero di righe restava sul nodo vecchio se lo
+    // scroller veniva ricreato con lo stesso numero di righe).
+    const [scrollerEl, setScrollerEl] = React.useState(null);
     const setScrollerRef = React.useCallback((el) => {
         const prev = scrollerRef.current;
         if (prev && prev._casaTvCleanup) prev._casaTvCleanup();
         scrollerRef.current = el;
+        setScrollerEl(el);
         if (!el) return;
         if (savedScroll && savedScroll.metaId === metaIdRef.current) {
             el.scrollTop = savedScroll.scrollTop;
@@ -403,7 +408,7 @@ const VideosList = ({ className, metaItem, libraryItem, season, selectedVideoId,
         return true;
     }, []);
     React.useEffect(() => {
-        const root = scrollerRef.current;
+        const root = scrollerEl;
         const content = root && root.closest('[class*="metadetails-content"]');
         if (!content) return;
         const onHeroKeyDown = (e) => {
@@ -424,7 +429,7 @@ const VideosList = ({ className, metaItem, libraryItem, season, selectedVideoId,
         };
         content.addEventListener('keydown', onHeroKeyDown);
         return () => content.removeEventListener('keydown', onHeroKeyDown);
-    }, [enterList, seasonRows.length]);
+    }, [enterList, scrollerEl]);
 
     // Auto-focus d'ingresso: una volta per titolo, sulla riga e sull'episodio
     // scelti sopra. ⚠️ Non ruba il focus se l'utente sta gia' navigando.
