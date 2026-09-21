@@ -72,7 +72,8 @@ const SeasonRow = ({ row, metaType, metaId, focusTargetId, selectedVideoId, onOp
                                 :
                                 null
                         }
-                        <div className={styles['season-spacer']} />
+                        {/* Accanto al titolo, non in fondo a destra (richiesta
+                            dell'utente): si legge insieme a "Stagione X". */}
                         <div className={styles['season-count']}>{row.countLabel}</div>
                     </div>
                     :
@@ -149,7 +150,7 @@ SeasonRow.propTypes = {
 // scrollato a un punto che non significava niente.
 let savedScroll = null;
 
-const VideosList = ({ className, metaItem, libraryItem, season, selectedVideoId, onSeasonOpened, onEpisodeSearch, onFocusedVideoChange }) => {
+const VideosList = ({ className, metaItem, libraryItem, season, selectedVideoId, onSeasonOpened, onEpisodeSearch, onFocusedVideoChange, onFeaturedChange, heroTakesFocus }) => {
     const core = useCore();
 
     // Track quale episodio ha il focus adesso (non clicked, solo focused) cosi'
@@ -163,6 +164,8 @@ const VideosList = ({ className, metaItem, libraryItem, season, selectedVideoId,
     // condizionale). La callback ref invece viene chiamata da React appena
     // il nodo esiste.
     const scrollerRef = React.useRef(null);
+    // L'ultima card che ha avuto il focus nella lista: dall'hero si torna li'.
+    const lastListCardRef = React.useRef(null);
     const [focusedVideoId, setFocusedVideoId] = React.useState(null);
     React.useEffect(() => {
         if (typeof onFocusedVideoChange === 'function') {
@@ -194,6 +197,7 @@ const VideosList = ({ className, metaItem, libraryItem, season, selectedVideoId,
             while (n && n !== el) {
                 if (n.dataset && n.dataset.videoId) {
                     setFocusedVideoId(n.dataset.videoId);
+                    lastListCardRef.current = n;
                     return;
                 }
                 n = n.parentNode;
@@ -323,6 +327,17 @@ const VideosList = ({ className, metaItem, libraryItem, season, selectedVideoId,
         const row = seasonRows.find((r) => r.season === focusSeason);
         return row ? pickFocusVideo(row.videos, selectedVideoId) : null;
     }, [seasonRows, focusSeason, selectedVideoId]);
+    // L'hero (SeriesHero) ne fa il pulsante Riprendi/Guarda/Rivedi e lo
+    // descrive quando il focus non e' su una card: una sola regola decide
+    // "l'episodio in evidenza", ed e' questa.
+    // ⚠️ Si parla solo quando le righe ci sono: mentre la lista carica,
+    // focusTarget e' null e dirlo all'hero significava "non c'e' niente da
+    // riprendere" — l'hero ripiegava sulla prima pill e il focus d'ingresso
+    // finiva su Trailer (preso col log dei focusin, non a occhio).
+    React.useEffect(() => {
+        if (typeof onFeaturedChange !== 'function' || seasonRows.length === 0) return;
+        onFeaturedChange(focusTarget || null);
+    }, [focusTarget, onFeaturedChange, seasonRows.length]);
 
     // ⚠️ Si vede SEMPRE una riga vicina: quella DOPO se c'e', altrimenti quella
     // PRIMA. E' il rovescio verticale del vuoto di coda delle rail — dove puoi
@@ -390,7 +405,8 @@ const VideosList = ({ className, metaItem, libraryItem, season, selectedVideoId,
                 // pill). Sotto l'ultima riga non c'e' niente: si resta.
                 if (e.key === 'ArrowUp') {
                     const content = root.closest('[class*="metadetails-content"]');
-                    const action = content?.querySelector('[class*="action-buttons-container"] [tabindex], [class*="action-buttons-container"] a, [class*="action-buttons-container"] button');
+                    const action = content?.querySelector('[data-casa-hero-actions] [data-hero-action]') ||
+                        content?.querySelector('[class*="action-buttons-container"] [tabindex], [class*="action-buttons-container"] a, [class*="action-buttons-container"] button');
                     if (action) action.focus({ preventScroll: true });
                 }
                 return;
@@ -435,19 +451,25 @@ const VideosList = ({ className, metaItem, libraryItem, season, selectedVideoId,
     // niente memoria della colonna: si atterra su una card a caso col titolo
     // della stagione tagliato sopra il viewport. E' lo stesso motivo per cui
     // Board.js tiene il suo handler. Prima ci pensavano le pill.
-    const enterFirstRow = React.useCallback(() => {
+    // Dall'hero si entra nella lista: sull'ultima card che aveva il focus
+    // (se si era saliti dalla lista, si torna DOVE si era), altrimenti
+    // sull'episodio in evidenza — l'handoff: "Down from the action row lands on
+    // the current/next-to-watch episode, not on episode 1".
+    const enterList = React.useCallback(() => {
         const root = scrollerRef.current;
-        const row = root && root.querySelector('[data-season-row]');
-        if (!row) return false;
-        // Si torna DOVE si era: dall'hero si esce solo dalla prima riga.
-        const remembered = lastCardByRowRef.current.get(row);
-        const wrapper = (remembered && row.contains(remembered)) ? remembered : row.querySelector('[data-video-id]');
+        if (!root) return false;
+        const remembered = lastListCardRef.current;
+        const wrapper = (remembered && root.contains(remembered)) ? remembered :
+            root.querySelector('[data-casa-focus="1"]') || root.querySelector('[data-video-id]');
         if (!wrapper) return false;
+        const row = wrapper.closest('[data-season-row]');
         const el = wrapper.querySelector('[tabindex], a, button') || wrapper;
         el.focus({ preventScroll: true });
-        lastCardByRowRef.current.set(row, wrapper);
-        revealRow(row, 'smooth');
-        revealCardInRail(row.querySelector('[data-season-rail]'), wrapper, 0);
+        if (row) {
+            lastCardByRowRef.current.set(row, wrapper);
+            revealRow(row, 'smooth');
+            revealCardInRail(row.querySelector('[data-season-rail]'), wrapper, 0);
+        }
         return true;
     }, []);
     React.useEffect(() => {
@@ -457,15 +479,16 @@ const VideosList = ({ className, metaItem, libraryItem, season, selectedVideoId,
         const onHeroKeyDown = (e) => {
             if (e.key !== 'ArrowDown') return;
             const ae = document.activeElement;
-            if (!ae || !ae.closest || !ae.closest('[class*="action-buttons-container"]')) return;
-            if (enterFirstRow()) {
+            // MetaPreview (film) o l'hero della serie (SeriesHero).
+            if (!ae || !ae.closest || !ae.closest('[class*="action-buttons-container"], [data-casa-hero-actions]')) return;
+            if (enterList()) {
                 e.preventDefault();
                 e.stopPropagation();
             }
         };
         content.addEventListener('keydown', onHeroKeyDown);
         return () => content.removeEventListener('keydown', onHeroKeyDown);
-    }, [enterFirstRow, seasonRows.length]);
+    }, [enterList, seasonRows.length]);
 
     // Auto-focus d'ingresso: una volta per titolo, sulla riga e sull'episodio
     // scelti sopra. ⚠️ Non ruba il focus se l'utente sta gia' navigando.
@@ -493,6 +516,12 @@ const VideosList = ({ className, metaItem, libraryItem, season, selectedVideoId,
         }
         scheduledFocusRef.current = key;
         const id = focusTarget.id;
+        // ⚠️ Con l'hero della serie il focus d'ingresso e' su Riprendi (lo
+        // prende SeriesHero): qui la lista si POSIZIONA sull'episodio in
+        // evidenza senza prendere il focus. Eccezione: il RITORNO dagli
+        // stream (stagione nell'URL) — li' l'utente aveva scelto un
+        // episodio, e rimandarlo su Riprendi gli farebbe perdere il posto.
+        const takeFocus = !heroTakesFocus || typeof season === 'number';
         pendingFocusRef.current = setTimeout(() => {
             scheduledFocusRef.current = null;
             const sel = (typeof CSS !== 'undefined' && CSS.escape) ? CSS.escape(id) : id;
@@ -505,7 +534,7 @@ const VideosList = ({ className, metaItem, libraryItem, season, selectedVideoId,
                 root.querySelector('[data-video-id]');
             if (!card) return;
             const el = card.querySelector('[tabindex], a, button') || card;
-            el.focus({ preventScroll: true });
+            if (takeFocus) el.focus({ preventScroll: true });
             initialFocusDoneRef.current = key;
             const landed = card.closest('[data-season-row]');
             if (landed) {
@@ -518,7 +547,7 @@ const VideosList = ({ className, metaItem, libraryItem, season, selectedVideoId,
             clearTimeout(pendingFocusRef.current);
             scheduledFocusRef.current = null;
         };
-    }, [focusTarget, focusSeason, metaReady]);
+    }, [focusTarget, focusSeason, metaReady, heroTakesFocus, season]);
 
     const onMarkVideoAsWatched = (video, watched) => {
         core.transport.dispatch({
@@ -605,6 +634,8 @@ VideosList.propTypes = {
     selectedVideoId: PropTypes.string,
     onSeasonOpened: PropTypes.func,
     onEpisodeSearch: PropTypes.func,
+    onFeaturedChange: PropTypes.func,
+    heroTakesFocus: PropTypes.bool,
     onFocusedVideoChange: PropTypes.func,
 };
 

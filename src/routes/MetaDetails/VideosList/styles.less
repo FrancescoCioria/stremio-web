@@ -80,7 +80,10 @@
          * solo date e badge orfani; cosi' spunta anche il bordo basso delle
          * miniature, che e' cio' che fa leggere "c'e' una riga sopra". */
         scroll-margin-bottom: 0.25rem;
-        margin-bottom: 2rem;
+        /* 26 px dell'handoff (B3: la stagione dopo sta a 26 px). ⚠️ Ogni pixel
+         * qui lo paga la riga VICINA, che deve spuntare quanto basta a
+         * leggerne il titolo. */
+        margin-bottom: (26 * @lp);
 
         /* Intestazione di stagione: B1 dell'handoff. Tutte le stagioni hanno
          * la STESSA intestazione — cambiarne la taglia col focus farebbe
@@ -92,9 +95,8 @@
             align-items: center;
             gap: (16 * @lp);
             margin-bottom: (18 * @lp);
-            /* Allineato al margine sinistro dell'hero; a destra il margine di
-             * sicurezza dell'handoff (il contatore non tocca il bordo). */
-            padding: 0 @safe-x 0 max(1rem, calc(4rem - var(--safe-area-inset-left)));
+            /* Allineato al margine sinistro dell'hero. */
+            padding: 0 @safe-x 0 @safe-x;
 
             .season-title {
                 flex: none;
@@ -119,10 +121,6 @@
                 letter-spacing: (0.8 * @tp);
             }
 
-            .season-spacer {
-                flex: 1;
-            }
-
             .season-count {
                 flex: none;
                 font-size: (15 * @tp);
@@ -139,8 +137,9 @@
              * thumbnail hanno bisogno di respirare, altrimenti vengono
              * croppati (overflow-x auto implica overflow-y auto nel box
              * model CSS). */
-            padding: 1.5rem 4rem;
-            padding-left: max(1rem, calc(4rem - var(--safe-area-inset-left)));
+            /* Stesso margine sinistro dell'hero e delle intestazioni (80 px
+             * dell'handoff): una colonna sola. */
+            padding: (14 * @lp) @safe-x;
             overflow-x: auto;
             overflow-y: hidden;
             /* NIENTE scroll-snap: lo scroll e' guidato via JS

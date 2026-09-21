@@ -1,0 +1,355 @@
+// Copyright (C) 2017-2026 Smart code 203358507
+//
+// Hero della pagina SERIE (handoff Claude Design, blocco A). Misure nei px
+// dell'handoff x @lp (layout) / @tp (testo): vedi casaSeriesTokens.less.
+
+@import (reference) '~stremio/common/casaSeriesTokens.less';
+
+@mono: ui-monospace, 'SF Mono', Menlo, monospace;
+
+.series-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    width: (830 * @lp);
+    /* ⚠️ Spazio verticale: il testo sta sulla scala tarata (1,5x il canvas
+     * dell'handoff), quindi l'hero viene piu' alto del prototipo — misurato
+     * 827 px su 1271, e sotto la riga della stagione non ci stava piu'
+     * (444 px di scroller per 449 di riga: niente riga vicina). Si recupera
+     * sui MARGINI e sui contenitori, mai sulle taglie del testo: top 62->44,
+     * logo 150->100, azioni alte quanto il pulsante (la barra sporge sotto). */
+    padding: (44 * @lp) 0 (26 * @lp) @safe-x;
+    box-sizing: content-box;
+
+    .dot {
+        flex: none;
+        width: (4 * @lp);
+        height: (4 * @lp);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.28);
+    }
+
+    /* A1 */
+    .kicker {
+        display: flex;
+        align-items: center;
+        gap: (14 * @lp);
+        margin-bottom: (20 * @lp);
+        font-family: @mono;
+        font-size: (13 * @tp);
+        letter-spacing: (3.5 * @tp);
+        /* ⚠️ L'handoff la vuole a 0.45: sotto il SUO pavimento di contrasto
+         * (0.62). Vince la regola. */
+        color: @ink-tertiary;
+    }
+
+    /* A2: il logo del provider, o il fallback tipografico. */
+    .logo-slot {
+        margin-bottom: (30 * @lp);
+
+        .logo {
+            display: block;
+            max-width: (560 * @lp);
+            max-height: (100 * @lp);
+            object-fit: contain;
+            object-position: left center;
+        }
+
+        .wordmark {
+            max-width: (830 * @lp);
+            font-size: (54 * @tp);
+            font-weight: 300;
+            letter-spacing: (11 * @tp);
+            line-height: 0.94;
+            text-transform: uppercase;
+            color: @ink-primary;
+        }
+    }
+
+    /* A3: il titolo dell'episodio e' la voce PIU' GRANDE del blocco, il
+     * codice un piccolo accento verde. Prima avevano tutti lo stesso peso. */
+    .identity {
+        display: flex;
+        align-items: baseline;
+        gap: (16 * @lp);
+        margin-bottom: (11 * @lp);
+        max-width: 100%;
+
+        .code {
+            flex: none;
+            font-size: (19 * @tp);
+            font-weight: 700;
+            letter-spacing: (1 * @tp);
+            color: @green;
+        }
+
+        .episode-title {
+            min-width: 0;
+            font-size: (38 * @tp);
+            font-weight: 700;
+            letter-spacing: (-0.8 * @tp);
+            color: @ink-primary;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+    }
+
+    /* A4 */
+    .meta-row {
+        display: flex;
+        align-items: center;
+        gap: (13 * @lp);
+        margin-bottom: (22 * @lp);
+        font-size: (16 * @tp);
+        color: @ink-tertiary;
+
+        .rating {
+            display: inline-flex;
+            gap: (6 * @tp);
+            font-weight: 600;
+            color: #f0c040;
+        }
+
+        .dot {
+            background: rgba(255, 255, 255, 0.25);
+        }
+    }
+
+    /* A5: tre righe al massimo — prima la sinossi scorreva sotto le facce del
+     * cast. */
+    .summary {
+        margin: 0 0 (30 * @lp);
+        max-width: (690 * @lp);
+        font-size: (19 * @tp);
+        line-height: 1.5;
+        color: @ink-body;
+        text-wrap: pretty;
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    /* A6 */
+    .actions {
+        display: flex;
+        align-items: center;
+        gap: (14 * @lp);
+        /* Spazio per la barra di Riprendi, che sporge sotto il pulsante. */
+        padding-bottom: (14 * @lp);
+    }
+
+    /* ⚠️ Il Button del kit disegna il focus con `.button-container:focus
+     * { outline-style: solid }`, che vince su un `outline: none` semplice
+     * (pseudo-classe in piu'). Classe raddoppiata, non !important — e scritta
+     * PER ESTESO, non `&&`: in LESS `&` e' l'intera catena dei padri, e `&&`
+     * in una regola annidata ne esce duplicata in un selettore che non
+     * corrisponde a niente (e' successo: menu senza evidenziatore). */
+    .primary.primary:focus,
+    .primary.primary:focus-visible,
+    .pill.pill:focus,
+    .pill.pill:focus-visible,
+    .icon-button.icon-button:focus,
+    .icon-button.icon-button:focus-visible,
+    .menu-item.menu-item:focus,
+    .menu-item.menu-item:focus-visible {
+        outline: none;
+    }
+
+    .primary-wrap {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+
+        .primary {
+            display: inline-flex;
+            align-items: center;
+            gap: (14 * @tp);
+            /* Imbottitura verticale sul LAYOUT, orizzontale sul testo: il
+             * pulsante resta largo attorno alle parole ma non gonfia l'hero. */
+            padding: (14 * @lp) (28 * @tp);
+            border-radius: (14 * @tp);
+            background: #fff;
+            color: #0a0a0f;
+            transition: box-shadow 140ms ease-out, transform 140ms ease-out;
+
+            .play-glyph {
+                flex: none;
+                width: 0;
+                height: 0;
+                border-style: solid;
+                border-width: (11 * @tp) 0 (11 * @tp) (18 * @tp);
+                border-color: transparent transparent transparent #0a0a0f;
+            }
+
+            .primary-labels {
+                display: flex;
+                flex-direction: column;
+                gap: (2 * @tp);
+                text-align: left;
+            }
+
+            .primary-label {
+                font-size: (21 * @tp);
+                font-weight: 700;
+                letter-spacing: (-0.2 * @tp);
+            }
+
+            .primary-sublabel {
+                font-size: (14 * @tp);
+                font-weight: 500;
+                color: rgba(10, 10, 15, 0.6);
+            }
+
+            &:focus,
+            &:focus-visible {
+                box-shadow: 0 0 0 (4 * @lp) @focus-ring, 0 (14 * @lp) (40 * @lp) rgba(0, 0, 0, 0.6);
+                transform: scale(1.03);
+            }
+        }
+
+        /* Appesa SOTTO il pulsante, fuori dal flusso: cosi' la riga delle
+         * azioni e' alta quanto il pulsante e le pill gli stanno centrate. */
+        .primary-progress {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: calc(100% + (10 * @lp));
+            height: (4 * @lp);
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.18);
+            overflow: hidden;
+
+            .primary-progress-fill {
+                height: 100%;
+                background: @green;
+            }
+        }
+    }
+
+    .secondary {
+        display: flex;
+        align-items: center;
+        gap: (10 * @lp);
+    }
+
+    .pill,
+    .icon-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: (9 * @tp);
+        border-radius: (12 * @tp);
+        border: 1px solid @surface-neutral-border;
+        background: @surface-neutral;
+        color: rgba(255, 255, 255, 0.9);
+        font-size: (16 * @tp);
+        font-weight: 600;
+        transition: background-color 140ms ease-out, border-color 140ms ease-out, color 140ms ease-out, box-shadow 140ms ease-out, transform 140ms ease-out;
+
+        /* ACCESO = verde (riempimento + bordo + testo). */
+        &.on {
+            background: @green-fill;
+            border-color: @green-border;
+            color: @green-text;
+        }
+
+        /* Focus sugli elementi SCURI: anello bianco pieno, lo stesso delle
+         * card. L'alone a 0.3 dell'handoff funziona attorno al pulsante
+         * bianco; attorno a una pill scura su una foto, a 3 m, sparisce. */
+        &:focus,
+        &:focus-visible {
+            box-shadow: 0 0 0 (3 * @lp) rgba(255, 255, 255, 0.95), 0 (14 * @lp) (40 * @lp) rgba(0, 0, 0, 0.6);
+            transform: scale(1.04);
+        }
+    }
+
+    .pill {
+        padding: (14 * @tp) (20 * @tp);
+
+        .pill-icon {
+            flex: none;
+            width: (15 * @tp);
+            height: (15 * @tp);
+            color: inherit;
+        }
+
+        .notif-dot {
+            flex: none;
+            width: (8 * @tp);
+            height: (8 * @tp);
+            border-radius: 999px;
+            border: 1.5px solid currentColor;
+
+            &.on {
+                border-color: @green;
+                background: @green;
+                box-shadow: 0 0 (9 * @tp) rgba(74, 222, 128, 0.8);
+            }
+        }
+    }
+
+    .icon-button {
+        width: (52 * @tp);
+        height: (52 * @tp);
+        padding: 0;
+
+        .icon {
+            width: (20 * @tp);
+            height: (20 * @tp);
+            color: rgba(255, 255, 255, 0.75);
+        }
+
+        &.on .icon {
+            color: @green-text;
+        }
+    }
+
+    /* Menu ⋯: si apre SOPRA il pulsante (sotto c'e' la lista). */
+    .more-wrap {
+        position: relative;
+
+        .menu {
+            position: absolute;
+            left: 0;
+            bottom: calc(100% + (10 * @lp));
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            min-width: (320 * @tp);
+            padding: (8 * @tp);
+            border-radius: (14 * @tp);
+            border: 1px solid @surface-neutral-border;
+            background: rgba(14, 14, 20, 0.97);
+            box-shadow: 0 (14 * @lp) (40 * @lp) rgba(0, 0, 0, 0.6);
+
+            .menu-question {
+                padding: (10 * @tp) (14 * @tp);
+                font-size: (16 * @tp);
+                font-weight: 600;
+                color: @ink-secondary;
+            }
+
+            .menu-item {
+                padding: (12 * @tp) (14 * @tp);
+                border-radius: (10 * @tp);
+                font-size: (17 * @tp);
+                font-weight: 600;
+                color: @ink-primary;
+                white-space: nowrap;
+
+                &.danger {
+                    color: #ff6b6b;
+                }
+
+                &:focus,
+                &:focus-visible {
+                    background: rgba(255, 255, 255, 0.14);
+                    box-shadow: inset 0 0 0 (2 * @lp) rgba(255, 255, 255, 0.9);
+                }
+            }
+        }
+    }
+}

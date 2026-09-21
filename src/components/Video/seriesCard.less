@@ -25,7 +25,15 @@
         border-radius: (12 * @lp);
         overflow: hidden;
         background: @surface-placeholder;
-        transition: box-shadow 140ms ease-out;
+        /* Card NON a fuoco leggermente attenuate, come le tile della home del
+         * launcher (`.tile:not(.tile--focused) { opacity: 0.8 }`, App.css).
+         * ⚠️ Solo la MINIATURA, non il testo: l'handoff vieta di comporre
+         * l'alpha del testo con un'opacita' del contenitore — 0.62 x 0.8 =
+         * 0.50, sotto il pavimento di contrasto (l'handoff ci si era gia'
+         * fatto male: 1,94:1). La miniatura e' quasi tutta la card: l'effetto
+         * si legge uguale. */
+        opacity: 0.8;
+        transition: box-shadow 140ms ease-out, opacity 140ms ease-out;
 
         .image {
             display: block;
@@ -182,6 +190,7 @@
         transform: scale(1.03);
 
         .thumb {
+            opacity: 1;
             box-shadow: 0 0 0 (3 * @lp) rgba(255, 255, 255, 0.95), 0 (12 * @lp) (34 * @lp) rgba(0, 0, 0, 0.55);
         }
     }
