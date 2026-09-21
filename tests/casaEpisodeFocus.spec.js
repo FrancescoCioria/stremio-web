@@ -69,9 +69,24 @@ describe('pickSeason', () => {
         })).toEqual({ season: 5, reason: 'resume' });
     });
 
-    it('un episodio in mezzo non marcato visto -> NON salta (fallimento verso lo status quo)', () => {
+    // Regola dell'utente (2026-09-21): si conta dall'ULTIMO visto. Prima
+    // questo test diceva il contrario ("un buco blocca il salto"), che su
+    // una stagione finita con un episodio visto altrove teneva la serie
+    // ferma per sempre sulla stagione vecchia.
+    it('BUCO: E2 non segnato ma l\'ultimo visto e\' l\'ultimo della stagione -> e\' conclusa, si salta', () => {
         const videos = [
             ep(5, 1, { watched: true }), ep(5, 2), ep(5, 3, { watched: true }),
+            ep(6, 1, { daysAgo: 4 }),
+        ];
+        expect(pickSeason({
+            seasons: seasonsOf(videos), seasonFromUrl: null, videos,
+            resumeVideoId: 'tt5875444:5:3', now: NOW,
+        })).toEqual({ season: 6, reason: 'resume-season-finished' });
+    });
+
+    it('ma se DOPO l\'ultimo visto c\'e\' qualcosa di uscito, non e\' conclusa', () => {
+        const videos = [
+            ep(5, 1, { watched: true }), ep(5, 2), ep(5, 3, { watched: true }), ep(5, 4),
             ep(6, 1, { daysAgo: 4 }),
         ];
         expect(pickSeason({
@@ -184,6 +199,24 @@ describe('pickFocusVideo', () => {
         expect(pickFocusVideo(s6, 'tt5875444:5:6', NOW).id).toBe('tt5875444:6:2');
     });
 
+    it('BUCO: E1 E2 E4 E5 visti, E3 no, E6 uscito -> E6, non E3', () => {
+        const s5 = [
+            ep(5, 1, { watched: true }), ep(5, 2, { watched: true }), ep(5, 3),
+            ep(5, 4, { watched: true }), ep(5, 5, { watched: true }), ep(5, 6),
+        ];
+        expect(pickFocusVideo(s5, null, NOW).id).toBe('tt5875444:5:6');
+    });
+
+    it('BUCO senza niente dopo -> l\'ultimo visto (si atterra in fondo, non nel buco)', () => {
+        const s5 = [ep(5, 1, { watched: true }), ep(5, 2), ep(5, 3, { watched: true })];
+        expect(pickFocusVideo(s5, null, NOW).id).toBe('tt5875444:5:3');
+    });
+
+    it('l\'ordine della lista non conta: si ordina per episodio', () => {
+        const s5 = [ep(5, 3), ep(5, 1, { watched: true }), ep(5, 2)];
+        expect(pickFocusVideo(s5, null, NOW).id).toBe('tt5875444:5:2');
+    });
+
     it('l\'episodio davvero aperto per ultimo vince su tutto', () => {
         const s5 = [1, 2, 3].map((e) => ep(5, e, { watched: true }));
         expect(pickFocusVideo(s5, 'tt5875444:5:2', NOW).id).toBe('tt5875444:5:2');
@@ -281,6 +314,21 @@ describe('seasonSummary / seasonCountLabel', () => {
 
     it('REGRESSIONE: una stagione mai iniziata NON e\' in corso (e\' li\' che atterra l\'auto-focus su una serie nuova)', () => {
         expect(seasonSummary([ep(1, 1), ep(1, 2)], NOW).inProgress).toBe(false);
+    });
+
+    it('BUCO: E1 E3 visti, E2 no, niente dopo E3 -> NON e\' in corso', () => {
+        const s5 = [ep(5, 1, { watched: true }), ep(5, 2), ep(5, 3, { watched: true })];
+        expect(seasonSummary(s5, NOW).inProgress).toBe(false);
+    });
+
+    it('BUCO ma dopo l\'ultimo visto c\'e\' un uscito da vedere -> in corso', () => {
+        const s5 = [ep(5, 1, { watched: true }), ep(5, 2), ep(5, 3, { watched: true }), ep(5, 4)];
+        expect(seasonSummary(s5, NOW).inProgress).toBe(true);
+    });
+
+    it('un episodio a meta\' tiene la stagione in corso dovunque sia, anche prima dell\'ultimo visto', () => {
+        const s5 = [ep(5, 1, { progress: 40 }), ep(5, 2, { watched: true })];
+        expect(seasonSummary(s5, NOW).inProgress).toBe(true);
     });
 
     it('iniziata ma il resto non e\' ancora uscito -> non in corso (non c\'e\' niente da guardare)', () => {

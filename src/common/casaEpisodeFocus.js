@@ -61,12 +61,37 @@ const seasonOfVideoId = (videos, videoId) => {
 
 const inSeason = (videos, season) => (videos || []).filter((v) => v && v.season === season);
 
+// ⚠️ DOVE SEI in una stagione = l'ULTIMO episodio visto, non il primo non
+// visto (regola dell'utente, 2026-09-21). I BUCHI sono normali: un episodio
+// visto altrove, uno marcato a mano, un bit che il core non ha scritto. Con
+// E1 E2 E4 E5 visti ed E3 no, "il primo non visto" rimandava a E3 — il focus
+// ci atterrava, la stagione restava "IN CORSO" anche senza niente dopo E5,
+// e non risultava mai conclusa (niente salto alla successiva). Da qui in
+// avanti si conta sempre da dopo l'ultimo visto.
+const byEpisode = (a, b) => (a.episode || 0) - (b.episode || 0);
+const lastWatchedIndex = (sortedList) => {
+    let last = -1;
+    sortedList.forEach((v, i) => {
+        if (v && v.watched === true) last = i;
+    });
+    return last;
+};
+// Gli episodi DOPO l'ultimo visto (tutti, se nella stagione non se n'e' visto
+// nessuno). `list` gia' ordinata per episodio.
+const afterLastWatched = (sortedList) => sortedList.slice(lastWatchedIndex(sortedList) + 1);
+
 // "Non c'e' piu' niente da vedere qui": ogni episodio non-futuro della stagione
 // e' visto. Qui un episodio senza data CONTA (e quindi, se non visto, BLOCCA il
 // salto): la direzione prudente e' restare dove si era.
 const seasonExhausted = (videos, season, now) => {
-    const usciti = inSeason(videos, season).filter((v) => !isKnownFuture(v, now));
-    return usciti.length > 0 && usciti.every((v) => v.watched === true);
+    const sorted = inSeason(videos, season).sort(byEpisode);
+    // Mai iniziata: non e' "conclusa".
+    if (lastWatchedIndex(sorted) === -1) return false;
+    // Conclusa = dopo l'ultimo visto non c'e' niente di uscito da vedere. Un
+    // buco PRIMA dell'ultimo visto non la tiene aperta (vedi afterLastWatched).
+    // Un episodio senza data DOPO l'ultimo visto la tiene aperta: la
+    // direzione prudente resta non saltare.
+    return !afterLastWatched(sorted).some((v) => !isKnownFuture(v, now) && v.watched !== true);
 };
 
 // La prima stagione DOPO `season` con un episodio uscito e non visto. Non
@@ -133,8 +158,10 @@ const pickFocusVideo = (videosForSeason, selectedVideoId, now = Date.now()) => {
         (selectedVideoId && list.find((v) => v.id === selectedVideoId)) ||
         // 2. Uno lasciato a meta'.
         list.find((v) => typeof v.progress === 'number' && v.progress > 0 && !v.watched) ||
-        // 3. Il primo da vedere (un episodio futuro non e' un punto di ripresa).
-        list.find((v) => !isKnownFuture(v, now) && v.watched !== true) ||
+        // 3. Il primo da vedere DOPO L'ULTIMO VISTO — non il primo non visto
+        //    in assoluto, che con un buco rimandava indietro (vedi
+        //    afterLastWatched). Un episodio futuro non e' un punto di ripresa.
+        afterLastWatched([...list].sort(byEpisode)).find((v) => !isKnownFuture(v, now) && v.watched !== true) ||
         // 4. Stagione tutta vista: l'ultimo, cosi' si atterra in fondo e non
         //    si ricomincia dal pilota.
         [...list].reverse().find((v) => v.watched === true) ||
@@ -190,7 +217,11 @@ const seasonSummary = (videos, now = Date.now()) => {
     const available = list.filter((v) => !isKnownFuture(v, now));
     const watched = available.filter((v) => v.watched === true).length;
     const started = watched > 0 || list.some((v) => typeof v.progress === 'number' && v.progress > 0);
-    const somethingToWatch = list.some((v) => hasAired(v, now) && v.watched !== true);
+    // Da dopo l'ULTIMO visto: un buco prima non tiene la stagione in corso.
+    // Un episodio lasciato a meta' si', dovunque sia.
+    const halfWatched = list.some((v) => typeof v.progress === 'number' && v.progress > 0 && v.watched !== true);
+    const somethingToWatch = halfWatched ||
+        afterLastWatched([...list].sort(byEpisode)).some((v) => hasAired(v, now) && v.watched !== true);
     const unwatchedAvailable = available.length - watched;
     return {
         total: list.length,
