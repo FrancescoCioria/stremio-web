@@ -169,14 +169,13 @@
             min-height: 0;
         }
 
-        /* Gli stream sono ancora un CONTENITORE (un pannello di scelte sopra
-         * lo sfondo): pannello scuro e margine restano loro. */
+        /* Dal 2026-09-21 anche gli stream sono A RIGHE (Tutti / 4K / 1080p /
+         * 720p) come la lista episodi: niente piu' pannello, si stirano e
+         * scorrono dentro. */
         .streams-list {
-            align-self: start;
-            margin: 0 4rem;
-            border-radius: var(--border-radius);
-            background-color: rgba(0, 0, 0, 0.4);
-            backdrop-filter: blur(15px);
+            margin: 0;
+            background: none;
+            backdrop-filter: none;
         }
 
         /* La lista episodi NON e' piu' un contenitore: da quando e' una riga

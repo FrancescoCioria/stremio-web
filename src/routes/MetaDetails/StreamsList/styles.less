@@ -2,6 +2,7 @@
 
 @import (reference) '~@stremio/stremio-colors/less/stremio-colors.less';
 @import (reference) '~stremio/common/screen-sizes.less';
+@import (reference) '~stremio/common/casaSeriesTokens.less';
 
 :import('~stremio/components/Multiselect/styles.less') {
     multiselect-menu-container: menu-container;
@@ -12,6 +13,9 @@
 .streams-list-container {
     display: flex;
     flex-direction: column;
+    /* ⚠️ Senza, un flex item non si restringe sotto il contenuto: lo scroller
+     * delle righe crescerebbe invece di scorrere. */
+    min-height: 0;
 
     .message-container {
         flex: 0 1 auto;
@@ -219,6 +223,89 @@
                         font-weight: 700;
                     }
                 }
+            }
+        }
+    }
+
+    /* Casa, 2026-09-21: la pagina torrent A RIGHE come la pagina serie —
+     * scroller verticale, una riga per qualita' ("Tutti" per prima). Stesse
+     * misure e stessa nav (common/casaRowsNav.js) della lista episodi. */
+    .streams-scroll {
+        /* ⚠️ `* { overflow: hidden }` e' globale nel fork: qui serve lo
+         * scroll verticale esplicito, e le righe dentro devono respirare. */
+        flex: 1;
+        min-height: 0;
+        align-self: stretch;
+        overflow-y: auto;
+        overflow-x: hidden;
+        overflow-anchor: none;
+        padding: 1.5rem 0 16rem 0;
+
+        &::-webkit-scrollbar {
+            display: none;
+        }
+    }
+
+    .stream-row {
+        scroll-margin-top: 1rem;
+        scroll-margin-bottom: 0.25rem;
+        margin-bottom: (26 * @lp);
+
+        .stream-row-header {
+            display: flex;
+            flex-direction: row;
+            align-items: baseline;
+            gap: (16 * @lp);
+            margin-bottom: (18 * @lp);
+            padding: 0 @safe-x;
+
+            .stream-row-title {
+                flex: none;
+                font-size: calc(27 * @tp);
+                font-weight: 700;
+                letter-spacing: calc(-0.3 * @tp);
+                color: @ink-primary;
+            }
+
+            .stream-row-count {
+                flex: none;
+                font-size: calc(15 * @tp);
+                color: @ink-secondary;
+            }
+        }
+
+        .stream-rail {
+            display: flex;
+            flex-direction: row;
+            align-items: flex-start;
+            /* Le card stream sono larghe e scalano al focus: piu' aria della
+             * rail episodi. */
+            gap: 3rem;
+            padding: (14 * @lp) @safe-x (8 * @lp);
+            overflow-x: auto;
+            overflow-y: hidden;
+            /* NIENTE scroll-snap: lo scroll e' guidato via JS
+             * (revealCardInRail). Con scroll-snap il browser ri-aggancia a
+             * ogni focus. */
+            overflow-anchor: none;
+
+            &>* {
+                flex: none;
+            }
+
+            &::-webkit-scrollbar {
+                display: none;
+            }
+
+            /* Vuoto di coda: vedi casaRailNav.js. */
+            &::after {
+                content: '';
+                flex: none;
+                width: var(--casa-rail-trail, 20rem);
+            }
+
+            .stream-wrapper {
+                display: contents;
             }
         }
     }

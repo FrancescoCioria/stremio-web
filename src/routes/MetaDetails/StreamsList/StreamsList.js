@@ -10,13 +10,22 @@ const { useCore } = require('stremio/core');
 const Stream = require('./Stream');
 const useCasaSourceHealth = require('./useCasaSourceHealth');
 const styles = require('./styles');
-const { usePlatform, useProfile } = require('stremio/common');
+const { useProfile } = require('stremio/common');
 const { streamKey, recallStreamKey, rememberStream } = require('stremio/common/lastStream');
 const { default: useRouteFocused } = require('stremio/common/useRouteFocused');
 const { default: SeasonEpisodePicker } = require('../EpisodePicker');
 const torrentRace = require('stremio/common/torrentRace');
 const { decideStreamFocus } = require('stremio/common/streamFocus');
 const qualityBuckets = require('stremio/common/qualityBuckets');
+const { handleRowsKeyDown, heroFirstAction, landOn } = require('stremio/common/casaRowsNav');
+const { revealCardInRail } = require('stremio/common/casaRailNav');
+
+// Casa, 2026-09-21: la pagina torrent e' A RIGHE come la pagina serie — "Tutti"
+// e poi una riga per qualita' (qualityBuckets.displayRows). Selettori per la
+// nav condivisa (common/casaRowsNav.js).
+const ROW = '[data-stream-row]';
+const RAIL = '[data-stream-rail]';
+const CARD = '[data-stream-card]';
 
 const ALL_ADDONS_KEY = 'ALL';
 // Modalita' "Auto": niente lista di torrent da scegliere a mano, ma 3 card
@@ -163,7 +172,6 @@ const RaceProgress = ({ steps }) => {
 const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
     const { t } = useTranslation();
     const core = useCore();
-    const platform = usePlatform();
     const profile = useProfile();
     const routeFocused = useRouteFocused(); // true quando questa lista e' in primo piano (non il player)
     const streamsContainerRef = React.useRef(null);
@@ -181,16 +189,6 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
     const healthRequestedRef = React.useRef(new Set());
     const healthMountedRef = React.useRef(true);
     React.useEffect(() => () => { healthMountedRef.current = false; }, []);
-    const onAddonSelected = React.useCallback((value) => {
-        // In modalita' Auto la streams-container NON e' montata (mostriamo le card
-        // qualita'): senza questo guard lo scrollTo su ref null lanciava e
-        // setSelectedAddon non veniva mai chiamato -> impossibile uscire da Auto.
-        if (streamsContainerRef.current) {
-            streamsContainerRef.current.scrollTo({ top: 0, left: 0, behavior: platform.name === 'ios' ? 'smooth' : 'instant' });
-        }
-        setAutoMessage(null);
-        setSelectedAddon(value);
-    }, [platform]);
     const showInstallAddonsButton = React.useMemo(() => {
         return !profile || profile.auth === null || profile.auth?.user?.isNewUser === true && !video?.upcoming;
     }, [profile, video]);
@@ -366,73 +364,63 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
         });
     }, [props.streams]);
 
-    const selectableOptions = React.useMemo(() => {
-        return {
-            options: [
-                ...(AUTO_MODE_ENABLED ? [{
-                    value: AUTO_KEY,
-                    label: 'Auto',
-                    title: 'Auto'
-                }] : []),
-                {
-                    value: ALL_ADDONS_KEY,
-                    label: t('ALL_ADDONS'),
-                    title: t('ALL_ADDONS')
-                },
-                ...Object.keys(streamsByAddon).map((transportUrl) => ({
-                    value: transportUrl,
-                    label: streamsByAddon[transportUrl].addon.manifest.name,
-                    title: streamsByAddon[transportUrl].addon.manifest.name,
-                }))
-            ],
-            value: selectedAddon,
-            onSelect: onAddonSelected
-        };
-    }, [streamsByAddon, selectedAddon]);
-
     const handleEpisodePicker = React.useCallback((season, episode) => {
         onEpisodeSearch(season, episode);
     }, [onEpisodeSearch]);
 
-    // TV: navigazione orizzontale frecce dentro la lista stream. La spatial
-    // nav di default si basa sulla visibilita' viewport-clipped quindi
-    // arrivati all'ultima card visibile, premere → non passava alla
-    // successiva (off-screen). Qui forziamo il next/prev sibling +
-    // scrollIntoView in modo deterministico, indipendente dal layout.
-    const onStreamsKeyDown = React.useCallback((event) => {
-        if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
-        const target = event.target;
-        // Solo se il focus e' su una card stream (figlio diretto del
-        // container scrollabile o suo discendente). Lascia stare gli
-        // input/textarea o altri elementi che gestiscono le frecce.
-        const tag = target.tagName;
-        if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-        const container = streamsContainerRef.current;
-        if (!container) return;
-        // Trova la card "stream" antenata diretta del container.
-        let card = target;
-        while (card && card.parentElement !== container) card = card.parentElement;
-        if (!card) return;
-        const sibling = event.key === 'ArrowRight'
-            ? card.nextElementSibling
-            : card.previousElementSibling;
-        if (!sibling) return;
-        // Cerca il primo elemento focusable dentro la card sibling.
-        const focusable = sibling.matches('a,button,[tabindex]')
-            ? sibling
-            : sibling.querySelector('a,button,[tabindex]');
-        if (!focusable) return;
-        event.preventDefault();
-        event.stopPropagation();
-        focusable.focus({ preventScroll: false });
-        // Su key-repeat continuo (telecomando) lo smooth scroll accumula
-        // animazioni e fa sentire la nav pesante: instant durante repeat.
-        sibling.scrollIntoView({
-            behavior: event.repeat ? 'auto' : 'smooth',
-            block: 'nearest',
-            inline: 'center',
+    // Righe della pagina: "Tutti" e poi 4K / 1080p / 720p (solo quelle che
+    // hanno torrent). ⚠️ "Tutti" e' LA lista su cui lavora la logica del focus
+    // qui sotto (streamsContainerRef, focusableAt, decideStreamFocus): ritorno
+    // dal player sul torrent che guardavi, tenuta del focus nei riordini. Le
+    // altre righe si aggiungono sotto e non la toccano — decideStreamFocus
+    // con il focus vivo su una di loro risponde 'none' (non si ruba).
+    const streamRows = React.useMemo(() => qualityBuckets.displayRows(filteredStreams), [filteredStreams]);
+    const scrollerRef = React.useRef(null);
+    const lastCardByRowRef = React.useRef(new WeakMap());
+    // L'ultima card che ha avuto il focus: dall'hero si torna li'.
+    const lastListCardRef = React.useRef(null);
+    const onRowsFocus = React.useCallback((e) => {
+        const card = e.target && e.target.closest ? e.target.closest(CARD) : null;
+        if (card) lastListCardRef.current = card;
+    }, []);
+    // Nav da telecomando: la stessa della pagina serie (common/casaRowsNav.js).
+    // Sopra la prima riga c'e' l'hero: ArrowUp ci sale se ha delle azioni (i
+    // film); sulla pagina di un episodio l'hero e' solo informazioni e si resta.
+    const onRowsKeyDown = React.useCallback((e) => {
+        handleRowsKeyDown(e, {
+            root: scrollerRef.current,
+            rowSel: ROW,
+            railSel: RAIL,
+            cardSel: CARD,
+            lastCardByRow: lastCardByRowRef.current,
+            onExitUp: () => {
+                const action = heroFirstAction(scrollerRef.current);
+                if (action) action.focus({ preventScroll: true });
+            },
         });
     }, []);
+    // E dall'hero si torna giu' nella lista (i film: le azioni di MetaPreview
+    // non hanno una nav loro, e senza questo Giu' finirebbe al polyfill). Si
+    // torna sull'ultima card a fuoco, altrimenti sulla prima di "Tutti".
+    React.useEffect(() => {
+        const root = scrollerRef.current;
+        const content = root && root.closest('[class*="metadetails-content"]');
+        if (!content) return;
+        const onHeroKeyDown = (e) => {
+            if (e.key !== 'ArrowDown') return;
+            const ae = document.activeElement;
+            if (!ae || !ae.closest || !ae.closest('[class*="action-buttons-container"], [data-casa-hero-actions]')) return;
+            if (ae.closest('[data-hero-menu]')) return;
+            const remembered = lastListCardRef.current;
+            const card = (remembered && root.contains(remembered)) ? remembered : root.querySelector(CARD);
+            if (!card) return;
+            e.preventDefault();
+            e.stopPropagation();
+            landOn(card, { rowSel: ROW, railSel: RAIL, lastCardByRow: lastCardByRowRef.current });
+        };
+        content.addEventListener('keydown', onHeroKeyDown);
+        return () => content.removeEventListener('keydown', onHeroKeyDown);
+    }, [streamRows.length]);
 
     // Nav frecce ←/→ tra le 3 card qualita' (Auto), stesso pattern deterministico
     // di onStreamsKeyDown (il polyfill spatial-nav a volte non trova la card
@@ -521,21 +509,34 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
             focusIsWanted: ae === target,
         });
 
+        // ⚠️ Le DECISIONI restano quelle di decideStreamFocus; cambia solo COME
+        // si porta la card in vista. Prima era `scrollIntoView({inline:
+        // 'center'})`: CENTRAVA la card a fuoco e con le righe (2026-09-21) la
+        // riga "Tutti" partiva scorsa a meta', prima card tagliata a sinistra,
+        // appena un riordino spostava la card. Ora la regola delle rail della
+        // home (revealCardInRail: in vista solo se serve, la prima a scroll 0).
+        const reveal = (el) => {
+            const card = el && el.closest ? el.closest(CARD) : null;
+            if (card) revealCardInRail(container, card, 0);
+        };
         switch (action) {
             case 'reassert-want':
                 target.focus({ preventScroll: true }); // focus perso da un remount, o conferma
-                if (!focusInList) target.scrollIntoView({ block: 'center' }); // in vista solo se era perso
+                if (!focusInList) reveal(target); // in vista solo se era perso
                 break;
             case 'drop-want':
                 wantStreamKeyRef.current = null; // l'utente si e' spostato altrove -> molla
                 break;
             case 'focus-first': {
                 const el = container.querySelector('[tabindex], a, button');
-                if (el) el.focus();
+                if (el) {
+                    el.focus({ preventScroll: true });
+                    reveal(el);
+                }
                 break;
             }
             case 'keep-in-view':
-                ae.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'auto' }); // tieni in vista nei re-sort
+                reveal(ae); // tieni in vista nei re-sort
                 break;
             default: // 'none': focus fuori dalla lista di proposito, non rubarlo
                 break;
@@ -583,28 +584,6 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
     );
     return (
         <div className={classnames(className, styles['streams-list-container'])}>
-            <div className={styles['select-choices-wrapper']}>
-                {
-                    /* TV: mostra le pills sempre che ci sia almeno un
-                     * addon — coerenza col pattern Android TV (stesse
-                     * pills anche con singolo addon). */
-                    Object.keys(streamsByAddon).length >= 1 ?
-                        <div className={styles['addon-pills']}>
-                            {selectableOptions.options.map((opt) => (
-                                <Button
-                                    key={opt.value}
-                                    className={classnames(styles['addon-pill'], { [styles['selected']]: opt.value === selectedAddon })}
-                                    onClick={() => onAddonSelected(opt.value)}
-                                    onFocus={() => onAddonSelected(opt.value)}
-                                >
-                                    <div className={styles['label']}>{opt.label}</div>
-                                </Button>
-                            ))}
-                        </div>
-                        :
-                        null
-                }
-            </div>
             {
                 autoMessage ?
                     <div className={styles['auto-message']}>{autoMessage}</div>
@@ -671,41 +650,62 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
                                 </div>
                                 :
                                 <React.Fragment>
-                                    <div className={styles['streams-container']} ref={streamsContainerRef} onKeyDown={onStreamsKeyDown}>
-                                        {filteredStreams.map((stream, index) => (
-                                            <Stream
-                                            /* key STABILE per identita' del torrent (non l'indice):
-                                             * la lista si ri-ordina async coi verdetti salute -> con
-                                             * key=index React legherebbe il focus alla posizione e al
-                                             * ritorno dal player il focus finiva sul torrent sbagliato.
-                                             * Con key stabile React sposta il nodo col suo dato e il
-                                             * focus segue il torrent giusto. */
-                                                key={[stream.infoHash || stream.url || stream.name || index, stream.fileIdx, stream.addonName].join('|')}
-                                                videoId={video?.id}
-                                                videoReleased={video?.released}
-                                                addonName={stream.addonName}
-                                                quality={stream.quality}
-                                                name={stream.name}
-                                                description={stream.description}
-                                                thumbnail={stream.thumbnail}
-                                                progress={stream.progress}
-                                                deepLinks={stream.deepLinks}
-                                                incompatible={stream.incompatible}
-                                                health={stream.health}
-                                                healthChecking={stream.healthChecking}
-                                                packByName={stream.packByName}
-                                                onClick={stream.onClick}
-                                            />
+                                    <div className={styles['streams-scroll']} ref={scrollerRef} onKeyDown={onRowsKeyDown} onFocus={onRowsFocus}>
+                                        {streamRows.map((row) => (
+                                            <div key={row.key} className={styles['stream-row']} data-stream-row={row.key}>
+                                                <div className={styles['stream-row-header']}>
+                                                    <div className={styles['stream-row-title']}>{row.label}</div>
+                                                    <div className={styles['stream-row-count']}>{row.streams.length === 1 ? '1 torrent' : `${row.streams.length} torrent`}</div>
+                                                </div>
+                                                <div
+                                                    className={styles['stream-rail']}
+                                                    data-stream-rail={row.key}
+                                                    ref={row.key === 'all' ? streamsContainerRef : undefined}
+                                                >
+                                                    {row.streams.map((stream, index) => (
+                                                        // Il wrapper porta l'attributo per la nav; display:
+                                                        // contents lo toglie dal layout (vedi boxOf).
+                                                        <div
+                                                            key={[stream.infoHash || stream.url || stream.name || index, stream.fileIdx, stream.addonName].join('|')}
+                                                            className={styles['stream-wrapper']}
+                                                            data-stream-card={''}
+                                                        >
+                                                            <Stream
+                                                                /* key STABILE per identita' del torrent (non l'indice):
+                                                                 * la lista si ri-ordina async coi verdetti salute -> con
+                                                                 * key=index React legherebbe il focus alla posizione e al
+                                                                 * ritorno dal player il focus finiva sul torrent sbagliato.
+                                                                 * Con key stabile React sposta il nodo col suo dato e il
+                                                                 * focus segue il torrent giusto. */
+                                                                videoId={video?.id}
+                                                                videoReleased={video?.released}
+                                                                addonName={stream.addonName}
+                                                                quality={stream.quality}
+                                                                name={stream.name}
+                                                                description={stream.description}
+                                                                thumbnail={stream.thumbnail}
+                                                                progress={stream.progress}
+                                                                deepLinks={stream.deepLinks}
+                                                                incompatible={stream.incompatible}
+                                                                health={stream.health}
+                                                                healthChecking={stream.healthChecking}
+                                                                packByName={stream.packByName}
+                                                                onClick={stream.onClick}
+                                                            />
+                                                        </div>
+                                                    ))}
+                                                    {
+                                                        row.key === 'all' && showInstallAddonsButton ?
+                                                            <Button className={styles['install-button-container']} title={t('ADDON_CATALOGUE_MORE')} href={'#/addons'}>
+                                                                <Icon className={styles['icon']} name={'addons'} />
+                                                                <div className={styles['label']}>{t('ADDON_CATALOGUE_MORE')}</div>
+                                                            </Button>
+                                                            :
+                                                            null
+                                                    }
+                                                </div>
+                                            </div>
                                         ))}
-                                        {
-                                            showInstallAddonsButton ?
-                                                <Button className={styles['install-button-container']} title={t('ADDON_CATALOGUE_MORE')} href={'#/addons'}>
-                                                    <Icon className={styles['icon']} name={'addons'} />
-                                                    <div className={styles['label']}>{t('ADDON_CATALOGUE_MORE')}</div>
-                                                </Button>
-                                                :
-                                                null
-                                        }
                                     </div>
                                     {
                                         countLoadingAddons > 0 ?

@@ -43,7 +43,7 @@ const formatDate = (d) => d.toLocaleDateString('it-IT', { day: 'numeric', month:
 // polyfill porta il focus dove capita (stessa regola delle rail).
 const ACTION_SELECTOR = '[data-hero-action]';
 
-const SeriesHero = ({ className, name, logo, genres, seasonCount, episode, episodeRuntime, seriesDescription, imdbRating, featured, featuredRuntime, featuredSeasonWatched, trailerHref, inLibrary, onAddToLibrary, onRemoveFromLibrary, showNotifications, notificationsEnabled, onToggleNotifications, ratingInfo, onMarkSeasonWatched, autoFocus }) => {
+const SeriesHero = ({ className, name, logo, genres, seasonCount, episode, episodeRuntime, seriesDescription, imdbRating, featured, featuredRuntime, featuredSeasonWatched, trailerHref, inLibrary, onAddToLibrary, onRemoveFromLibrary, showNotifications, notificationsEnabled, onToggleNotifications, ratingInfo, onMarkSeasonWatched, autoFocus, infoOnly }) => {
     const navigate = useNavigate();
     const { onLiked, onLoved, liked, loved } = useRating(ratingInfo);
     const loveDisabled = ratingInfo?.type !== 'Ready';
@@ -219,106 +219,110 @@ const SeriesHero = ({ className, name, logo, genres, seasonCount, episode, episo
             </div>
             {/* Sempre presente, con l'altezza di tre righe: vedi styles. */}
             <p className={styles['summary']}>{typeof summary === 'string' ? summary : ''}</p>
-            <div ref={actionsRef} className={styles['actions']} onKeyDown={onActionsKeyDown} data-casa-hero-actions={''}>
-                {
-                    action !== null ?
-                        <div className={styles['primary-wrap']}>
-                            <Button ref={primaryRef} className={styles['primary']} title={action.label} onClick={onPlay} data-hero-action={''}>
-                                <span className={styles['play-glyph']} />
-                                <span className={styles['primary-labels']}>
-                                    <span className={styles['primary-label']}>{action.label}</span>
-                                    <span className={styles['primary-sublabel']}>{action.sublabel}</span>
-                                </span>
+            {/* Pagina torrent di un episodio: l'hero e' SOLO informazioni. Li'
+                si sceglie un torrent: Riprendi, libreria e il resto erano gia'
+                nascosti (hideActions) prima dell'hero nuovo. */}
+            {infoOnly ? null :
+                <div ref={actionsRef} className={styles['actions']} onKeyDown={onActionsKeyDown} data-casa-hero-actions={''}>
+                    {
+                        action !== null ?
+                            <div className={styles['primary-wrap']}>
+                                <Button ref={primaryRef} className={styles['primary']} title={action.label} onClick={onPlay} data-hero-action={''}>
+                                    <span className={styles['play-glyph']} />
+                                    <span className={styles['primary-labels']}>
+                                        <span className={styles['primary-label']}>{action.label}</span>
+                                        <span className={styles['primary-sublabel']}>{action.sublabel}</span>
+                                    </span>
+                                </Button>
+                                {
+                                    action.progress !== null ?
+                                        <div className={styles['primary-progress']}>
+                                            <div className={styles['primary-progress-fill']} style={{ width: `${action.progress}%` }} />
+                                        </div>
+                                        :
+                                        null
+                                }
+                            </div>
+                            :
+                            null
+                    }
+                    <div className={styles['secondary']}>
+                        {
+                            typeof trailerHref === 'string' ?
+                                <Button className={styles['pill']} title={'Trailer'} href={trailerHref} data-hero-action={''}>
+                                    <Icon className={styles['pill-icon']} name={'trailer'} />
+                                    Trailer
+                                </Button>
+                                :
+                                null
+                        }
+                        <Button className={classnames(styles['pill'], { [styles['on']]: inLibrary })} title={inLibrary ? 'In libreria' : 'Aggiungi alla libreria'} onClick={onLibrary} data-hero-action={''}>
+                            <Icon className={styles['pill-icon']} name={inLibrary ? 'checkmark' : 'add'} />
+                            {inLibrary ? 'In libreria' : 'Aggiungi'}
+                        </Button>
+                        {
+                            showNotifications ?
+                                <Button className={classnames(styles['pill'], { [styles['on']]: notificationsEnabled })} title={'Notifiche nuovi episodi'} onClick={onToggleNotifications} data-hero-action={''}>
+                                    <span className={classnames(styles['notif-dot'], { [styles['on']]: notificationsEnabled })} />
+                                    Notifiche
+                                </Button>
+                                :
+                                null
+                        }
+                        {/* 👍 e ♡ nella riga delle azioni, a destra (richiesta dell'utente,
+                        come proponeva l'handoff per il ♡): prima stavano in un gruppo
+                        a parte sotto la riga, che il telecomando non raggiungeva. */}
+                        <Button className={classnames(styles['icon-button'], { [styles['on']]: liked })} title={liked ? 'Non mi piace piu\'' : 'Mi piace'} onClick={loveDisabled ? null : onLiked} data-hero-action={''}>
+                            <Icon className={styles['icon']} name={liked ? 'thumbs-up' : 'thumbs-up-outline'} />
+                        </Button>
+                        <Button className={classnames(styles['icon-button'], { [styles['on']]: loved })} title={loved ? 'Non lo amo piu\'' : 'Lo amo'} onClick={loveDisabled ? null : onLoved} data-hero-action={''}>
+                            <Icon className={styles['icon']} name={loved ? 'heart' : 'heart-outline'} />
+                        </Button>
+                        <div className={styles['more-wrap']}>
+                            <Button ref={moreRef} className={styles['icon-button']} title={'Altro'} onClick={() => openMenu('list')} data-hero-action={''}>
+                                <Icon className={styles['icon']} name={'more-horizontal'} />
                             </Button>
                             {
-                                action.progress !== null ?
-                                    <div className={styles['primary-progress']}>
-                                        <div className={styles['primary-progress-fill']} style={{ width: `${action.progress}%` }} />
+                                menu !== null ?
+                                    <div ref={menuRef} className={styles['menu']} onKeyDown={onMenuKeyDown} data-hero-menu={''}>
+                                        {
+                                            menu === 'list' ?
+                                                <React.Fragment>
+                                                    {
+                                                        typeof onMarkSeasonWatched === 'function' ?
+                                                            <Button className={styles['menu-item']} onClick={() => { onMarkSeasonWatched(); closeMenu(); }}>
+                                                                {featuredSeasonWatched ? 'Togli il visto dalla stagione' : 'Segna la stagione come vista'}
+                                                            </Button>
+                                                            :
+                                                            null
+                                                    }
+                                                    {
+                                                        inLibrary ?
+                                                            <Button className={classnames(styles['menu-item'], styles['danger'])} onClick={() => setMenu('confirm-remove')}>
+                                                                Rimuovi dalla libreria
+                                                            </Button>
+                                                            :
+                                                            null
+                                                    }
+                                                </React.Fragment>
+                                                :
+                                                <React.Fragment>
+                                                    <div className={styles['menu-question']}>Rimuovere dalla libreria?</div>
+                                                    <Button className={styles['menu-item']} data-menu-default={''} onClick={() => closeMenu()}>
+                                                        Annulla
+                                                    </Button>
+                                                    <Button className={classnames(styles['menu-item'], styles['danger'])} onClick={() => { if (typeof onRemoveFromLibrary === 'function') onRemoveFromLibrary(); closeMenu(); }}>
+                                                        Rimuovi
+                                                    </Button>
+                                                </React.Fragment>
+                                        }
                                     </div>
                                     :
                                     null
                             }
                         </div>
-                        :
-                        null
-                }
-                <div className={styles['secondary']}>
-                    {
-                        typeof trailerHref === 'string' ?
-                            <Button className={styles['pill']} title={'Trailer'} href={trailerHref} data-hero-action={''}>
-                                <Icon className={styles['pill-icon']} name={'trailer'} />
-                                Trailer
-                            </Button>
-                            :
-                            null
-                    }
-                    <Button className={classnames(styles['pill'], { [styles['on']]: inLibrary })} title={inLibrary ? 'In libreria' : 'Aggiungi alla libreria'} onClick={onLibrary} data-hero-action={''}>
-                        <Icon className={styles['pill-icon']} name={inLibrary ? 'checkmark' : 'add'} />
-                        {inLibrary ? 'In libreria' : 'Aggiungi'}
-                    </Button>
-                    {
-                        showNotifications ?
-                            <Button className={classnames(styles['pill'], { [styles['on']]: notificationsEnabled })} title={'Notifiche nuovi episodi'} onClick={onToggleNotifications} data-hero-action={''}>
-                                <span className={classnames(styles['notif-dot'], { [styles['on']]: notificationsEnabled })} />
-                                Notifiche
-                            </Button>
-                            :
-                            null
-                    }
-                    {/* 👍 e ♡ nella riga delle azioni, a destra (richiesta dell'utente,
-                        come proponeva l'handoff per il ♡): prima stavano in un gruppo
-                        a parte sotto la riga, che il telecomando non raggiungeva. */}
-                    <Button className={classnames(styles['icon-button'], { [styles['on']]: liked })} title={liked ? 'Non mi piace piu\'' : 'Mi piace'} onClick={loveDisabled ? null : onLiked} data-hero-action={''}>
-                        <Icon className={styles['icon']} name={liked ? 'thumbs-up' : 'thumbs-up-outline'} />
-                    </Button>
-                    <Button className={classnames(styles['icon-button'], { [styles['on']]: loved })} title={loved ? 'Non lo amo piu\'' : 'Lo amo'} onClick={loveDisabled ? null : onLoved} data-hero-action={''}>
-                        <Icon className={styles['icon']} name={loved ? 'heart' : 'heart-outline'} />
-                    </Button>
-                    <div className={styles['more-wrap']}>
-                        <Button ref={moreRef} className={styles['icon-button']} title={'Altro'} onClick={() => openMenu('list')} data-hero-action={''}>
-                            <Icon className={styles['icon']} name={'more-horizontal'} />
-                        </Button>
-                        {
-                            menu !== null ?
-                                <div ref={menuRef} className={styles['menu']} onKeyDown={onMenuKeyDown} data-hero-menu={''}>
-                                    {
-                                        menu === 'list' ?
-                                            <React.Fragment>
-                                                {
-                                                    typeof onMarkSeasonWatched === 'function' ?
-                                                        <Button className={styles['menu-item']} onClick={() => { onMarkSeasonWatched(); closeMenu(); }}>
-                                                            {featuredSeasonWatched ? 'Togli il visto dalla stagione' : 'Segna la stagione come vista'}
-                                                        </Button>
-                                                        :
-                                                        null
-                                                }
-                                                {
-                                                    inLibrary ?
-                                                        <Button className={classnames(styles['menu-item'], styles['danger'])} onClick={() => setMenu('confirm-remove')}>
-                                                            Rimuovi dalla libreria
-                                                        </Button>
-                                                        :
-                                                        null
-                                                }
-                                            </React.Fragment>
-                                            :
-                                            <React.Fragment>
-                                                <div className={styles['menu-question']}>Rimuovere dalla libreria?</div>
-                                                <Button className={styles['menu-item']} data-menu-default={''} onClick={() => closeMenu()}>
-                                                    Annulla
-                                                </Button>
-                                                <Button className={classnames(styles['menu-item'], styles['danger'])} onClick={() => { if (typeof onRemoveFromLibrary === 'function') onRemoveFromLibrary(); closeMenu(); }}>
-                                                    Rimuovi
-                                                </Button>
-                                            </React.Fragment>
-                                    }
-                                </div>
-                                :
-                                null
-                        }
                     </div>
-                </div>
-            </div>
+                </div>}
         </div>
     );
 };
@@ -346,6 +350,7 @@ SeriesHero.propTypes = {
     ratingInfo: PropTypes.object,
     onMarkSeasonWatched: PropTypes.func,
     autoFocus: PropTypes.bool,
+    infoOnly: PropTypes.bool,
 };
 
 module.exports = SeriesHero;

@@ -76,6 +76,9 @@ const MetaDetails = () => {
     // pagina stream e pannello del player restano com'erano.
     const metaReady = metaDetails.metaItem !== null && metaDetails.metaItem.content.type === 'Ready' ? metaDetails.metaItem.content.content : null;
     const isSeriesView = type === 'series' && streamPath === null && metaReady !== null;
+    // La pagina torrent di un EPISODIO: stesso hero (solo informazioni,
+    // sull'episodio scelto) e stesso sfondo della pagina serie.
+    const isSeriesStreams = type === 'series' && streamPath !== null && metaReady !== null;
     // L'episodio "in evidenza" lo decide VideosList (pickFocusVideo): e' quello
     // che Riprendi fa partire, e quello che l'hero descrive quando il focus
     // non e' su una card.
@@ -237,7 +240,7 @@ const MetaDetails = () => {
     return (
         <div className={styles['metadetails-container']}>
             {
-                renderBackground && isSeriesView ?
+                renderBackground && (isSeriesView || isSeriesStreams) ?
                     // Handoff: sfondo PIENO (non piu' al 30%) + due scrim. ⚠️ Gli
                     // scrim sono portanti: sono loro a garantire >=4.5:1 al testo
                     // a sinistra e alla lista in basso su QUALSIASI foto. Non si
@@ -312,82 +315,104 @@ const MetaDetails = () => {
                                 metaDetails.metaItem.content.type === 'Loading' ?
                                     <MetaPreview.Placeholder className={styles['meta-preview']} />
                                     :
-                                    isSeriesView ?
+                                    isSeriesStreams ?
+                                        // ⚠️ `key` diversa dalla vista episodi: stesso componente
+                                        // nella stessa posizione, React riusava l'ISTANZA passando
+                                        // dagli stream agli episodi, e l'hero si ricordava di aver
+                                        // gia' dato il focus iniziale — pagina senza niente a
+                                        // fuoco, telecomando inerte. Due viste, due istanze.
                                         <SeriesHero
+                                            key={'series-hero-streams'}
                                             className={classnames(styles['series-hero'], 'animation-fade-in')}
                                             name={metaReady.name}
                                             logo={metaReady.logo}
                                             genres={seriesInfo.genres}
                                             seasonCount={seriesInfo.seasonCount}
-                                            episode={heroVideo}
-                                            episodeRuntime={heroRuntime}
+                                            episode={video}
+                                            episodeRuntime={previewVideoRuntime}
                                             seriesDescription={metaReady.description}
                                             imdbRating={letterboxd.imdb}
-                                            featured={featuredVideo}
-                                            featuredRuntime={featuredRuntime}
-                                            featuredSeasonWatched={featuredSeasonWatched}
-                                            trailerHref={seriesInfo.trailer}
-                                            inLibrary={!!metaReady.inLibrary}
-                                            onAddToLibrary={addToLibrary}
-                                            onRemoveFromLibrary={removeFromLibrary}
-                                            showNotifications={!!metaReady.inLibrary && !!metaReady.videos?.length}
-                                            notificationsEnabled={!metaDetails.libraryItem?.state?.noNotif}
-                                            onToggleNotifications={metaDetails.libraryItem ? toggleNotifications : null}
-                                            ratingInfo={metaDetails.ratingInfo}
-                                            onMarkSeasonWatched={markFeaturedSeasonWatched}
-                                            // Il RITORNO dagli stream (stagione nell'URL) tiene
-                                            // il focus nella lista: li' si era scelto un episodio.
-                                            autoFocus={typeof season !== 'number'}
+                                            featured={null}
+                                            infoOnly={true}
                                         />
                                         :
-                                        <React.Fragment>
-                                            <MetaPreview
-                                                className={classnames(styles['meta-preview'], 'animation-fade-in')}
-                                                name={metaDetails.metaItem.content.content.name}
-                                                logo={metaDetails.metaItem.content.content.logo}
-                                                runtime={metaDetails.metaItem.content.content.runtime}
-                                                releaseInfo={metaDetails.metaItem.content.content.releaseInfo}
-                                                released={
-                                                    previewVideo?.released instanceof Date && !isNaN(previewVideo.released.getTime())
-                                                        ? previewVideo.released
-                                                        : metaDetails.metaItem.content.content.released
-                                                }
-                                                description={
-                                                    previewVideo && typeof previewVideo.overview === 'string' && previewVideo.overview.length > 0
-                                                        ? previewVideo.overview
-                                                        : metaDetails.metaItem.content.content.description
-                                                }
-                                                showNotificationsToggle={
-                                                    !!metaDetails.metaItem.content.content.inLibrary &&
-                                                !!metaDetails.metaItem.content.content.videos?.length
-                                                }
-                                                notificationsEnabled={!metaDetails.libraryItem?.state?.noNotif}
-                                                toggleNotifications={metaDetails.libraryItem ? toggleNotifications : null}
-                                                focusedEpisode={previewVideo}
-                                                focusedEpisodeRuntime={previewVideoRuntime}
-                                                movieDigitalReleaseLabel={movieDigitalReleaseLabel}
-                                                typeLabel={typeLabel}
-                                                letterboxdRating={letterboxd.rating10}
-                                                letterboxdSlug={letterboxd.slug}
+                                        isSeriesView ?
+                                            <SeriesHero
+                                                key={'series-hero-episodes'}
+                                                className={classnames(styles['series-hero'], 'animation-fade-in')}
+                                                name={metaReady.name}
+                                                logo={metaReady.logo}
+                                                genres={seriesInfo.genres}
+                                                seasonCount={seriesInfo.seasonCount}
+                                                episode={heroVideo}
+                                                episodeRuntime={heroRuntime}
+                                                seriesDescription={metaReady.description}
                                                 imdbRating={letterboxd.imdb}
-                                                rtScore={letterboxd.rt}
-                                                /* Per i FILM la pagina streams e' anche la pagina
+                                                featured={featuredVideo}
+                                                featuredRuntime={featuredRuntime}
+                                                featuredSeasonWatched={featuredSeasonWatched}
+                                                trailerHref={seriesInfo.trailer}
+                                                inLibrary={!!metaReady.inLibrary}
+                                                onAddToLibrary={addToLibrary}
+                                                onRemoveFromLibrary={removeFromLibrary}
+                                                showNotifications={!!metaReady.inLibrary && !!metaReady.videos?.length}
+                                                notificationsEnabled={!metaDetails.libraryItem?.state?.noNotif}
+                                                onToggleNotifications={metaDetails.libraryItem ? toggleNotifications : null}
+                                                ratingInfo={metaDetails.ratingInfo}
+                                                onMarkSeasonWatched={markFeaturedSeasonWatched}
+                                                // Il RITORNO dagli stream (stagione nell'URL) tiene
+                                                // il focus nella lista: li' si era scelto un episodio.
+                                                autoFocus={typeof season !== 'number'}
+                                            />
+                                            :
+                                            <React.Fragment>
+                                                <MetaPreview
+                                                    className={classnames(styles['meta-preview'], 'animation-fade-in')}
+                                                    name={metaDetails.metaItem.content.content.name}
+                                                    logo={metaDetails.metaItem.content.content.logo}
+                                                    runtime={metaDetails.metaItem.content.content.runtime}
+                                                    releaseInfo={metaDetails.metaItem.content.content.releaseInfo}
+                                                    released={
+                                                        previewVideo?.released instanceof Date && !isNaN(previewVideo.released.getTime())
+                                                            ? previewVideo.released
+                                                            : metaDetails.metaItem.content.content.released
+                                                    }
+                                                    description={
+                                                        previewVideo && typeof previewVideo.overview === 'string' && previewVideo.overview.length > 0
+                                                            ? previewVideo.overview
+                                                            : metaDetails.metaItem.content.content.description
+                                                    }
+                                                    showNotificationsToggle={
+                                                        !!metaDetails.metaItem.content.content.inLibrary &&
+                                                !!metaDetails.metaItem.content.content.videos?.length
+                                                    }
+                                                    notificationsEnabled={!metaDetails.libraryItem?.state?.noNotif}
+                                                    toggleNotifications={metaDetails.libraryItem ? toggleNotifications : null}
+                                                    focusedEpisode={previewVideo}
+                                                    focusedEpisodeRuntime={previewVideoRuntime}
+                                                    movieDigitalReleaseLabel={movieDigitalReleaseLabel}
+                                                    typeLabel={typeLabel}
+                                                    letterboxdRating={letterboxd.rating10}
+                                                    letterboxdSlug={letterboxd.slug}
+                                                    imdbRating={letterboxd.imdb}
+                                                    rtScore={letterboxd.rt}
+                                                    /* Per i FILM la pagina streams e' anche la pagina
                                              * di dettaglio (non c'e' episode list prima), quindi
                                              * manteniamo visibili Trailer/Add to Lib/Mark as
                                              * watched. Per le SERIE in streams mode nascondiamo
                                              * perche' l'utente ha gia' scelto l'episodio. */
-                                                hideActions={streamPath !== null && streamPath.type !== 'movie'}
-                                                showWatchedToggle={metaDetails.metaItem.content.content.type === 'movie'}
-                                                links={metaDetails.metaItem.content.content.links}
-                                                trailerStreams={metaDetails.metaItem.content.content.trailerStreams}
-                                                inLibrary={metaDetails.metaItem.content.content.inLibrary}
-                                                toggleInLibrary={metaDetails.metaItem.content.content.inLibrary ? removeFromLibrary : addToLibrary}
-                                                watched={metaDetails.metaItem.content.content.watched}
-                                                toggleWatched={toggleWatched}
-                                                metaId={metaDetails.metaItem.content.content.id}
-                                                ratingInfo={metaDetails.ratingInfo}
-                                            />
-                                        </React.Fragment>
+                                                    hideActions={streamPath !== null && streamPath.type !== 'movie'}
+                                                    showWatchedToggle={metaDetails.metaItem.content.content.type === 'movie'}
+                                                    links={metaDetails.metaItem.content.content.links}
+                                                    trailerStreams={metaDetails.metaItem.content.content.trailerStreams}
+                                                    inLibrary={metaDetails.metaItem.content.content.inLibrary}
+                                                    toggleInLibrary={metaDetails.metaItem.content.content.inLibrary ? removeFromLibrary : addToLibrary}
+                                                    watched={metaDetails.metaItem.content.content.watched}
+                                                    toggleWatched={toggleWatched}
+                                                    metaId={metaDetails.metaItem.content.content.id}
+                                                    ratingInfo={metaDetails.ratingInfo}
+                                                />
+                                            </React.Fragment>
                 }
                 <div className={styles['spacing']} />
                 {

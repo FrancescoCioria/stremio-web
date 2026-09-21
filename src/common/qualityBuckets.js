@@ -101,7 +101,31 @@ const formatAvgSize = (bytes) => {
     return '~' + Math.round(mb) + ' MB';
 };
 
+// Casa, 2026-09-21: le RIGHE della pagina torrent (handoff della pagina serie
+// esteso ai torrent, scelta dell'utente): "Tutti" e poi una riga per qualita',
+// solo quelle che hanno torrent. Ogni riga nell'ordine che la lista ha gia'
+// (byPriority di StreamsList: salute, poi risoluzione, poi seeder).
+// ⚠️ Una qualita' SCONOSCIUTA (altezza 0) sta solo in "Tutti": qui non si
+// indovina come fa heightToBucket per la race (li' serve a non perdere un
+// candidato, qui metterlo nella riga 1080p sarebbe una dichiarazione falsa).
+// ⚠️ "720p" raccoglie anche 480p e sotto: e' "la riga delle basse".
+const DISPLAY_ROWS = [
+    { key: '4k', label: BUCKET_LABEL[BUCKET_4K], test: (h) => h >= 2160 },
+    { key: '1080p', label: BUCKET_LABEL[BUCKET_1080], test: (h) => h >= 1080 && h < 2160 },
+    { key: '720p', label: BUCKET_LABEL[BUCKET_720], test: (h) => h > 0 && h < 1080 },
+];
+const displayRows = (streams) => {
+    const list = Array.isArray(streams) ? streams : [];
+    const rows = [{ key: 'all', label: 'Tutti', streams: list }];
+    for (const r of DISPLAY_ROWS) {
+        const inRow = list.filter((s) => r.test(Number(s && s.height) || 0));
+        if (inRow.length > 0) rows.push({ key: r.key, label: r.label, streams: inRow });
+    }
+    return rows;
+};
+
 module.exports = {
+    displayRows,
     BUCKET_4K, BUCKET_1080, BUCKET_720, BUCKET_ORDER, BUCKET_LABEL,
     heightToBucket, parseSizeBytes, isGoodForAuto, avgBytes, computeBuckets, formatAvgSize
 };
