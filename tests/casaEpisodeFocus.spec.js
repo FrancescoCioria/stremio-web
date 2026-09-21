@@ -373,3 +373,22 @@ describe('compareSeasons', () => {
         expect([1, 0, 3, 2, 6].sort(compareSeasons)).toEqual([6, 3, 2, 1, 0]);
     });
 });
+
+describe('airedSeasonCount', () => {
+    const { airedSeasonCount } = require('../src/common/casaEpisodeFocus');
+    it('Silo: S4 solo annunciata (date nel futuro) -> 3 stagioni, non 4', () => {
+        const videos = [ep(1, 1), ep(2, 1), ep(3, 1), ep(4, 1, { daysAgo: -300 }), ep(4, 2, { daysAgo: -293 })];
+        expect(airedSeasonCount(videos, NOW)).toBe(3);
+    });
+    it('segnaposto SENZA data in una stagione nuova (Foundation S4) -> non conta', () => {
+        const videos = [ep(1, 1), ep(2, 1), ep(3, 1), { id: 'x:4:1', season: 4, episode: 1, released: null, upcoming: false }];
+        expect(airedSeasonCount(videos, NOW)).toBe(3);
+    });
+    it('serie vecchia senza nessuna data -> conta le stagioni (non "0 stagioni")', () => {
+        const noDate = (s) => ({ id: `x:${s}:1`, season: s, episode: 1, released: null, upcoming: false });
+        expect(airedSeasonCount([noDate(1), noDate(2)], NOW)).toBe(2);
+    });
+    it('gli Extra non contano', () => {
+        expect(airedSeasonCount([ep(0, 1), ep(1, 1)], NOW)).toBe(1);
+    });
+});

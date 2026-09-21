@@ -263,4 +263,17 @@ const compareSeasons = (a, b) => {
     return b - a;
 };
 
-module.exports = { pickSeason, pickFocusVideo, holdSeason, seasonSummary, seasonCountLabel, compareSeasons, isKnownFuture };
+// "SERIE TV · N STAGIONI" nell'hero: le stagioni USCITE, non quelle elencate.
+// Silo al 21/09/2026 ne elenca 4 ma la S4 e' solo annunciata (date del 2027):
+// scriverne 4 era falso (segnalato dall'utente). Serve la PROVA che una
+// stagione sia uscita (un episodio con data vera nel passato); se nessuna ce
+// l'ha — serie vecchie senza date — si ripiega sul conteggio di quelle non
+// future, altrimenti direbbe "0 stagioni". Gli Extra (0) non contano.
+const airedSeasonCount = (videos, now = Date.now()) => {
+    const list = (videos || []).filter((v) => v && typeof v.season === 'number' && v.season > 0);
+    const aired = new Set(list.filter((v) => hasAired(v, now)).map((v) => v.season));
+    if (aired.size > 0) return aired.size;
+    return new Set(list.filter((v) => !isKnownFuture(v, now)).map((v) => v.season)).size;
+};
+
+module.exports = { pickSeason, pickFocusVideo, holdSeason, seasonSummary, seasonCountLabel, compareSeasons, isKnownFuture, airedSeasonCount };

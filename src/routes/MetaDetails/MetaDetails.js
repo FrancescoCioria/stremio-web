@@ -18,6 +18,7 @@ const VideosList = require('./VideosList');
 const useMetaDetails = require('./useMetaDetails');
 const useSeason = require('./useSeason');
 const SeriesHero = require('./SeriesHero');
+const { airedSeasonCount } = require('stremio/common/casaEpisodeFocus');
 const useMetaExtensionTabs = require('./useMetaExtensionTabs');
 const styles = require('./styles');
 
@@ -98,7 +99,8 @@ const MetaDetails = () => {
     const seriesInfo = React.useMemo(() => {
         if (!metaReady) return null;
         const videos = Array.isArray(metaReady.videos) ? metaReady.videos : [];
-        const seasonCount = new Set(videos.map((v) => v.season).filter((s) => typeof s === 'number' && s > 0)).size;
+        // Le stagioni USCITE, non quelle elencate (Silo: la S4 e' solo annunciata).
+        const seasonCount = airedSeasonCount(videos);
         // Il core trasforma i generi di Cinemeta in `links` di categoria Genres.
         const genres = (metaReady.links || []).filter((l) => l && l.category === 'Genres').map((l) => l.name);
         const trailer = Array.isArray(metaReady.trailerStreams) && metaReady.trailerStreams.length > 0 ?
