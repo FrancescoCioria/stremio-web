@@ -245,7 +245,18 @@ const VideosList = ({ className, metaItem, libraryItem, season, selectedVideoId,
     // perdere di vista l'unica vicina sarebbe perdere meta' della pagina.
     const revealRow = (row, behavior) => {
         if (!row) return;
-        row.scrollIntoView({ behavior, block: row.nextElementSibling ? 'start' : 'end' });
+        // ⚠️ "C'e' una riga dopo" si chiede a una RIGA, non a un fratello
+        // qualsiasi: il giorno che nello scroller entrasse un footer o un
+        // messaggio, l'ultima stagione prenderebbe 'start' in silenzio e
+        // tornerebbe proprio il difetto che questa regola ripara.
+        const next = row.nextElementSibling;
+        const isLast = !(next && next.matches('[data-season-row]'));
+        // ⚠️ Una riga piu' alta dello scroller (finestra bassa: la web app sul
+        // Mac rimpicciolita) con 'end' avrebbe il TITOLO tagliato sopra.
+        // Meglio perdere la vicina che il nome della stagione.
+        const scroller = row.parentElement;
+        const fits = !scroller || row.offsetHeight <= scroller.clientHeight;
+        row.scrollIntoView({ behavior, block: isLast && fits ? 'end' : 'start' });
     };
 
     // Memoria dell'ultima card per riga: passando da riga A card 5 a riga B e
