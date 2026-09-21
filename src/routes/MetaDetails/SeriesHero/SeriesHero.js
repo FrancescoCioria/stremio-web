@@ -32,6 +32,7 @@ const { default: Icon } = require('@stremio/stremio-icons/react');
 const { Button, Image } = require('stremio/components');
 const { default: useRating } = require('stremio/components/MetaPreview/Ratings/useRating');
 const { resumeAction, resumeHref } = require('stremio/common/casaResume');
+const LetterboxdMark = require('stremio/common/LetterboxdMark');
 const styles = require('./styles');
 
 const code = (v) => `S${String(v.season).padStart(2, '0')}E${String(v.episode).padStart(2, '0')}`;
@@ -43,7 +44,12 @@ const formatDate = (d) => d.toLocaleDateString('it-IT', { day: 'numeric', month:
 // polyfill porta il focus dove capita (stessa regola delle rail).
 const ACTION_SELECTOR = '[data-hero-action]';
 
-const SeriesHero = ({ className, name, logo, genres, seasonCount, episode, episodeRuntime, seriesDescription, imdbRating, featured, featuredRuntime, featuredSeasonWatched, trailerHref, inLibrary, onAddToLibrary, onRemoveFromLibrary, showNotifications, notificationsEnabled, onToggleNotifications, ratingInfo, onMarkSeasonWatched, autoFocus, infoOnly }) => {
+const SeriesHero = ({ className, name, logo, genres, seasonCount, episode, episodeRuntime, seriesDescription, imdbRating, featured, featuredRuntime, featuredSeasonWatched, trailerHref, inLibrary, onAddToLibrary, onRemoveFromLibrary, showNotifications, notificationsEnabled, onToggleNotifications, ratingInfo, onMarkSeasonWatched, autoFocus, infoOnly, kind, movieRuntime, year, letterboxdRating, rtScore, digitalReleaseLabel, watched, onToggleWatched }) => {
+    // Casa, 2026-09-21: anche i FILM (richiesta dell'utente). Stesso hero,
+    // senza episodio: il kicker dice FILM, i metadati portano cio' che il film
+    // aveva in MetaPreview (Letterboxd, RT, "Disponibile dal"), e tra le azioni
+    // c'e' "Visto". Niente primario: sotto c'e' subito la riga dei torrent.
+    const isMovie = kind === 'movie';
     const navigate = useNavigate();
     const { onLiked, onLoved, liked, loved } = useRating(ratingInfo);
     const loveDisabled = ratingInfo?.type !== 'Ready';
@@ -158,6 +164,18 @@ const SeriesHero = ({ className, name, logo, genres, seasonCount, episode, episo
             </span>
         );
     }
+    if (isMovie && typeof letterboxdRating === 'number') {
+        metaParts.push(
+            <span key={'letterboxd'} className={styles['rating-lb']}>
+                <LetterboxdMark className={styles['lb-mark']} />
+                {letterboxdRating.toFixed(1).replace('.', ',')}
+            </span>
+        );
+    }
+    if (isMovie && typeof rtScore === 'number') metaParts.push(<span key={'rt'}>{`RT ${rtScore}%`}</span>);
+    if (isMovie && typeof digitalReleaseLabel === 'string' && digitalReleaseLabel.length > 0) {
+        metaParts.push(<span key={'digital'} className={styles['digital']}>{digitalReleaseLabel}</span>);
+    }
     if (typeof episodeRuntime === 'number' && episodeRuntime > 0) metaParts.push(<span key={'runtime'}>{`${episodeRuntime} min`}</span>);
     if (episode && validDate(episode.released)) metaParts.push(<span key={'date'}>{formatDate(episode.released)}</span>);
     if (Array.isArray(genres) && genres.length > 0) metaParts.push(<span key={'genre'}>{genres[0]}</span>);
@@ -167,9 +185,27 @@ const SeriesHero = ({ className, name, logo, genres, seasonCount, episode, episo
     return (
         <div className={classnames(className, styles['series-hero'])}>
             <div className={styles['kicker']}>
-                <span>SERIE TV</span>
+                <span>{isMovie ? 'FILM' : 'SERIE TV'}</span>
                 {
-                    seasonCount > 0 ?
+                    isMovie && typeof movieRuntime === 'string' && movieRuntime.length > 0 ?
+                        <React.Fragment>
+                            <span className={styles['dot']} />
+                            <span>{movieRuntime.toUpperCase()}</span>
+                        </React.Fragment>
+                        :
+                        null
+                }
+                {
+                    isMovie && typeof year === 'string' && year.length > 0 ?
+                        <React.Fragment>
+                            <span className={styles['dot']} />
+                            <span>{year}</span>
+                        </React.Fragment>
+                        :
+                        null
+                }
+                {
+                    !isMovie && seasonCount > 0 ?
                         <React.Fragment>
                             <span className={styles['dot']} />
                             <span>{seasonCount === 1 ? '1 STAGIONE' : `${seasonCount} STAGIONI`}</span>
@@ -196,17 +232,19 @@ const SeriesHero = ({ className, name, logo, genres, seasonCount, episode, episo
             {/* Sempre presente (alta una riga anche vuota): l'episodio in
                 evidenza arriva DOPO il primo render, e comparendo spingeva giu'
                 tutta la pagina. */}
-            <div className={styles['identity']}>
-                {
-                    episode ?
-                        <React.Fragment>
-                            <span className={styles['code']}>{code(episode)}</span>
-                            <span className={styles['episode-title']}>{episode.title || episode.name || ''}</span>
-                        </React.Fragment>
-                        :
-                        null
-                }
-            </div>
+            {/* Sui film niente riga episodio: il logo E' il titolo. */}
+            {isMovie ? null :
+                <div className={styles['identity']}>
+                    {
+                        episode ?
+                            <React.Fragment>
+                                <span className={styles['code']}>{code(episode)}</span>
+                                <span className={styles['episode-title']}>{episode.title || episode.name || ''}</span>
+                            </React.Fragment>
+                            :
+                            null
+                    }
+                </div>}
             {/* Sempre presente, anche vuota: se sparisse su un episodio senza
                 data la pagina salterebbe di una riga. */}
             <div className={styles['meta-row']}>
@@ -260,6 +298,16 @@ const SeriesHero = ({ className, name, logo, genres, seasonCount, episode, episo
                             <Icon className={styles['pill-icon']} name={inLibrary ? 'checkmark' : 'add'} />
                             {inLibrary ? 'In libreria' : 'Aggiungi'}
                         </Button>
+                        {
+                            isMovie && typeof onToggleWatched === 'function' ?
+                                // Non distruttivo e reversibile: si accende/spegne con OK.
+                                <Button className={classnames(styles['pill'], { [styles['on']]: watched })} title={watched ? 'Visto' : 'Segna come visto'} onClick={onToggleWatched} data-hero-action={''}>
+                                    <Icon className={styles['pill-icon']} name={watched ? 'checkmark' : 'eye'} />
+                                    {watched ? 'Visto' : 'Segna come visto'}
+                                </Button>
+                                :
+                                null
+                        }
                         {
                             showNotifications ?
                                 <Button className={classnames(styles['pill'], { [styles['on']]: notificationsEnabled })} title={'Notifiche nuovi episodi'} onClick={onToggleNotifications} data-hero-action={''}>
@@ -351,6 +399,14 @@ SeriesHero.propTypes = {
     onMarkSeasonWatched: PropTypes.func,
     autoFocus: PropTypes.bool,
     infoOnly: PropTypes.bool,
+    kind: PropTypes.oneOf(['series', 'movie']),
+    movieRuntime: PropTypes.string,
+    year: PropTypes.string,
+    letterboxdRating: PropTypes.number,
+    rtScore: PropTypes.number,
+    digitalReleaseLabel: PropTypes.string,
+    watched: PropTypes.bool,
+    onToggleWatched: PropTypes.func,
 };
 
 module.exports = SeriesHero;

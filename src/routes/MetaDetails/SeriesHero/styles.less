@@ -126,6 +126,28 @@
         .dot {
             background: rgba(255, 255, 255, 0.25);
         }
+
+        /* Film: il voto Letterboxd col suo marchio, come in MetaPreview. */
+        .rating-lb {
+            display: inline-flex;
+            align-items: center;
+            gap: calc(6 * @tp);
+            font-weight: 600;
+            color: @ink-primary;
+
+            .lb-mark {
+                height: 0.8em;
+                width: auto;
+            }
+        }
+
+        /* Film: "Disponibile dal ..." (uscita digitale = quando arrivano i
+         * rip buoni, casaDigitalRelease.js). Un filo piu' acceso: e' l'unica
+         * voce della riga che dice qualcosa sui torrent. */
+        .digital {
+            color: @ink-body;
+            font-weight: 600;
+        }
     }
 
     /* A5: tre righe al massimo — prima la sinossi scorreva sotto le facce del
