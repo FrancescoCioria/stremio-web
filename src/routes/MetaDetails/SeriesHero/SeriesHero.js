@@ -43,9 +43,9 @@ const formatDate = (d) => d.toLocaleDateString('it-IT', { day: 'numeric', month:
 // polyfill porta il focus dove capita (stessa regola delle rail).
 const ACTION_SELECTOR = '[data-hero-action]';
 
-const SeriesHero = ({ className, name, logo, genres, seasonCount, episode, episodeRuntime, seriesDescription, imdbRating, featured, featuredRuntime, featuredSeasonWatched, trailerHref, inLibrary, onAddToLibrary, onRemoveFromLibrary, showNotifications, notificationsEnabled, onToggleNotifications, ratingInfo, onMarkSeasonWatched, autoFocus, onDownFromActions }) => {
+const SeriesHero = ({ className, name, logo, genres, seasonCount, episode, episodeRuntime, seriesDescription, imdbRating, featured, featuredRuntime, featuredSeasonWatched, trailerHref, inLibrary, onAddToLibrary, onRemoveFromLibrary, showNotifications, notificationsEnabled, onToggleNotifications, ratingInfo, onMarkSeasonWatched, autoFocus }) => {
     const navigate = useNavigate();
-    const { onLoved, loved } = useRating(ratingInfo);
+    const { onLiked, onLoved, liked, loved } = useRating(ratingInfo);
     const loveDisabled = ratingInfo?.type !== 'Ready';
 
     const action = React.useMemo(() => resumeAction(featured, featuredRuntime), [featured, featuredRuntime]);
@@ -58,9 +58,21 @@ const SeriesHero = ({ className, name, logo, genres, seasonCount, episode, episo
     // Menu ⋯: null = chiuso, 'list' = voci, 'confirm-remove' = conferma.
     const [menu, setMenu] = React.useState(null);
     const menuRef = React.useRef(null);
+    // Chiudendo, il focus torna su CHI ha aperto il menu: ⋯ o la pill "In
+    // libreria" (che apre direttamente la conferma). Tornare sempre su ⋯
+    // spostava l'utente di due posti senza che avesse premuto niente.
+    const menuOpenerRef = React.useRef(null);
+    const openMenu = React.useCallback((kind) => {
+        menuOpenerRef.current = document.activeElement;
+        setMenu(kind);
+    }, []);
     const closeMenu = React.useCallback((refocus = true) => {
         setMenu(null);
-        if (refocus) setTimeout(() => moreRef.current && moreRef.current.focus({ preventScroll: true }), 0);
+        if (!refocus) return;
+        setTimeout(() => {
+            const back = menuOpenerRef.current && document.contains(menuOpenerRef.current) ? menuOpenerRef.current : moreRef.current;
+            if (back) back.focus({ preventScroll: true });
+        }, 0);
     }, []);
     // All'apertura il focus va sulla prima voce; nella conferma su ANNULLA:
     // su una domanda distruttiva la risposta di default e' quella innocua.
@@ -91,11 +103,11 @@ const SeriesHero = ({ className, name, logo, genres, seasonCount, episode, episo
 
     const onLibrary = React.useCallback(() => {
         if (inLibrary) {
-            setMenu('confirm-remove');
+            openMenu('confirm-remove');
         } else if (typeof onAddToLibrary === 'function') {
             onAddToLibrary();
         }
-    }, [inLibrary, onAddToLibrary]);
+    }, [inLibrary, onAddToLibrary, openMenu]);
 
     const onActionsKeyDown = React.useCallback((e) => {
         if (menu) return;
@@ -103,16 +115,15 @@ const SeriesHero = ({ className, name, logo, genres, seasonCount, episode, episo
         if (key !== 'ArrowLeft' && key !== 'ArrowRight' && key !== 'ArrowDown' && key !== 'ArrowUp') return;
         e.preventDefault();
         e.stopPropagation();
-        if (key === 'ArrowDown') {
-            if (typeof onDownFromActions === 'function') onDownFromActions();
-            return;
-        }
-        if (key === 'ArrowUp') return;
+        // Giu' lo gestisce VideosList (entra nella lista sull'episodio in
+        // evidenza, listener nativo su metadetails-content); se non c'e' una
+        // lista, qui si consuma e basta. Su: sopra non c'e' niente.
+        if (key === 'ArrowDown' || key === 'ArrowUp') return;
         const items = actionsRef.current ? [...actionsRef.current.querySelectorAll(ACTION_SELECTOR)] : [];
         const idx = items.indexOf(document.activeElement);
         const next = items[idx + (key === 'ArrowRight' ? 1 : -1)];
         if (next) next.focus({ preventScroll: true });
-    }, [menu, onDownFromActions]);
+    }, [menu]);
 
     const onMenuKeyDown = React.useCallback((e) => {
         // ⚠️ Escape e' il tasto Indietro del telecomando: senza fermarlo qui
@@ -256,16 +267,22 @@ const SeriesHero = ({ className, name, logo, genres, seasonCount, episode, episo
                             :
                             null
                     }
-                    <Button className={classnames(styles['icon-button'], { [styles['on']]: loved })} title={loved ? 'Non mi piace piu\'' : 'Mi piace molto'} onClick={loveDisabled ? null : onLoved} data-hero-action={''}>
+                    {/* 👍 e ♡ nella riga delle azioni, a destra (richiesta dell'utente,
+                        come proponeva l'handoff per il ♡): prima stavano in un gruppo
+                        a parte sotto la riga, che il telecomando non raggiungeva. */}
+                    <Button className={classnames(styles['icon-button'], { [styles['on']]: liked })} title={liked ? 'Non mi piace piu\'' : 'Mi piace'} onClick={loveDisabled ? null : onLiked} data-hero-action={''}>
+                        <Icon className={styles['icon']} name={liked ? 'thumbs-up' : 'thumbs-up-outline'} />
+                    </Button>
+                    <Button className={classnames(styles['icon-button'], { [styles['on']]: loved })} title={loved ? 'Non lo amo piu\'' : 'Lo amo'} onClick={loveDisabled ? null : onLoved} data-hero-action={''}>
                         <Icon className={styles['icon']} name={loved ? 'heart' : 'heart-outline'} />
                     </Button>
                     <div className={styles['more-wrap']}>
-                        <Button ref={moreRef} className={styles['icon-button']} title={'Altro'} onClick={() => setMenu('list')} data-hero-action={''}>
+                        <Button ref={moreRef} className={styles['icon-button']} title={'Altro'} onClick={() => openMenu('list')} data-hero-action={''}>
                             <Icon className={styles['icon']} name={'more-horizontal'} />
                         </Button>
                         {
                             menu !== null ?
-                                <div ref={menuRef} className={styles['menu']} onKeyDown={onMenuKeyDown}>
+                                <div ref={menuRef} className={styles['menu']} onKeyDown={onMenuKeyDown} data-hero-menu={''}>
                                     {
                                         menu === 'list' ?
                                             <React.Fragment>
@@ -331,7 +348,6 @@ SeriesHero.propTypes = {
     ratingInfo: PropTypes.object,
     onMarkSeasonWatched: PropTypes.func,
     autoFocus: PropTypes.bool,
-    onDownFromActions: PropTypes.func,
 };
 
 module.exports = SeriesHero;

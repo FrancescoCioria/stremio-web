@@ -136,6 +136,21 @@
         display: flex;
         align-items: center;
         gap: (14 * @lp);
+        /* ⚠️ La riga delle azioni NON si stringe dentro la colonna dell'hero:
+         * aggiunto il 👍 superava i 977 px della colonna, i pulsanti si
+         * restringevano (flex-shrink di default) e le etichette andavano a
+         * capo DENTRO i pulsanti — Guarda da 114 a 164 px, e sotto la riga
+         * vicina spariva (misurato: da 55 a 9 px). Esce a destra, verso la
+         * foto: i pulsanti hanno il loro fondo, lo scrim fa il resto. */
+        width: max-content;
+        flex-wrap: nowrap;
+
+        .primary,
+        .pill,
+        .icon-button {
+            flex: none;
+            white-space: nowrap;
+        }
         /* Spazio per la barra di Riprendi, che sporge sotto il pulsante. */
         padding-bottom: (14 * @lp);
     }

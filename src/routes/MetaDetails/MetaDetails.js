@@ -82,6 +82,12 @@ const MetaDetails = () => {
     // (tutto futuro). Distinguerli e' cio' che permette all'hero di ASPETTARE
     // il pulsante Riprendi invece di dare il focus alla prima pill.
     const [featuredVideo, setFeaturedVideo] = React.useState(undefined);
+    // ⚠️ Cambiando serie senza smontare la pagina, l'episodio in evidenza della
+    // serie PRIMA restava: Riprendi l'avrebbe fatto partire. Si torna a
+    // "non ancora detto" e si aspetta VideosList. Preso in review.
+    React.useEffect(() => {
+        setFeaturedVideo(undefined);
+    }, [id]);
     const heroVideo = focusedVideo || featuredVideo || null;
     const heroRuntimes = useEpisodeRuntimes(type, id, heroVideo?.season);
     const heroRuntime = typeof heroVideo?.episode === 'number' && heroRuntimes.season === heroVideo.season ?

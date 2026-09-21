@@ -481,6 +481,12 @@ const VideosList = ({ className, metaItem, libraryItem, season, selectedVideoId,
             const ae = document.activeElement;
             // MetaPreview (film) o l'hero della serie (SeriesHero).
             if (!ae || !ae.closest || !ae.closest('[class*="action-buttons-container"], [data-casa-hero-actions]')) return;
+            // ⚠️ Non dal menu ⋯ dell'hero: le sue voci stanno DENTRO la riga
+            // azioni, e questo listener (nativo, su un antenato) scatta PRIMA
+            // dell'onKeyDown React del menu. Giu' su "Segna la stagione..."
+            // saltava nella lista col menu ancora aperto — dopo, Indietro usciva
+            // dalla PAGINA. Preso in review, il test provava solo Indietro.
+            if (ae.closest('[data-hero-menu]')) return;
             if (enterList()) {
                 e.preventDefault();
                 e.stopPropagation();
