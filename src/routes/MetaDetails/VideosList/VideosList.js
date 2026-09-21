@@ -10,6 +10,12 @@ const { mergeCasaExtraVideos } = require('stremio/common/casaExtraVideos');
 const { pickSeason, pickFocusVideo, holdSeason, seasonSummary, seasonCountLabel, compareSeasons } = require('stremio/common/casaEpisodeFocus');
 const { casaBeacon } = require('stremio/common/casaBackend');
 const { revealCardInRail } = require('stremio/common/casaRailNav');
+const { handleRowsKeyDown, revealRow: revealRowBy, heroFirstAction } = require('stremio/common/casaRowsNav');
+
+// Le righe di questa pagina per la nav condivisa (common/casaRowsNav.js).
+const ROW = '[data-season-row]';
+const RAIL = '[data-season-rail]';
+const CARD = '[data-video-id]';
 const useCasaExtraVideos = require('stremio/routes/MetaDetails/useCasaExtraVideos');
 const useEpisodeRuntimes = require('stremio/common/useEpisodeRuntimes');
 const { episodeState } = require('stremio/common/casaEpisodeCard');
@@ -339,38 +345,11 @@ const VideosList = ({ className, metaItem, libraryItem, season, selectedVideoId,
         onFeaturedChange(focusTarget || null);
     }, [focusTarget, onFeaturedChange, seasonRows.length]);
 
-    // ⚠️ Si vede SEMPRE una riga vicina: quella DOPO se c'e', altrimenti quella
-    // PRIMA. E' il rovescio verticale del vuoto di coda delle rail — dove puoi
-    // andare non si scopre premendo, si vede. Sull'ultima riga `block:'end'`
-    // la incolla in basso e lascia sbucare la precedente in cima; sulle altre
-    // `block:'start'` porta il titolo in cima e la successiva sbuca sotto.
-    //
-    // ⚠️ Si usa scrollIntoView e non due conti a mano apposta: rispetta
-    // `scroll-margin-top/bottom`, cioe' i cuscinetti stanno nel CSS accanto
-    // alle misure a cui appartengono invece che in due costanti JS.
-    //
-    // ⚠️ Con UNA sola stagione il target calcolato e' negativo e il browser lo
-    // taglia a 0: la riga resta in cima, che e' giusto.
-    //
-    // NB: la home fa diversamente apposta (l'ultima riga sale in cima e sotto
+    // Si vede SEMPRE una riga vicina: regola e cicatrici in common/casaRowsNav.js.
+    // NB la home fa diversamente apposta (l'ultima riga sale in cima e sotto
     // resta il vuoto) — li' le righe sono tante e il vuoto in fondo e' il
-    // segnale che la lista e' finita. Qui le stagioni sono 2 nella mediana:
-    // perdere di vista l'unica vicina sarebbe perdere meta' della pagina.
-    const revealRow = (row, behavior) => {
-        if (!row) return;
-        // ⚠️ "C'e' una riga dopo" si chiede a una RIGA, non a un fratello
-        // qualsiasi: il giorno che nello scroller entrasse un footer o un
-        // messaggio, l'ultima stagione prenderebbe 'start' in silenzio e
-        // tornerebbe proprio il difetto che questa regola ripara.
-        const next = row.nextElementSibling;
-        const isLast = !(next && next.matches('[data-season-row]'));
-        // ⚠️ Una riga piu' alta dello scroller (finestra bassa: la web app sul
-        // Mac rimpicciolita) con 'end' avrebbe il TITOLO tagliato sopra.
-        // Meglio perdere la vicina che il nome della stagione.
-        const scroller = row.parentElement;
-        const fits = !scroller || row.offsetHeight <= scroller.clientHeight;
-        row.scrollIntoView({ behavior, block: isLast && fits ? 'end' : 'start' });
-    };
+    // segnale che la lista e' finita; qui le stagioni sono 2 nella mediana.
+    const revealRow = (row, behavior) => revealRowBy(row, behavior, ROW);
 
     // Memoria dell'ultima card per riga: passando da riga A card 5 a riga B e
     // tornando su, il focus torna su A card 5 e non su A card 0 (che sarebbe
@@ -378,70 +357,21 @@ const VideosList = ({ className, metaItem, libraryItem, season, selectedVideoId,
     // l'elemento riga: se la riga remonta, la entry decade da sola.
     const lastCardByRowRef = React.useRef(new WeakMap());
 
-    // Nav da telecomando, stessa forma di Board.js (onBoardKeyDown).
+    // Nav da telecomando: verticale fra righe, orizzontale nella riga, i bordi
+    // sono muri. Tutto in common/casaRowsNav.js, condiviso con la lista torrent.
+    // Sopra la prima riga c'e' l'hero: ArrowUp ci sale (Riprendi / prima azione).
     const onKeyDown = React.useCallback((e) => {
-        const isVertical = e.key === 'ArrowUp' || e.key === 'ArrowDown';
-        const isHorizontal = e.key === 'ArrowLeft' || e.key === 'ArrowRight';
-        if (!isVertical && !isHorizontal) return;
-        const root = scrollerRef.current;
-        if (!root) return;
-        const currentRow = e.target.closest('[data-season-row]');
-        if (!currentRow) return;
-
-        if (isVertical) {
-            // ⚠️ I verticali si consumano SEMPRE, anche quando non c'e' dove
-            // andare: se no lo spatial-navigation polyfill (keydown su window,
-            // attivo solo con !defaultPrevented) porta il focus fuori dalla
-            // lista e la pagina scrolla da sola.
-            e.preventDefault();
-            e.stopPropagation();
-            const rows = [...root.querySelectorAll('[data-season-row]')];
-            const idx = rows.indexOf(currentRow);
-            const target = e.key === 'ArrowDown' ? rows[idx + 1] : rows[idx - 1];
-            if (!target) {
-                // Sopra la prima riga c'e' l'hero: li' vivono Trailer,
-                // "Aggiungi alla libreria" e le notifiche, che senza questa
-                // uscita sarebbero irraggiungibili (prima ci si passava dalle
-                // pill). Sotto l'ultima riga non c'e' niente: si resta.
-                if (e.key === 'ArrowUp') {
-                    const content = root.closest('[class*="metadetails-content"]');
-                    const action = content?.querySelector('[data-casa-hero-actions] [data-hero-action]') ||
-                        content?.querySelector('[class*="action-buttons-container"] [tabindex], [class*="action-buttons-container"] a, [class*="action-buttons-container"] button');
-                    if (action) action.focus({ preventScroll: true });
-                }
-                return;
-            }
-            const remembered = lastCardByRowRef.current.get(target);
-            const alive = remembered && target.contains(remembered) ? remembered : null;
-            const focusTargetEl = alive || target.querySelector('[data-video-id]');
-            if (!focusTargetEl) return;
-            const focusable = focusTargetEl.querySelector('[tabindex], a, button') || focusTargetEl;
-            focusable.focus({ preventScroll: true });
-            lastCardByRowRef.current.set(target, focusTargetEl);
-            // 'nearest' non scrollava quando la riga era gia' parzialmente in
-            // vista, lasciando il titolo tagliato sopra: serve un allineamento
-            // esplicito (vedi revealRow).
-            revealRow(target, 'smooth');
-            revealCardInRail(target.querySelector('[data-season-rail]'), focusTargetEl, 0);
-            return;
-        }
-
-        // Orizzontale: una card per volta dentro la riga.
-        // ⚠️ Anche qui l'evento va consumato in OGNI uscita: il bordo della
-        // riga e' un muro. Una freccia di troppo non consumata finisce allo
-        // scroll nativo del browser, e uno scroll dell'utente ANNULLA lo
-        // smooth scroll in corso — con il tasto tenuto premuto il rail si
-        // fermava a meta' strada e ci restava (misurato il 2026-09-20).
-        const current = e.target.closest('[data-video-id]');
-        if (!current) return;
-        e.preventDefault();
-        e.stopPropagation();
-        const target = e.key === 'ArrowRight' ? current.nextElementSibling : current.previousElementSibling;
-        if (!target || !target.dataset || !target.dataset.videoId) return;
-        const focusable = target.querySelector('[tabindex], a, button') || target;
-        focusable.focus({ preventScroll: true });
-        lastCardByRowRef.current.set(currentRow, target);
-        revealCardInRail(currentRow.querySelector('[data-season-rail]'), target, e.key === 'ArrowRight' ? 1 : -1);
+        handleRowsKeyDown(e, {
+            root: scrollerRef.current,
+            rowSel: ROW,
+            railSel: RAIL,
+            cardSel: CARD,
+            lastCardByRow: lastCardByRowRef.current,
+            onExitUp: () => {
+                const action = heroFirstAction(scrollerRef.current);
+                if (action) action.focus({ preventScroll: true });
+            },
+        });
     }, []);
 
     // ⚠️ Il ritorno dall'hero alla lista. L'uscita verso l'alto la governiamo
