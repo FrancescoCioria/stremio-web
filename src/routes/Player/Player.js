@@ -1137,6 +1137,11 @@ const Player = () => {
 
             // Space long-press = playback 2x.
             if (e.code !== 'Space' || e.repeat) return;
+            // ⚠️ Su un bottone lo Spazio e' il click del bottone (Button.tsx lo
+            // tratta come Invio, 2026-09-21): qui NON deve partire anche
+            // play/pausa, esattamente come fa gia' Invio qui sopra. Senza,
+            // Spazio su un controllo del player faceva DUE azioni.
+            if (tvNavModeRef.current === 'buttons') return;
 
             longPress.current = false;
 
@@ -1155,6 +1160,9 @@ const Player = () => {
                 return;
             }
             if (e.code === 'Space') {
+                // Stessa regola del keydown: su un bottone lo Spazio l'ha gia'
+                // cliccato il bottone.
+                if (tvNavModeRef.current === 'buttons' && pressTimer.current === null) return;
                 clearTimeout(pressTimer.current);
                 pressTimer.current = null;
                 if (longPress.current) {

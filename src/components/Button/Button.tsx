@@ -32,7 +32,14 @@ const Button = forwardRef(({ className, href, disabled, children, onLongPress, o
             props.onKeyDown(event);
         }
 
-        if (event.key === 'Enter') {
+        // Casa: SPAZIO = INVIO = l'OK del telecomando (richiesta dell'utente,
+        // 2026-09-21: sul Mac la barra spaziatrice non faceva niente su un
+        // pulsante, anzi faceva scorrere la pagina sotto). ⚠️ Non se il tasto
+        // parte da un campo di testo: nella ricerca lo spazio deve SCRIVERE.
+        // Checkbox e RadioButton lo facevano gia' per conto loro.
+        const target = event.target as HTMLElement;
+        const typing = !!target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable);
+        if (event.key === 'Enter' || (event.key === ' ' && !typing)) {
             event.preventDefault();
             // @ts-expect-error: Property 'buttonClickPrevented' does not exist on type 'KeyboardEvent'.
             if (!event.nativeEvent.buttonClickPrevented) {
