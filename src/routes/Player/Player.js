@@ -227,6 +227,24 @@ const Player = () => {
     }, [overlayHidden, immersed, tvNavMode, menusOpen, video.state.paused]);
 
     const nextVideoPopupDismissed = React.useRef(false);
+
+    // Casa (2026-09-23): CHI fa scattare "episodio successivo". Stasera E4 ->
+    // E5 all'82%, con l'utente che aveva premuto Esc: tre vie possibili
+    // (fine video, pulsante/popup/tasti media, Shift+N) e nessuna lasciava
+    // traccia. Ref e non deps: il log non deve ricreare le callback.
+    const casaNextCtx = React.useRef(null);
+    casaNextCtx.current = {
+        videoId: urlParams.videoId ?? null,
+        nextVideoId: player.nextVideo?.id ?? null,
+        time: video.state.time,
+        duration: video.state.duration,
+        paused: video.state.paused,
+        buffering: video.state.buffering,
+        bingeWatching: profile.settings.bingeWatching,
+    };
+    const logNextVideoTrigger = React.useCallback((source) => {
+        casaBeacon('/debug/player-event', { ev: 'casa-next-video', source, ...casaNextCtx.current });
+    }, []);
     const defaultAudioTrackSelected = React.useRef(false);
     const playingOnExternalDevice = React.useRef(false);
     const [error, setError] = React.useState(null);
@@ -270,6 +288,7 @@ const Player = () => {
     }, []);
 
     const onEnded = React.useCallback(() => {
+        logNextVideoTrigger('ended');
         ended();
         if (player.nextVideo !== null) {
             nextVideo();
@@ -279,7 +298,7 @@ const Player = () => {
         } else {
             navigate(-1);
         }
-    }, [player.nextVideo, profile.settings.bingeWatching, handleNextVideoNavigation]);
+    }, [player.nextVideo, profile.settings.bingeWatching, handleNextVideoNavigation, logNextVideoTrigger]);
 
     const onError = React.useCallback((error) => {
         console.error('Player', error);
@@ -398,14 +417,17 @@ const Player = () => {
         nextVideoPopupDismissed.current = true;
     }, []);
 
-    const onNextVideoRequested = React.useCallback(() => {
+    // `source`: chi l'ha chiesto. Il pulsante della barra chiama senza
+    // argomenti: quello e' il caso 'button'.
+    const onNextVideoRequested = React.useCallback((source) => {
+        logNextVideoTrigger(typeof source === 'string' ? source : 'button');
         if (player.nextVideo !== null) {
             nextVideo();
 
             const deepLinks = player.nextVideo.deepLinks;
             handleNextVideoNavigation(deepLinks, profile.settings.bingeWatching, false);
         }
-    }, [player.nextVideo, handleNextVideoNavigation, profile.settings]);
+    }, [player.nextVideo, handleNextVideoNavigation, profile.settings, logNextVideoTrigger]);
 
     const onVideoClick = React.useCallback(() => {
         if (video.state.paused !== null && !longPress.current) {
@@ -794,7 +816,9 @@ const Player = () => {
         };
     }, [discord.setActivity]);
 
-    useMediaSession(video.state, player, fullscreen, onPlayRequested, onPauseRequested, onNextVideoRequested);
+    const onNextVideoFromMediaSession = React.useCallback(() => onNextVideoRequested('mediasession'), [onNextVideoRequested]);
+    const onNextVideoFromPopup = React.useCallback(() => onNextVideoRequested('popup'), [onNextVideoRequested]);
+    useMediaSession(video.state, player, fullscreen, onPlayRequested, onPauseRequested, onNextVideoFromMediaSession);
 
     React.useEffect(() => {
         const onMediaKey = (action) => {
@@ -813,7 +837,7 @@ const Player = () => {
                 case 'next-track':
                     if (player.nextVideo !== null) {
                         video.setTime(0);
-                        onNextVideoRequested();
+                        onNextVideoRequested('media-key');
                     }
                     break;
             }
@@ -963,13 +987,14 @@ const Player = () => {
     }, [video.state.paused, video.state.buffering, streamInfoHash, streamFileIdx, closeStatisticsMenu]);
 
     onShortcut('playNext', () => {
+        logNextVideoTrigger('shift-n');
         closeMenus();
         if (player.nextVideo !== null) {
             nextVideo();
             const deepLinks = player.nextVideo.deepLinks;
             handleNextVideoNavigation(deepLinks, false, false);
         }
-    }, [player.nextVideo, handleNextVideoNavigation]);
+    }, [player.nextVideo, handleNextVideoNavigation, logNextVideoTrigger]);
 
     // Casa TV: la barra tirata su col telecomando si ritira DA SOLA.
     //
@@ -1027,7 +1052,14 @@ const Player = () => {
         //    Watching semina la history con window.history.pushState: back()
         //    opera sul browser-history reale, navigate(-1) sull'indice interno
         //    di react-router che non vede i pushState raw.
+        // Casa (2026-09-23): quale ramo ha preso "indietro". Senza, "ho
+        // premuto Esc e sono finito su E5" non si ricostruiva: il log dice
+        // cosa si carica, non da quale voce della history.
+        const logExit = (branch) => casaBeacon('/debug/player-event', {
+            ev: 'casa-exit', branch, historyLength: window.history.length, ...casaNextCtx.current,
+        });
         if (menusOpen) {
+            logExit('close-menus');
             closeMenus();
             return;
         }
@@ -1038,6 +1070,7 @@ const Player = () => {
         // colpo, invece di uscire dal film: e' l'azione naturale su TV
         // ("torno a guardare"). Per uscire: "indietro" da video in play.
         if (video.state.paused === true) {
+            logExit('resume');
             onPlayRequested();
             setTvNavMode(null);
             if (document.activeElement instanceof HTMLElement) {
@@ -1051,6 +1084,7 @@ const Player = () => {
             // Uscendo dalla nav a video in play, ri-immergi: la barra sparisce
             // subito invece di restare su (immersed poteva essere false).
             // Stessa uscita del timer di inattivita' qui sopra.
+            logExit('exit-tv-nav');
             exitTvNav();
             return;
         }
@@ -1060,6 +1094,7 @@ const Player = () => {
         // Uso !immersed (non !overlayHidden) per non intrappolare il caso
         // casting, dove la barra resta comunque su e serve poter uscire.
         if (!immersed) {
+            logExit('hide-bar');
             setImmersedDebounced.cancel();
             setImmersed(true);
             return;
@@ -1069,6 +1104,7 @@ const Player = () => {
         // dell'API Fullscreen e' irrilevante e bloccava il back. Prima del
         // merge questo lo faceva il vecchio service KeyboardShortcuts (Esc ->
         // history.back senza guard), ora cancellato da upstream.
+        logExit('back');
         window.history.back();
     }, [tvNavMode, menusOpen, closeMenus, video.state.paused, onPlayRequested, immersed, exitTvNav]);
 
@@ -1420,7 +1456,7 @@ const Player = () => {
                         metaItem={player.metaItem !== null && player.metaItem.type === 'Ready' ? player.metaItem.content : null}
                         nextVideo={player.nextVideo}
                         onDismiss={onDismissNextVideoPopup}
-                        onNextVideoRequested={onNextVideoRequested}
+                        onNextVideoRequested={onNextVideoFromPopup}
                     />
                     :
                     null
