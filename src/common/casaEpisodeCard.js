@@ -30,12 +30,12 @@ const validDate = (d) => d instanceof Date && !isNaN(d.getTime());
 // "16 set 2026" — la data come la scrive l'handoff, in italiano.
 const formatDate = (d) => d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' }).replace(/\.$/, '');
 
-// "DAL 30 SET" nel riquadro dell'episodio futuro. Senza data niente riga:
-// meglio tacere che scrivere una data inventata.
+// "30 SET" nel riquadro dell'episodio futuro (senza "DAL": richiesta utente
+// 2026-09-24). Senza data niente riga: meglio tacere che inventarla.
 const upcomingAirLabel = (released) => {
     if (!validDate(released)) return null;
     const month = released.toLocaleDateString('it-IT', { month: 'short' }).replace(/\.$/, '');
-    return `DAL ${released.getDate()} ${month.toUpperCase()}`;
+    return `${released.getDate()} ${month.toUpperCase()}`;
 };
 
 // La riga sotto il titolo. `runtime` = minuti REALI dell'episodio (TMDB, via
@@ -61,4 +61,4 @@ const episodeMeta = (video, runtime, now = Date.now()) => {
 // "03": il numero nel riquadro dell'episodio futuro.
 const paddedEpisode = (episode) => (typeof episode === 'number' && !isNaN(episode) ? String(episode).padStart(2, '0') : '');
 
-module.exports = { episodeState, episodeMeta, upcomingAirLabel, paddedEpisode };
+module.exports = { episodeState, episodeMeta, upcomingAirLabel, paddedEpisode, validDate };

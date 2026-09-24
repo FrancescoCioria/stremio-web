@@ -40,8 +40,8 @@ describe('episodeMeta', () => {
 });
 
 describe('upcomingAirLabel / paddedEpisode', () => {
-    it('"DAL 30 SET"', () => expect(upcomingAirLabel(at('2026-09-30'))).toBe('DAL 30 SET'));
-    it('"DAL 7 OTT"', () => expect(upcomingAirLabel(at('2026-10-07'))).toBe('DAL 7 OTT'));
+    it('"30 SET"', () => expect(upcomingAirLabel(at('2026-09-30'))).toBe('30 SET'));
+    it('"7 OTT"', () => expect(upcomingAirLabel(at('2026-10-07'))).toBe('7 OTT'));
     it('senza data: niente riga', () => expect(upcomingAirLabel(null)).toBe(null));
     it('"03"', () => expect(paddedEpisode(3)).toBe('03'));
     it('"12"', () => expect(paddedEpisode(12)).toBe('12'));
