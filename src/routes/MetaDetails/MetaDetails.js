@@ -462,7 +462,6 @@ const MetaDetails = () => {
                             streams={metaDetails.streams}
                             video={video}
                             type={streamPath.type}
-                            onEpisodeSearch={handleEpisodeSearch}
                         />
                         :
                         metaPath !== null ?

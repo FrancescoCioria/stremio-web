@@ -5,7 +5,8 @@ const PropTypes = require('prop-types');
 const classnames = require('classnames');
 const { useTranslation } = require('react-i18next');
 const { default: Icon } = require('@stremio/stremio-icons/react');
-const { Button, Image } = require('stremio/components');
+const { Button } = require('stremio/components');
+const { validDate } = require('stremio/common/casaEpisodeCard');
 const { useCore } = require('stremio/core');
 const Stream = require('./Stream');
 const useCasaSourceHealth = require('./useCasaSourceHealth');
@@ -13,7 +14,6 @@ const styles = require('./styles');
 const { useProfile } = require('stremio/common');
 const { streamKey, recallStreamKey, rememberStream } = require('stremio/common/lastStream');
 const { default: useRouteFocused } = require('stremio/common/useRouteFocused');
-const { default: SeasonEpisodePicker } = require('../EpisodePicker');
 const torrentRace = require('stremio/common/torrentRace');
 const { decideStreamFocus } = require('stremio/common/streamFocus');
 const qualityBuckets = require('stremio/common/qualityBuckets');
@@ -176,7 +176,36 @@ const RaceProgress = ({ steps }) => {
     );
 };
 
-const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
+// Casa (2026-09-24): pagina "nessun torrent" = un titolo e una riga, allineati
+// all'intestazione delle righe torrent. Upstream metteva il selettore
+// stagione/episodio (dropdown +/-, inutile: gli episodi sono gia' a righe
+// nella pagina serie) e un gatto in una scatola.
+const EmptyState = ({ title, lines, children }) => (
+    <div className={styles['empty-state']}>
+        <div className={styles['empty-title']}>{title}</div>
+        {lines.filter(Boolean).map((line, i) => <div key={i} className={styles['empty-line']}>{line}</div>)}
+        {children}
+    </div>
+);
+
+EmptyState.propTypes = {
+    title: PropTypes.string.isRequired,
+    lines: PropTypes.arrayOf(PropTypes.string).isRequired,
+    children: PropTypes.node
+};
+
+const emptyStateText = (video, type, sourceHealth) => {
+    if (video?.upcoming) {
+        const d = video.released;
+        return { title: 'Non ancora uscito', lines: [validDate(d) ? `Esce il ${d.toLocaleDateString('it-IT', { day: 'numeric', month: 'long' })}.` : null] };
+    }
+    if (sourceHealth && sourceHealth.ok === false) {
+        return { title: 'Le sorgenti non rispondono', lines: ['Non e\' questo titolo: riprova fra qualche minuto.', sourceHealth.detail] };
+    }
+    return { title: 'Nessun torrent', lines: [type === 'series' ? 'Nessuna fonte ha ancora questo episodio.' : 'Nessuna fonte ha ancora questo film.'] };
+};
+
+const StreamsList = ({ className, video, type, ...props }) => {
     const { t } = useTranslation();
     const core = useCore();
     const profile = useProfile();
@@ -370,10 +399,6 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
                 .catch(() => setOne(it.infoHash, 'unknown'));
         });
     }, [props.streams]);
-
-    const handleEpisodePicker = React.useCallback((season, episode) => {
-        onEpisodeSearch(season, episode);
-    }, [onEpisodeSearch]);
 
     // Righe della pagina: "Tutti" e poi 4K / 1080p / 720p (solo quelle che
     // hanno torrent). ⚠️ "Tutti" e' LA lista su cui lavora la logica del focus
@@ -571,6 +596,12 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
         }
     }, [filteredStreams, focusableAt, routeFocused]);
 
+    const installAddonsButton = (
+        <Button className={styles['install-button-container']} title={t('ADDON_CATALOGUE_MORE')} href={'#/addons'}>
+            <Icon className={styles['icon']} name={'addons'} />
+            <div className={styles['label']}>{t('ADDON_CATALOGUE_MORE')}</div>
+        </Button>
+    );
     // Almeno un bucket ha candidati? (se no, es. film SOLO Fire-TV/HEVC, cadiamo
     // sulla lista normale cosi' quegli stream restano visibili.)
     const hasAutoCandidates = qualityBuckets.BUCKET_ORDER.some((k) => autoBuckets[k].count > 0);
@@ -620,53 +651,14 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
             }
             {
                 props.streams.length === 0 ?
-                    <div className={styles['message-container']}>
-                        {
-                            type === 'series' ?
-                                <SeasonEpisodePicker className={styles['search']} onSubmit={handleEpisodePicker} />
-                                : null
-                        }
-                        <Image className={styles['image']} src={require('/assets/images/empty.png')} alt={' '} />
-                        <div className={styles['label']}>{t('ERR_NO_ADDONS_FOR_STREAMS')}</div>
-                    </div>
+                    <EmptyState title={'Nessuna fonte di torrent'} lines={['Non c\'e\' un addon che cerchi i torrent.']}>
+                        {installAddonsButton}
+                    </EmptyState>
                     :
                     props.streams.every((streams) => streams.content.type === 'Err') ?
-                        <div className={styles['message-container']}>
-                            {
-                                type === 'series' ?
-                                    <SeasonEpisodePicker className={styles['search']} onSubmit={handleEpisodePicker} />
-                                    : null
-                            }
-                            {
-                                video?.upcoming ?
-                                    <div className={styles['label']}>{t('UPCOMING')}...</div>
-                                    : null
-                            }
-                            <Image className={styles['image']} src={require('/assets/images/empty.png')} alt={' '} />
-                            {
-                                sourceHealth && sourceHealth.ok === false ?
-                                    <React.Fragment>
-                                        <div className={styles['label']}>{'Le sorgenti non rispondono'}</div>
-                                        <div className={styles['label']}>{'Non e\' questo titolo: riprova fra qualche minuto.'}</div>
-                                        {
-                                            sourceHealth.detail ?
-                                                <div className={styles['source-health-detail']}>{sourceHealth.detail}</div>
-                                                : null
-                                        }
-                                    </React.Fragment>
-                                    :
-                                    <div className={styles['label']}>{t('NO_STREAM')}</div>
-                            }
-                            {
-                                showInstallAddonsButton ?
-                                    <Button className={styles['install-button-container']} title={t('ADDON_CATALOGUE_MORE')} href={'#/addons'}>
-                                        <Icon className={styles['icon']} name={'addons'} />
-                                        <div className={styles['label']}>{t('ADDON_CATALOGUE_MORE')}</div>
-                                    </Button>
-                                    :
-                                    null
-                            }
-                        </div>
+                        <EmptyState {...emptyStateText(video, type, sourceHealth)}>
+                            {showInstallAddonsButton ? installAddonsButton : null}
+                        </EmptyState>
                         :
                         (AUTO_MODE_ENABLED && selectedAddon === AUTO_KEY && hasAutoCandidates) ?
                             autoCards
@@ -731,10 +723,7 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
                                                             // Card anche lui, se no la nav a righe non ci arriva
                                                             // (solo account ospite/nuovo, non quello di casa).
                                                             <div className={styles['stream-wrapper']} data-stream-card={''}>
-                                                                <Button className={styles['install-button-container']} title={t('ADDON_CATALOGUE_MORE')} href={'#/addons'}>
-                                                                    <Icon className={styles['icon']} name={'addons'} />
-                                                                    <div className={styles['label']}>{t('ADDON_CATALOGUE_MORE')}</div>
-                                                                </Button>
+                                                                {installAddonsButton}
                                                             </div>
                                                             :
                                                             null
@@ -764,8 +753,7 @@ StreamsList.propTypes = {
     className: PropTypes.string,
     streams: PropTypes.arrayOf(PropTypes.object).isRequired,
     video: PropTypes.object,
-    type: PropTypes.string,
-    onEpisodeSearch: PropTypes.func
+    type: PropTypes.string
 };
 
 module.exports = StreamsList;

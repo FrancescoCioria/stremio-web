@@ -17,40 +17,34 @@
      * delle righe crescerebbe invece di scorrere. */
     min-height: 0;
 
-    .message-container {
-        flex: 0 1 auto;
-        align-self: stretch;
+    /* "Nessun torrent": come l'intestazione di una riga torrent (stessa
+     * spaziatura e scala), niente immagine ne' selettore episodio. */
+    .empty-state {
+        flex: none;
         display: flex;
         flex-direction: column;
-        align-items: center;
-        padding: 1rem;
-        overflow-y: auto;
+        align-items: flex-start;
+        padding: (8 * @lp) @safe-x 0;
+        overflow: visible;
 
-        .search {
-            flex: none;
+        .empty-title {
+            font-size: calc(27 * @tp);
+            font-weight: 700;
+            letter-spacing: calc(-0.3 * @tp);
+            color: @ink-primary;
+            margin-bottom: (10 * @lp);
         }
 
-        .image {
-            flex: none;
-            width: 10rem;
-            height: 10rem;
-            max-width: 100%;
-            margin-bottom: 1rem;
-            object-fit: contain;
-            object-position: center;
-            opacity: 0.9;
+        .empty-line {
+            font-size: calc(17 * @tp);
+            color: @ink-secondary;
+            margin-bottom: (6 * @lp);
         }
 
-        .label {
-            flex: none;
-            font-size: 1.4rem;
-
-            :global(html.casa-tv) & {
-                font-size: 1.55rem;
-            }
-            text-align: center;
-            color: var(--primary-foreground-color);
-            margin-bottom: 2rem;
+        .install-button-container {
+            align-self: flex-start;
+            margin: (18 * @lp) 0 0;
+            max-width: none;
         }
     }
 
