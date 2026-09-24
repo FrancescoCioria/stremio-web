@@ -4,7 +4,7 @@
 // E09 uscito il 28/08. La soglia e' quella del core (0.9), la scelta del
 // successivo e' MetaItem::next_video del core.
 
-const { decideCreditsSkip, nextVideoAfter, needsCreditsCheck, CREDITS_THRESHOLD_COEF } = require('../src/common/casaCreditsSkip');
+const { decideCreditsSkip, nextVideoAfter, needsCreditsCheck, CREDITS_THRESHOLD_COEF, isNotificationOnly } = require('../src/common/casaCreditsSkip');
 
 const NOW = Date.parse('2026-09-14T19:30:00Z');
 const ep = (s, e, released) => ({ id: `tt14688458:${s}:${e}`, season: s, episode: e, released });
@@ -87,4 +87,14 @@ describe('needsCreditsCheck', () => {
         expect(needsCreditsCheck(40, 'series')).toBe(false);
         expect(needsCreditsCheck(undefined, 'series')).toBe(false);
     });
+});
+
+describe('isNotificationOnly (card in CW solo per un nuovo episodio)', () => {
+    it('notifica + posizione 0 -> pagina serie', () => expect(isNotificationOnly(0, 1)).toBe(true));
+    it('progress null/NaN conta come 0', () => {
+        expect(isNotificationOnly(null, 2)).toBe(true);
+        expect(isNotificationOnly(NaN, 2)).toBe(true);
+    });
+    it('in corso + notifica -> si riprende (no)', () => expect(isNotificationOnly(42, 1)).toBe(false));
+    it('senza notifiche -> comportamento di prima (no)', () => expect(isNotificationOnly(0, 0)).toBe(false));
 });

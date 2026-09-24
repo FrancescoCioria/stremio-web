@@ -70,4 +70,13 @@ const decideCreditsSkip = ({ progress, videoId, videos, now }) => {
 const needsCreditsCheck = (progress, type) =>
     type === 'series' && Number(progress) > CREDITS_THRESHOLD_COEF * 100;
 
-module.exports = { decideCreditsSkip, nextVideoAfter, needsCreditsCheck, CREDITS_THRESHOLD_COEF };
+// Serie in Continue Watching SOLO per una notifica di nuovo episodio: il core
+// ce la mette anche a posizione 0 (`library_items_update`: in CW oppure con
+// notifiche), e il suo link `player` punta allo stream dell'ultimo episodio
+// aperto, gia' FINITO (lo prende dallo streams bucket locale, senza guardare la
+// posizione). X Factor 2026-09-24: E03 uscito in serata, la card finiva su una
+// pagina torrent vuota invece che sulla serie. Si va alla pagina serie, dove il
+// nuovo episodio e' gia' quello in evidenza.
+const isNotificationOnly = (progress, newVideos) => newVideos > 0 && !(Number(progress) > 0);
+
+module.exports = { decideCreditsSkip, nextVideoAfter, needsCreditsCheck, isNotificationOnly, CREDITS_THRESHOLD_COEF };

@@ -9,7 +9,7 @@ const MetaItem = require('stremio/components/MetaItem');
 const { t } = require('i18next');
 const { casaBeacon } = require('stremio/common/casaBackend');
 const { fetchSeriesVideos } = require('stremio/common/casaMetaCache');
-const { decideCreditsSkip, needsCreditsCheck } = require('stremio/common/casaCreditsSkip');
+const { decideCreditsSkip, needsCreditsCheck, isNotificationOnly } = require('stremio/common/casaCreditsSkip');
 
 // Casa: l'episodio della card, dal deep link della sua pagina torrent
 // (`#/detail/series/tt123/tt123%3A3%3A8` -> `tt123:3:8`).
@@ -176,6 +176,14 @@ const LibItem = ({ _id, removable, notifications, watched, ...props }) => {
     // e un secondo OK nel frattempo aprirebbe due navigazioni.
     const openingRef = React.useRef(false);
     const openFromCard = React.useCallback(async (dl) => {
+        if (isNotificationOnly(props.progress, newVideos) && typeof dl.metaDetailsVideos === 'string') {
+            casaBeacon('/debug/player-event', {
+                ev: 'casa-cw-open', branch: 'notification-series', id: metaId, newVideos,
+                hadPlayer: typeof dl.player === 'string',
+            });
+            navigate(toPath(dl.metaDetailsVideos));
+            return;
+        }
         if (!needsCreditsCheck(props.progress, metaType)) {
             openResume(dl);
             return;
@@ -206,7 +214,7 @@ const LibItem = ({ _id, removable, notifications, watched, ...props }) => {
         } finally {
             openingRef.current = false;
         }
-    }, [props.progress, metaType, metaId, openResume]);
+    }, [props.progress, newVideos, metaType, metaId, openResume, navigate]);
 
     const onPlayClick = React.useMemo(() => {
         if (props.deepLinks && typeof props.deepLinks.player === 'string') {
