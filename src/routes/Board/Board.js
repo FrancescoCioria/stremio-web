@@ -115,6 +115,17 @@ const Board = () => {
     // (catalog reload async), la entry decade automaticamente.
     const lastCardByRowRef = React.useRef(new WeakMap());
 
+    // Focus su una card + la sua riga in vista. block:'start' allinea la TOP
+    // della riga (titolo) con il top dello scroller (meno lo
+    // scroll-margin-top); 'nearest' non scrollava quando la riga era gia'
+    // parzialmente in vista, lasciando il titolo cropped sopra il viewport.
+    // Nel rail: reveal-if-needed, no re-center.
+    const landOnCard = (card, row, behavior) => {
+        card.focus({ preventScroll: true });
+        row.scrollIntoView({ behavior, block: 'start' });
+        revealCardInRail(row.querySelector('[class*="meta-items-container"]'), card);
+    };
+
     // TV: nav row-a-row su Up/Down + tile-a-tile su Left/Right. Lo scroll
     // nativo del browser per le frecce su elemento focus-ato fa passettini
     // quantizzati (~40px) invece di muovere il focus — pessimo da divano.
@@ -149,14 +160,7 @@ const Board = () => {
             const fallback = firstCardEl ||
                 target.querySelector('a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])');
             const focusTarget = rememberedAlive || fallback;
-            if (focusTarget) focusTarget.focus({ preventScroll: true });
-            // block:'start' allinea la TOP della riga (titolo) con il top
-            // del scroller (meno lo scroll-margin-top). 'nearest' invece
-            // non scrollava quando la riga era gia' parzialmente in view,
-            // lasciando il titolo cropped sopra il viewport.
-            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            // Porta la card in vista nel rail (reveal-if-needed, no re-center).
-            revealCardInRail(target.querySelector('[class*="meta-items-container"]'), focusTarget);
+            if (focusTarget) landOnCard(focusTarget, target, 'smooth');
             return;
         }
 
@@ -256,6 +260,33 @@ const Board = () => {
     // riga (titolo "Continue Watching" fuori vista). Fix: un Intersection
     // Observer rifocussa la prima card ogni volta che il board ridiventa
     // visibile, se il focus non e' gia' su una card della lista.
+    //
+    // Casa (2026-09-24): tornando INDIETRO da un film/serie si torna sulla
+    // card da cui si era partiti, non in cima. La home resta montata sotto la
+    // pagina dettagli (display:none): la card e' ancora li', si ricorda quale
+    // era a fuoco (`lastCardRef`, scritto a ogni focus di una card) e al
+    // rientro si rifa' lo stesso reveal della nav verticale. La prima card
+    // resta il ripiego (primo ingresso, card sparita nel frattempo).
+    // ⚠️ Si ricorda il TITOLO (href), non il nodo: card e righe hanno
+    // key=index, e dopo aver guardato qualcosa Continue Watching si riordina
+    // (il titolo va in testa) -> il nodo vecchio conterrebbe il vicino. Per
+    // lo stesso motivo non basta `lastCardByRowRef` (nodi, per riga).
+    const lastCardRef = React.useRef(null);
+    const onBoardFocus = React.useCallback((e) => {
+        const card = e.target.closest('[class*="meta-item-container"]');
+        const href = card && card.getAttribute('href');
+        if (!href) return;
+        const rows = [...scrollContainerRef.current.querySelectorAll('[class*="meta-row-container"]')];
+        lastCardRef.current = { href, rowIdx: rows.indexOf(card.closest('[class*="meta-row-container"]')) };
+    }, []);
+    const findLastCard = (root) => {
+        const last = lastCardRef.current;
+        if (!last) return null;
+        const sel = `[class*="meta-item-container"][href="${CSS.escape(last.href)}"]`;
+        // Stesso titolo in due righe (CW + catalogo): prima quella di partenza.
+        const row = root.querySelectorAll('[class*="meta-row-container"]')[last.rowIdx];
+        return (row && row.querySelector(sel)) || root.querySelector(sel);
+    };
     React.useEffect(() => {
         const el = containerRef.current;
         if (!el) return undefined;
@@ -264,6 +295,13 @@ const Board = () => {
                 if (!en.isIntersecting) continue;
                 const root = scrollContainerRef.current;
                 if (!root) continue;
+                const last = findLastCard(root);
+                if (last) {
+                    const row = last.closest('[class*="meta-row-container"]');
+                    landOnCard(last, row, 'instant');
+                    lastCardByRowRef.current.set(row, last);
+                    continue;
+                }
                 const ae = document.activeElement;
                 const focusInList = ae && root.contains(ae) && ae.closest('[class*="meta-item-container"]');
                 if (focusInList) continue;
@@ -325,7 +363,7 @@ const Board = () => {
             <MainNavBars className={styles['board-content-container']} route={'board'}>
                 <div className={styles['board-vstack']}>
                     <BoardHero meta={focusedMeta} />
-                    <div ref={scrollContainerRef} className={styles['board-content']} onScroll={onScroll} onKeyDown={onBoardKeyDown}>
+                    <div ref={scrollContainerRef} className={styles['board-content']} onScroll={onScroll} onKeyDown={onBoardKeyDown} onFocus={onBoardFocus}>
                         {
                             continueWatchingItems.length > 0 ?
                                 <MetaRow
