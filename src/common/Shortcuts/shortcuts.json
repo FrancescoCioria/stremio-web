@@ -42,17 +42,17 @@
             {
                 "name": "playPause",
                 "label": "SETTINGS_SHORTCUT_PLAY_PAUSE",
-                "combos": [["Space"], ["Enter"]]
+                "combos": [["Space"], ["Enter"], ["K"]]
             },
             {
                 "name": "seekForward",
                 "label": "SETTINGS_SHORTCUT_SEEK_FORWARD",
-                "combos": [["ArrowRight"], ["Shift", "ArrowRight"]]
+                "combos": [["ArrowRight"], ["Shift", "ArrowRight"], ["L"]]
             },
             {
                 "name": "seekBackward",
                 "label": "SETTINGS_SHORTCUT_SEEK_BACKWARD",
-                "combos": [["ArrowLeft"], ["Shift", "ArrowLeft"]]
+                "combos": [["ArrowLeft"], ["Shift", "ArrowLeft"], ["J"]]
             },
             {
                 "name": "mute",

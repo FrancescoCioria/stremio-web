@@ -1185,7 +1185,11 @@ const Player = () => {
 
             // Enter = play/pause toggle, ma solo se NON sono su un bottone:
             // li' Button.tsx gestisce nativamente Enter -> click().
-            if (e.code === 'Enter' && !e.repeat && tvNavModeRef.current !== 'buttons' && video.state.paused !== null) {
+            // K = play/pause come su YouTube (J/L = seek, in shortcuts.json):
+            // nessun bottone lo usa, quindi vale anche in modalita' 'buttons'.
+            const isK = e.code === 'KeyK' && !e.ctrlKey && !e.metaKey && !e.altKey;
+            const isEnter = e.code === 'Enter' && tvNavModeRef.current !== 'buttons';
+            if ((isK || isEnter) && !e.repeat && video.state.paused !== null) {
                 if (video.state.paused) {
                     onPlayRequested();
                     setSeeking(false);
@@ -1213,10 +1217,11 @@ const Player = () => {
         };
 
         const onKeyUp = (e) => {
-            if (e.code !== 'Space' && e.code !== 'ArrowRight' && e.code !== 'ArrowLeft') return;
+            const isSeekKey = e.code === 'ArrowRight' || e.code === 'ArrowLeft' || e.code === 'KeyJ' || e.code === 'KeyL';
+            if (e.code !== 'Space' && !isSeekKey) return;
             if (e.ctrlKey || e.metaKey || e.altKey) return;
 
-            if (e.code === 'ArrowRight' || e.code === 'ArrowLeft') {
+            if (isSeekKey) {
                 setSeeking(false);
                 return;
             }
