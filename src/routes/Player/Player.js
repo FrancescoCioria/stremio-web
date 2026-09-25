@@ -249,6 +249,9 @@ const Player = () => {
     const playingOnExternalDevice = React.useRef(false);
     const [error, setError] = React.useState(null);
     const lastLoadRef = React.useRef(null);
+    // Casa: video id dello stream che sta girando DAVVERO nel <video>. Vedi
+    // l'effect di TimeChanged.
+    const loadedVideoIdRef = React.useRef(null);
 
     // Casa: recupero dall'errore di decodifica del browser. Vedi casaDecodeRecovery.js.
     // `lastGoodTimeRef` va tenuto aggiornato PRIMA del crash: quando l'errore
@@ -648,6 +651,7 @@ const Player = () => {
                 seriesInfo: player.seriesInfo ?? null,
             });
 
+            loadedVideoIdRef.current = urlParams.videoId ?? null;
             video.load(loadArgs, loadOptions);
         }
     }, [streamingServer.baseUrl, player.selected, player.stream, streamSubtitles, forceTranscoding, casting]);
@@ -688,8 +692,17 @@ const Player = () => {
         decodeRecoveryMemory.current = initialDecodeRecoveryMemory();
     }, [decodeRecoveryStreamKey]);
 
+    // ⚠️ Casa: niente TimeChanged mentre l'URL chiede gia' un altro episodio e
+    // nel <video> gira ancora il vecchio. Il core (player.rs, TimeChanged)
+    // attribuisce il tempo all'episodio SELEZIONATO: arrivato dopo il Load del
+    // successivo, ne scrive video_id e ci mette come timeOffset il minuto del
+    // precedente → il successivo parte ai titoli di coda (8 cambi episodio su
+    // 54, 19/07→25/09/2026; firma in `player-load`: loadTime ≈ tempo del
+    // vecchio). Ogni TimeChanged mandato dopo il Load vede gia' l'URL nuovo:
+    // la guardia li prende tutti, quelli di prima il core li applica al vecchio.
     React.useEffect(() => {
-        !seeking && timeChanged(video.state.time, video.state.duration, video.state.manifest?.name);
+        if (seeking || (urlParams.videoId ?? null) !== loadedVideoIdRef.current) return;
+        timeChanged(video.state.time, video.state.duration, video.state.manifest?.name);
     }, [video.state.time, video.state.duration, video.state.manifest, seeking]);
 
     React.useEffect(() => {
