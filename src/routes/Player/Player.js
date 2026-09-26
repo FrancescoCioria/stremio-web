@@ -1113,6 +1113,12 @@ const Player = () => {
         if (menusOpen) {
             logExit('close-menus');
             closeMenus();
+            // ⚠️ Il popup "prossimo episodio" conta in `menusOpen` ma
+            // closeMenus() non lo chiude: durante i titoli di coda ogni
+            // "indietro" ricadeva qui, all'infinito (President Curtis S1E6,
+            // 26/09/2026: 14 pressioni in 9s, uscito solo col long-press Home).
+            // Chiuso come "Dismiss" (non si riapre fino al prossimo stream).
+            if (nextVideoPopupOpen) onDismissNextVideoPopup();
             return;
         }
         // In pausa, barra e popup Statistics restano su per design
@@ -1158,7 +1164,7 @@ const Player = () => {
         // history.back senza guard), ora cancellato da upstream.
         logExit('back');
         window.history.back();
-    }, [tvNavMode, menusOpen, closeMenus, video.state.paused, onPlayRequested, immersed, exitTvNav]);
+    }, [tvNavMode, menusOpen, nextVideoPopupOpen, closeMenus, onDismissNextVideoPopup, video.state.paused, onPlayRequested, immersed, exitTvNav]);
 
     React.useLayoutEffect(() => {
         if (menusOpen) {
