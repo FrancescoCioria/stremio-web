@@ -6,7 +6,6 @@ const { useParams, useNavigate } = require('react-router');
 const { useSearchParams } = require('react-router-dom');
 const classnames = require('classnames');
 const debounce = require('lodash.debounce');
-const langs = require('langs');
 const { useTranslation } = require('react-i18next');
 const { default: useRouteFocused } = require('stremio/common/useRouteFocused');
 const { useCore } = require('stremio/core');
@@ -39,6 +38,7 @@ const { decodeRecoveryStep, initialMemory: initialDecodeRecoveryMemory } = requi
 const { bufferAheadMs } = require('./casaClientBuffer');
 const { nextSeek, initialSeekChain } = require('stremio/common/casaSeekAccel');
 const { nextVideoNavigation } = require('stremio/common/casaNextVideoHistory');
+const { findTrackByLang } = require('stremio/common/casaAudioTrack');
 const useVideo = require('./useVideo');
 const { default: useSubtitles } = require('./useSubtitles');
 const styles = require('./styles');
@@ -47,7 +47,6 @@ const { default: Indicator } = require('./Indicator/Indicator');
 const { default: useMediaSession } = require('./useMediaSession');
 const { rememberStream } = require('stremio/common/lastStream');
 
-const findTrackByLang = (tracks, lang) => tracks.find((track) => track.lang === lang || langs.where('1', track.lang)?.[2] === lang);
 const findTrackById = (tracks, id) => tracks.find((track) => track.id === id);
 
 const GAMEPAD_HANDLER_ID = 'player';
@@ -246,6 +245,7 @@ const Player = () => {
         casaBeacon('/debug/player-event', { ev: 'casa-next-video', source, ...casaNextCtx.current });
     }, []);
     const defaultAudioTrackSelected = React.useRef(false);
+    const audioDefaultLoggedRef = React.useRef(null);
     const playingOnExternalDevice = React.useRef(false);
     const [error, setError] = React.useState(null);
     const lastLoadRef = React.useRef(null);
@@ -733,6 +733,23 @@ const Player = () => {
             const savedTrackId = player.streamState?.audioTrack?.id;
             const savedTrack = savedTrackId ? findTrackById(video.state.audioTracks, savedTrackId) : null;
             const audioTrack = savedTrack ?? findTrackByLang(video.state.audioTracks, settingsWithCasaLanguage.audioLanguage);
+
+            // Casa: "e' partito in francese" si legge dal log. Una riga per
+            // stream+lingua con piu' tracce: se la lingua del titolo arriva dal
+            // backend DOPO le tracce, si logga anche il tentativo con quella.
+            const tracks = video.state.audioTracks || [];
+            const want = settingsWithCasaLanguage.audioLanguage ?? null;
+            const logged = audioDefaultLoggedRef.current;
+            if (tracks.length > 1 && (!logged || logged.stream !== video.state.stream || logged.want !== want)) {
+                audioDefaultLoggedRef.current = { stream: video.state.stream, want };
+                casaBeacon('/debug/player-event', {
+                    ev: 'casa-audio-default',
+                    want,
+                    saved: savedTrackId ?? null,
+                    tracks: tracks.map((t) => t && t.lang),
+                    picked: audioTrack ? audioTrack.lang ?? audioTrack.id : null,
+                });
+            }
 
             if (audioTrack && audioTrack.id) {
                 video.setAudioTrack(audioTrack.id);
