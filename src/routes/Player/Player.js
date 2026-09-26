@@ -39,6 +39,7 @@ const { bufferAheadMs } = require('./casaClientBuffer');
 const { nextSeek, initialSeekChain } = require('stremio/common/casaSeekAccel');
 const { nextVideoNavigation } = require('stremio/common/casaNextVideoHistory');
 const { findTrackByLang } = require('stremio/common/casaAudioTrack');
+const { resolveNextDeepLinks } = require('stremio/common/casaNextStream');
 const useVideo = require('./useVideo');
 const { default: useSubtitles } = require('./useSubtitles');
 const styles = require('./styles');
@@ -290,18 +291,44 @@ const Player = () => {
         }
     }, []);
 
+    // Casa: il torrent del successivo lo sceglie il backend (binge debole ->
+    // migliore della stessa risoluzione). Vedi casaNextStream.js.
+    // ⚠️ Una sola in volo (fine episodio + bottone nella stessa attesa
+    // navigherebbero due volte), e niente navigazione se nel frattempo si e'
+    // lasciato il player. `nextVideo()` DOPO l'attesa, subito prima di navigare
+    // come prima: durante l'attesa il vecchio episodio gira ancora.
+    const goToNextVideoInFlight = React.useRef(false);
+    const goToNextVideo = React.useCallback(async (ended) => {
+        if (goToNextVideoInFlight.current) return;
+        goToNextVideoInFlight.current = true;
+        try {
+            const next = player.nextVideo;
+            const bingeWatching = profile.settings.bingeWatching;
+            const hashBefore = window.location.hash;
+            const deepLinks = ended && !bingeWatching ? next.deepLinks : await resolveNextDeepLinks({
+                deepLinks: next.deepLinks,
+                currentStream: player.selected?.stream,
+                type,
+                nextVideoId: next.id,
+                encodeStream: core.transport.encodeStream,
+            });
+            if (window.location.hash !== hashBefore) return;
+            nextVideo();
+            handleNextVideoNavigation(deepLinks, bingeWatching, ended);
+        } finally {
+            goToNextVideoInFlight.current = false;
+        }
+    }, [player.nextVideo, player.selected, profile.settings.bingeWatching, handleNextVideoNavigation, type]);
+
     const onEnded = React.useCallback(() => {
         logNextVideoTrigger('ended');
         ended();
         if (player.nextVideo !== null) {
-            nextVideo();
-
-            const deepLinks = player.nextVideo.deepLinks;
-            handleNextVideoNavigation(deepLinks, profile.settings.bingeWatching, true);
+            goToNextVideo(true);
         } else {
             navigate(-1);
         }
-    }, [player.nextVideo, profile.settings.bingeWatching, handleNextVideoNavigation, logNextVideoTrigger]);
+    }, [player.nextVideo, goToNextVideo, logNextVideoTrigger]);
 
     const onError = React.useCallback((error) => {
         console.error('Player', error);
@@ -425,12 +452,9 @@ const Player = () => {
     const onNextVideoRequested = React.useCallback((source) => {
         logNextVideoTrigger(typeof source === 'string' ? source : 'button');
         if (player.nextVideo !== null) {
-            nextVideo();
-
-            const deepLinks = player.nextVideo.deepLinks;
-            handleNextVideoNavigation(deepLinks, profile.settings.bingeWatching, false);
+            goToNextVideo(false);
         }
-    }, [player.nextVideo, handleNextVideoNavigation, profile.settings, logNextVideoTrigger]);
+    }, [player.nextVideo, goToNextVideo, logNextVideoTrigger]);
 
     const onVideoClick = React.useCallback(() => {
         if (video.state.paused !== null && !longPress.current) {
@@ -1020,11 +1044,9 @@ const Player = () => {
         logNextVideoTrigger('shift-n');
         closeMenus();
         if (player.nextVideo !== null) {
-            nextVideo();
-            const deepLinks = player.nextVideo.deepLinks;
-            handleNextVideoNavigation(deepLinks, false, false);
+            goToNextVideo(false);
         }
-    }, [player.nextVideo, handleNextVideoNavigation, logNextVideoTrigger]);
+    }, [player.nextVideo, goToNextVideo, logNextVideoTrigger]);
 
     // Casa TV: la barra tirata su col telecomando si ritira DA SOLA.
     //

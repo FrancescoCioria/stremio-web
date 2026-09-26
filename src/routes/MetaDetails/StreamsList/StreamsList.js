@@ -17,6 +17,7 @@ const { default: useRouteFocused } = require('stremio/common/useRouteFocused');
 const torrentRace = require('stremio/common/torrentRace');
 const { decideStreamFocus } = require('stremio/common/streamFocus');
 const qualityBuckets = require('stremio/common/qualityBuckets');
+const { streamHeight } = require('stremio/common/casaStreamHeight');
 const { handleRowsKeyDown, heroFirstAction, landOn } = require('stremio/common/casaRowsNav');
 const { revealCardInRail } = require('stremio/common/casaRailNav');
 
@@ -86,18 +87,6 @@ const isIncompatibleStream = (stream) => {
     return INCOMPATIBLE_CODEC_RE.test(text);
 };
 
-// Risoluzione dal testo (name/title/filename/bingeGroup): max "NNNp" trovato,
-// oppure 2160 per 4k/uhd. 0 = sconosciuta (NON penalizzata).
-const RES_RE = /(\d{3,4})\s*p\b/gi;
-const streamHeight = (stream) => {
-    const bh = stream.behaviorHints || {};
-    const text = [stream.name, stream.title, stream.description, bh.filename, bh.bingeGroup].filter(Boolean).join(' ');
-    let h = 0, m;
-    RES_RE.lastIndex = 0;
-    while ((m = RES_RE.exec(text)) !== null) { const v = +m[1]; if (v > h) h = v; }
-    if (h === 0 && /\b(?:4k|uhd|2160)\b/i.test(text)) h = 2160;
-    return h;
-};
 // "Bassa risoluzione" = 720p e sotto (ma >0: la sconosciuta resta in alto).
 const isLowRes = (stream) => { const h = streamHeight(stream); return h > 0 && h <= 720; };
 // Etichetta qualita' (da streamHeight, non dal name dell'addon che e' incoerente:

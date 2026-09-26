@@ -21,6 +21,7 @@
 const React = require('react');
 const { casaBeacon } = require('stremio/common/casaBackend');
 const { hashFromUrl } = require('stremio/common/torrentRace');
+const { streamHeight } = require('stremio/common/casaStreamHeight');
 
 const ENDPOINT = '/stremio-addon/prewarm';
 const PREWARM_AFTER_MS = 120 * 1000; // video.state.time e' in ms
@@ -69,6 +70,9 @@ const useNextEpisodePrewarm = (player, video, type) => {
             // il backend salta il warm dei byte: un secondo reader sullo stesso
             // torrent fa thrashing sulla cache del film in corso.
             currentHash: currentHash,
+            // Risoluzione in corso: se il binge e' debole il backend prende il
+            // migliore di QUESTA risoluzione (e scalda quello).
+            height: streamHeight(stream),
             // La traccia sottotitoli in uso ORA. Il backend estrae in anticipo
             // il VTT corrispondente del prossimo episodio, cosi' il binge non
             // paga i ~70s di cold-start (l'estrazione costa quanto scaricare
