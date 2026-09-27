@@ -18,7 +18,9 @@ const BACKEND_URL = casaBackendUrl('');
 // ⚠️ Persistente (vedi casaPersistentCache.js): erano dati ri-scaricati ad ogni
 // ricarica del bundle. TTL corto rispetto agli altri: "al cinema" e "su Prime"
 // cambiano davvero, e una pill sbagliata e' peggio di una pill assente.
-const cache = new PersistentCache('availability', { ttlMs: 24 * 60 * 60 * 1000, maxEntries: 500 });
+// ⚠️ 'availability-v2' dal 2026-09-27 (campo `platform`): le voci della cache
+// vecchia non lo hanno e per 24h avrebbero lasciato l'hero senza bollino.
+const cache = new PersistentCache('availability-v2', { ttlMs: 24 * 60 * 60 * 1000, maxEntries: 500 });
 const inflight = new Map(); // imdbId -> Promise
 
 // loaded=false finche' la risposta backend non e' arrivata: serve a NON
@@ -27,7 +29,7 @@ const inflight = new Map(); // imdbId -> Promise
 // dall'assenza di digitalRelease) LAMPEGGIAVA sul dettaglio film appena il
 // metaItem diventava Ready ma prima che /availability rispondesse, poi
 // spariva col dato vero (2026-07-17).
-const NONE = { inCinema: false, onPrime: false, digitalRelease: null, loaded: false };
+const NONE = { inCinema: false, onPrime: false, digitalRelease: null, platform: null, loaded: false };
 
 const fetchAvailability = async (kind, imdbId) => {
     const r = await fetch(`${BACKEND_URL}/availability/${kind}/${encodeURIComponent(imdbId)}`);
@@ -40,6 +42,9 @@ const fetchAvailability = async (kind, imdbId) => {
         // ISO date della prima uscita digitale (o null). La riga "Digitale: ..."
         // sul dettaglio film deriva recenza/wording da casaDigitalRelease.js.
         digitalRelease: typeof j.digital_release_date === 'string' ? j.digital_release_date : null,
+        // Marchio che ha PRODOTTO il titolo ("HBO", "Netflix"...), o null
+        // (cinema, canale TV classico). Bollino nell'hero della home.
+        platform: typeof j.platform === 'string' ? j.platform : null,
         loaded: true,
     };
 };

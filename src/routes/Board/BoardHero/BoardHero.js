@@ -93,7 +93,8 @@ const BoardHero = ({ meta: rawMeta }) => {
     // ⚠️ Prima delle uscite anticipate: gli hook non possono stare sotto un
     // `return`. Con `meta` nullo passa (null, null) e non chiede niente.
     const ratings = useLetterboxdRating(meta?.type, meta?.id);
-    const availability = useTitleAvailability(meta?.type, meta?.type === 'movie' ? meta?.id : null);
+    // Serie comprese dal 2026-09-27: servono per il bollino della piattaforma.
+    const availability = useTitleAvailability(meta?.type, meta?.id);
     if (!meta) {
         return <div className={styles['board-hero-container']} />;
     }
@@ -167,6 +168,11 @@ const BoardHero = ({ meta: rawMeta }) => {
                 <div className={styles['hero-subline']}>
                     {typeLabel ?
                         <span className={classnames(styles['sub-item'], styles['type-label'])}>{typeLabel}</span> : null}
+                    {/* Casa: chi l'ha PRODOTTO (HBO, Netflix, Apple TV...), dal
+                        backend (`availability.ts`, platformName). Niente
+                        bollino per film del cinema e canali TV classici. */}
+                    {availability.platform ?
+                        <span className={classnames(styles['sub-item'], styles['platform-badge'])}>{availability.platform}</span> : null}
                     {typeof meta.runtime === 'string' && meta.runtime.length > 0 ?
                         <span className={styles['sub-item']}>{meta.runtime}</span> : null}
                     {typeof releaseText === 'string' && releaseText.length > 0 ?
