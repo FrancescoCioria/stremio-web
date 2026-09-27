@@ -14,15 +14,17 @@ const styles = require('./styles');
 // la home e' l'unico posto dove li si vede (niente "See all" su TV).
 // ⚠️ Disegnate a BLOCCHI, non tutte: se ne montano 25 e quando l'ultima
 // arriva a meno di una schermata dal bordo destro della riga si aggiungono le
-// 25 dopo. Ogni
-// card costa richieste sue (voti, disponibilita') e la maggior parte delle
-// righe non si scorre mai oltre la prima schermata. Il segnale e' la
+// 25 dopo. Ogni card costa richieste sue (voti, disponibilita') e la maggior
+// parte delle righe non si scorre mai oltre la prima schermata. Il segnale e' la
 // VISIBILITA' della card (IntersectionObserver), non il focus: telecomando e
 // mouse arrivano li' per strade diverse, la card che entra in vista e' una sola.
 // ⚠️ La schermata d'anticipo (rootMargin, con la RIGA come root: e' lei che
-// scorre) non e' un vezzo: con la sentinella a "entrata nello schermo" lo
-// scorrimento animato arrivava dopo il tasto, e col tasto tenuto premuto ci si
-// fermava ~300 ms sulla 25a card (misurato, Playwright a 60 ms per tasto).
+// scorre) serve: con la sentinella a "entrata nello schermo" lo scorrimento
+// animato arriva dopo il tasto e col tasto tenuto ci si fermava ~300 ms sulla
+// 25a card. Misurato con Playwright alla ripetizione VERA del telecomando/pad
+// (180 ms, `NAV_REPEAT_INTERVAL_S` di remote2kb/gamepad2kb): zero pause. A
+// 60 ms per tasto (non esiste in casa) una pausa resta; tre schermate la
+// toglierebbero ma montano 50 card all'avvio, cioe' niente blocchi.
 // Una volta montate restano (niente smontaggio dietro): il ritorno sulla card di
 // partenza (Board `landOnCard`) cerca il nodo nel DOM.
 const TV_PREVIEW_SIZE = 100;
