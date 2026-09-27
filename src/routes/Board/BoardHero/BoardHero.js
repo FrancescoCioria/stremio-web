@@ -88,6 +88,22 @@ const digitalDateLabel = (type, availability) => {
     return new Date(t).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 };
 
+// Casa: marchio (dal backend, `availability.ts` PLATFORMS) -> classe col suo
+// colore. ⚠️ Un marchio che non e' qui NON si disegna: meglio nessun bollino di
+// uno grigio che non si riconosce (STARZ tolto il 2026-09-27: "mai sentita").
+const PLATFORM_CLASS = {
+    'Netflix': 'netflix',
+    'Prime Video': 'prime',
+    'Apple TV': 'apple',
+    'Disney+': 'disney',
+    'HBO': 'hbo',
+    'Hulu': 'hulu',
+    'Paramount+': 'paramount',
+    'Peacock': 'peacock',
+    'Sky': 'sky',
+    'Crunchyroll': 'crunchyroll',
+};
+
 const BoardHero = ({ meta: rawMeta }) => {
     const { meta, done: enrichmentDone } = useEnrichedMeta(rawMeta);
     // ⚠️ Prima delle uscite anticipate: gli hook non possono stare sotto un
@@ -171,8 +187,8 @@ const BoardHero = ({ meta: rawMeta }) => {
                     {/* Casa: chi l'ha PRODOTTO (HBO, Netflix, Apple TV...), dal
                         backend (`availability.ts`, platformName). Niente
                         bollino per film del cinema e canali TV classici. */}
-                    {availability.platform ?
-                        <span className={classnames(styles['sub-item'], styles['platform-badge'])}>{availability.platform}</span> : null}
+                    {PLATFORM_CLASS[availability.platform] ?
+                        <span className={classnames(styles['sub-item'], styles['platform-badge'], styles[PLATFORM_CLASS[availability.platform]])}>{availability.platform}</span> : null}
                     {typeof meta.runtime === 'string' && meta.runtime.length > 0 ?
                         <span className={styles['sub-item']}>{meta.runtime}</span> : null}
                     {typeof releaseText === 'string' && releaseText.length > 0 ?
