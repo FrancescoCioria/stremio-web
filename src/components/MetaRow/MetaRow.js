@@ -12,17 +12,21 @@ const styles = require('./styles');
 // (CATALOG_PREVIEW_SIZE = 10). Scrolliamo orizzontalmente.
 // Fino a 100 dal 2026-09-27 (era 25): "Ultime uscite - Film" ha ~100 titoli e
 // la home e' l'unico posto dove li si vede (niente "See all" su TV).
-// ⚠️ Disegnate a BLOCCHI, non tutte: se ne montano 25 e quando una delle
-// ultime `PRELOAD_AHEAD` entra nello schermo si aggiungono le 25 dopo. Ogni
+// ⚠️ Disegnate a BLOCCHI, non tutte: se ne montano 25 e quando l'ultima
+// arriva a meno di una schermata dal bordo destro della riga si aggiungono le
+// 25 dopo. Ogni
 // card costa richieste sue (voti, disponibilita') e la maggior parte delle
 // righe non si scorre mai oltre la prima schermata. Il segnale e' la
 // VISIBILITA' della card (IntersectionObserver), non il focus: telecomando e
 // mouse arrivano li' per strade diverse, la card che entra in vista e' una sola.
+// ⚠️ La schermata d'anticipo (rootMargin, con la RIGA come root: e' lei che
+// scorre) non e' un vezzo: con la sentinella a "entrata nello schermo" lo
+// scorrimento animato arrivava dopo il tasto, e col tasto tenuto premuto ci si
+// fermava ~300 ms sulla 25a card (misurato, Playwright a 60 ms per tasto).
 // Una volta montate restano (niente smontaggio dietro): il ritorno sulla card di
 // partenza (Board `landOnCard`) cerca il nodo nel DOM.
 const TV_PREVIEW_SIZE = 100;
 const RENDER_STEP = 25;
-const PRELOAD_AHEAD = 8;
 
 const MetaRow = ({ className, title, catalog, message, itemComponent, notifications }) => {
     const t = useTranslate();
@@ -87,13 +91,13 @@ const MetaRow = ({ className, title, catalog, message, itemComponent, notificati
         const limit = Math.min(items.length, TV_PREVIEW_SIZE);
         const container = itemsContainerRef.current;
         if (renderCount >= limit || !container || typeof IntersectionObserver === 'undefined') return;
-        const sentinel = container.children[Math.max(0, renderCount - PRELOAD_AHEAD)];
+        const sentinel = container.lastElementChild;
         if (!sentinel) return;
         const observer = new IntersectionObserver((entries) => {
             if (entries.some((entry) => entry.isIntersecting)) {
                 setRenderCount((count) => Math.min(count + RENDER_STEP, limit));
             }
-        });
+        }, { root: container, rootMargin: '0px 100% 0px 0px' });
         observer.observe(sentinel);
         return () => observer.disconnect();
     }, [renderCount, items.length]);
