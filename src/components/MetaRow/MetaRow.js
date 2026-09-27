@@ -12,23 +12,11 @@ const styles = require('./styles');
 // (CATALOG_PREVIEW_SIZE = 10). Scrolliamo orizzontalmente.
 // Fino a 100 dal 2026-09-27 (era 25): "Ultime uscite - Film" ha ~100 titoli e
 // la home e' l'unico posto dove li si vede (niente "See all" su TV).
-// ⚠️ Disegnate a BLOCCHI, non tutte: se ne montano 25 e quando l'ultima
-// arriva a meno di una schermata dal bordo destro della riga si aggiungono le
-// 25 dopo. Ogni card costa richieste sue (voti, disponibilita') e la maggior
-// parte delle righe non si scorre mai oltre la prima schermata. Il segnale e' la
-// VISIBILITA' della card (IntersectionObserver), non il focus: telecomando e
-// mouse arrivano li' per strade diverse, la card che entra in vista e' una sola.
-// ⚠️ La schermata d'anticipo (rootMargin, con la RIGA come root: e' lei che
-// scorre) serve: con la sentinella a "entrata nello schermo" lo scorrimento
-// animato arriva dopo il tasto e col tasto tenuto ci si fermava ~300 ms sulla
-// 25a card. Misurato con Playwright alla ripetizione VERA del telecomando/pad
-// (180 ms, `NAV_REPEAT_INTERVAL_S` di remote2kb/gamepad2kb): zero pause. A
-// 60 ms per tasto (non esiste in casa) una pausa resta; tre schermate la
-// toglierebbero ma montano 50 card all'avvio, cioe' niente blocchi.
-// Una volta montate restano (niente smontaggio dietro): il ritorno sulla card di
-// partenza (Board `landOnCard`) cerca il nodo nel DOM.
+// ⚠️ Tutte montate subito, SCELTA dell'utente: la v4.138 le montava a blocchi
+// di 25 (IntersectionObserver) — la lista arriva comunque intera in una
+// risposta, il blocco risparmiava solo poster e richieste delle card mai
+// raggiunte. Scartato per semplicita'; costo misurato nel commit v4.139.
 const TV_PREVIEW_SIZE = 100;
-const RENDER_STEP = 25;
 
 const MetaRow = ({ className, title, catalog, message, itemComponent, notifications }) => {
     const t = useTranslate();
@@ -87,23 +75,6 @@ const MetaRow = ({ className, title, catalog, message, itemComponent, notificati
         return extraItems.length > 0 ? [...base, ...extraItems] : base;
     }, [catalog, extraItems]);
 
-    const [renderCount, setRenderCount] = React.useState(RENDER_STEP);
-    const itemsContainerRef = React.useRef(null);
-    React.useEffect(() => {
-        const limit = Math.min(items.length, TV_PREVIEW_SIZE);
-        const container = itemsContainerRef.current;
-        if (renderCount >= limit || !container || typeof IntersectionObserver === 'undefined') return;
-        const sentinel = container.lastElementChild;
-        if (!sentinel) return;
-        const observer = new IntersectionObserver((entries) => {
-            if (entries.some((entry) => entry.isIntersecting)) {
-                setRenderCount((count) => Math.min(count + RENDER_STEP, limit));
-            }
-        }, { root: container, rootMargin: '0px 100% 0px 0px' });
-        observer.observe(sentinel);
-        return () => observer.disconnect();
-    }, [renderCount, items.length]);
-
     // Event bus: quando una card della rail prende focus, emettiamo un
     // CustomEvent 'casa-meta-focus' con l'item completo. Board ascolta a
     // livello container per aggiornare l'hero MetaPreview sopra.
@@ -161,10 +132,10 @@ const MetaRow = ({ className, title, catalog, message, itemComponent, notificati
                 typeof message === 'string' && message.length > 0 ?
                     <div className={styles['message-container']} title={message}>{message}</div>
                     :
-                    <div ref={itemsContainerRef} className={styles['meta-items-container']}>
+                    <div className={styles['meta-items-container']}>
                         {
                             ReactIs.isValidElementType(itemComponent) ?
-                                items.slice(0, Math.min(renderCount, TV_PREVIEW_SIZE)).map((item, index) => {
+                                items.slice(0, TV_PREVIEW_SIZE).map((item, index) => {
                                     return React.createElement(itemComponent, {
                                         ...item,
                                         key: index,
