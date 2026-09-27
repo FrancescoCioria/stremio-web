@@ -78,8 +78,12 @@
         /* ⚠️ Piccolo apposta: ogni rem qui la paga la riga PRECEDENTE, che
          * dell'ultima e' l'unica cosa visibile in cima. A 1.5rem si vedevano
          * solo date e badge orfani; cosi' spunta anche il bordo basso delle
-         * miniature, che e' cio' che fa leggere "c'e' una riga sopra". */
-        scroll-margin-bottom: 0.25rem;
+         * miniature, che e' cio' che fa leggere "c'e' una riga sopra".
+         * 1rem dal 2026-09-27 (era 0.25rem: l'ultima riga stava a 5 px dal
+         * bordo, "manca margin bottom"). Misurato a 2259x1271: 18 px dal
+         * bordo, della riga sopra 100 px invece di 113 (resta una linea di
+         * miniatura). Scelto dall'utente fra 1 / 1.5 / 2rem. */
+        scroll-margin-bottom: 1rem;
         /* 26 px dell'handoff (B3: la stagione dopo sta a 26 px). ⚠️ Ogni pixel
          * qui lo paga la riga VICINA, che deve spuntare quanto basta a
          * leggerne il titolo. */
