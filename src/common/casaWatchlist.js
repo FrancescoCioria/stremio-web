@@ -108,7 +108,7 @@ const toAwaitingRowItem = (entry) => ({
 // quelli serializzati per la UI espongono solo `{videoId}`, nessuna data
 // (verificato a runtime sul Board vero). Senza `activity` utilizzabile si
 // PREPENDE — mai accodare: la riga del core ha 25+ item e `MetaRow` taglia a
-// `TV_PREVIEW_SIZE` (25 allora, 50 dal 2026-09-27), quindi un item in coda non verrebbe MAI disegnato
+// `TV_PREVIEW_SIZE` (25 allora, 100 a blocchi dal 2026-09-27), quindi un item in coda non verrebbe MAI disegnato
 // (e' esattamente il bug del 2026-08-24: fetch ok, merge ok, DOM vuoto).
 //
 // ⚠️ La de-duplica non e' teorica: appena si guarda un secondo di un titolo il

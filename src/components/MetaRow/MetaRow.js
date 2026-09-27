@@ -10,10 +10,19 @@ const styles = require('./styles');
 
 // TV: mostriamo molte piu' card upfront rispetto al web classico
 // (CATALOG_PREVIEW_SIZE = 10). Scrolliamo orizzontalmente.
-// 50 dal 2026-09-27 (era 25): "Ultime uscite - Film" ha ~100 titoli ordinati
-// voto+data e la home e' l'unico posto dove li si vede (niente "See all" su
-// TV) — con 25 "i peggiori in fondo, ma ci sono" erano semplicemente fuori.
-const TV_PREVIEW_SIZE = 50;
+// Fino a 100 dal 2026-09-27 (era 25): "Ultime uscite - Film" ha ~100 titoli e
+// la home e' l'unico posto dove li si vede (niente "See all" su TV).
+// ⚠️ Disegnate a BLOCCHI, non tutte: se ne montano 25 e quando una delle
+// ultime `PRELOAD_AHEAD` entra nello schermo si aggiungono le 25 dopo. Ogni
+// card costa richieste sue (voti, disponibilita') e la maggior parte delle
+// righe non si scorre mai oltre la prima schermata. Il segnale e' la
+// VISIBILITA' della card (IntersectionObserver), non il focus: telecomando e
+// mouse arrivano li' per strade diverse, la card che entra in vista e' una sola.
+// Una volta montate restano (niente smontaggio dietro): il ritorno sulla card di
+// partenza (Board `landOnCard`) cerca il nodo nel DOM.
+const TV_PREVIEW_SIZE = 100;
+const RENDER_STEP = 25;
+const PRELOAD_AHEAD = 8;
 
 const MetaRow = ({ className, title, catalog, message, itemComponent, notifications }) => {
     const t = useTranslate();
@@ -72,6 +81,23 @@ const MetaRow = ({ className, title, catalog, message, itemComponent, notificati
         return extraItems.length > 0 ? [...base, ...extraItems] : base;
     }, [catalog, extraItems]);
 
+    const [renderCount, setRenderCount] = React.useState(RENDER_STEP);
+    const itemsContainerRef = React.useRef(null);
+    React.useEffect(() => {
+        const limit = Math.min(items.length, TV_PREVIEW_SIZE);
+        const container = itemsContainerRef.current;
+        if (renderCount >= limit || !container || typeof IntersectionObserver === 'undefined') return;
+        const sentinel = container.children[Math.max(0, renderCount - PRELOAD_AHEAD)];
+        if (!sentinel) return;
+        const observer = new IntersectionObserver((entries) => {
+            if (entries.some((entry) => entry.isIntersecting)) {
+                setRenderCount((count) => Math.min(count + RENDER_STEP, limit));
+            }
+        });
+        observer.observe(sentinel);
+        return () => observer.disconnect();
+    }, [renderCount, items.length]);
+
     // Event bus: quando una card della rail prende focus, emettiamo un
     // CustomEvent 'casa-meta-focus' con l'item completo. Board ascolta a
     // livello container per aggiornare l'hero MetaPreview sopra.
@@ -123,16 +149,16 @@ const MetaRow = ({ className, title, catalog, message, itemComponent, notificati
                 }
                 {/* TV: rimosso "See all" — apre una vista Discover che non
                     vogliamo esporre su TV (nav secondaria, troppi click). La
-                    rail stessa gia' scrolla orizzontalmente per 25 card. */}
+                    rail stessa gia' scrolla orizzontalmente, fino a 100 card. */}
             </div>
             {
                 typeof message === 'string' && message.length > 0 ?
                     <div className={styles['message-container']} title={message}>{message}</div>
                     :
-                    <div className={styles['meta-items-container']}>
+                    <div ref={itemsContainerRef} className={styles['meta-items-container']}>
                         {
                             ReactIs.isValidElementType(itemComponent) ?
-                                items.slice(0, TV_PREVIEW_SIZE).map((item, index) => {
+                                items.slice(0, Math.min(renderCount, TV_PREVIEW_SIZE)).map((item, index) => {
                                     return React.createElement(itemComponent, {
                                         ...item,
                                         key: index,
