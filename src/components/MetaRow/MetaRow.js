@@ -10,7 +10,10 @@ const styles = require('./styles');
 
 // TV: mostriamo molte piu' card upfront rispetto al web classico
 // (CATALOG_PREVIEW_SIZE = 10). Scrolliamo orizzontalmente.
-const TV_PREVIEW_SIZE = 25;
+// 50 dal 2026-09-27 (era 25): "Ultime uscite - Film" ha ~100 titoli ordinati
+// voto+data e la home e' l'unico posto dove li si vede (niente "See all" su
+// TV) — con 25 "i peggiori in fondo, ma ci sono" erano semplicemente fuori.
+const TV_PREVIEW_SIZE = 50;
 
 const MetaRow = ({ className, title, catalog, message, itemComponent, notifications }) => {
     const t = useTranslate();
