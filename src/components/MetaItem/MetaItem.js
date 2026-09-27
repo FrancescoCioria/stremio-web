@@ -292,7 +292,7 @@ const MetaItem = React.memo(({ className, type, id, name, poster, posterShape, p
             menuOnSelect({ value, reactEvent: event, nativeEvent: event.nativeEvent });
         }
     }, [menuOnSelect, closeCtxMenu, ctxMenuOnClose, casaOnSelect]);
-    const { inCinema, onPrime } = useTitleAvailability(type, id);
+    const { inCinema } = useTitleAvailability(type, id);
     const renderPosterFallback = React.useCallback(() => (
         <Icon
             className={styles['placeholder-icon']}
@@ -364,14 +364,14 @@ const MetaItem = React.memo(({ className, type, id, name, poster, posterShape, p
                         :
                         null
                 }
+                {/* Casa: la pill "Prime" e' stata TOLTA il 2026-09-27 (richiesta
+                    utente): la piattaforma ora la dice il bollino nell'hero.
+                    Il dato `onPrime` arriva ancora dal backend. */}
                 {
                     inCinema ?
                         <div className={styles['in-cinema-pill']}>Al Cinema</div>
                         :
-                        onPrime ?
-                            <div className={styles['prime-pill']}>Prime</div>
-                            :
-                            null
+                        null
                 }
                 {
                     ctxMenuOpen && hasOptions ?
