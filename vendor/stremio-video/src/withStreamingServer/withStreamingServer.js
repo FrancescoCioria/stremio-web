@@ -31,6 +31,9 @@ function withStreamingServer(Video) {
 
         var self = this;
         var loadArgs = null;
+        // Casa: l'analisi del file non ha limiti di tempo (casaHls.fetchProbe); la
+        // si annulla uscendo, cosi' il backend smette di scaricare dal torrent vecchio.
+        var probeAbort = null;
         var loaded = false;
         var actionsQueue = [];
         var videoParams = null;
@@ -106,6 +109,10 @@ function withStreamingServer(Video) {
                         command('unload');
                         video.dispatch({ type: 'command', commandName: 'unload' });
                         loadArgs = commandArgs;
+                        probeAbort = typeof AbortController !== 'undefined' ? new AbortController() : null;
+                        // Catturato QUI: letto dentro la catena prenderebbe il controller del
+                        // film DOPO (load di B mentre A risolve ancora lo stream).
+                        var probeSignal = probeAbort ? probeAbort.signal : undefined;
                         onPropChanged('stream');
                         convertStream(commandArgs.streamingServerURL, commandArgs.stream, commandArgs.seriesInfo, commandArgs.streamingServerSettings)
                             .then(function(result) {
@@ -132,7 +139,8 @@ function withStreamingServer(Video) {
                                     formats: formats,
                                     videoCodecs: videoCodecs,
                                     audioCodecs: audioCodecs,
-                                    maxAudioChannels: maxAudioChannels
+                                    maxAudioChannels: maxAudioChannels,
+                                    signal: probeSignal
                                 });
                                 return (commandArgs.forceTranscoding ? Promise.resolve(false) : VideoWithStreamingServer.canPlayStream({ url: mediaURL }, canPlayStreamOptions))
                                     .catch(function(error) {
@@ -288,6 +296,10 @@ function withStreamingServer(Video) {
                     return true;
                 }
                 case 'unload': {
+                    if (probeAbort) {
+                        probeAbort.abort();
+                        probeAbort = null;
+                    }
                     loadArgs = null;
                     loaded = false;
                     actionsQueue = [];
@@ -364,7 +376,7 @@ function withStreamingServer(Video) {
                 }
                 // probing normally gives more accurate results
                 // Casa: prima il nostro backend, poi server.js (casaHls.fetchProbe).
-                return fetchProbe(options.streamingServerURL, stream.url)
+                return fetchProbe(options.streamingServerURL, stream.url, options.signal)
                     .then(function(probe) {
                         var isFormatSupported = options.formats.some(function(format) {
                             return probe.format.name.indexOf(format) !== -1;

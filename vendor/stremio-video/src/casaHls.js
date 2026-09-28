@@ -54,14 +54,12 @@ function casaMasterUrl(fallback, id, query) {
 // di risposta, verificata sui file della cronologia.
 //   localStorage.setItem('casa.probe', 'off')   -> di nuovo solo server.js
 var PROBE_FLAG = 'casa.probe';
-// ⚠️ Il FE ASPETTA il BE: il limite vero e' del backend (ffprobe 30 s, poi 502
-// esplicito, hls_probe.ts PROBE_TIMEOUT_MS). Questo e' solo una rete contro una
-// connessione appesa, volutamente molto piu' larga. Era 20 s e correva CONTRO il
-// backend (2026-09-28, Mac, torrent freddo): 4 s di metadata + 16 s per i primi
-// pezzi = 20,6 s, la tile rinunciava a 20,0 e chiedeva a server.js, che rispondeva
-// "subito" solo coi byte appena scaricati dalla nostra ffprobe. Senza server.js
-// sarebbe stato un errore su un'analisi che stava per riuscire.
-var CASA_PROBE_TIMEOUT_MS = 90000;
+// ⚠️ NESSUN limite di tempo, ne' qui ne' nel backend: su un torrent freddo
+// l'analisi dura quanto lo swarm (A/B 28/09: 3-30 s, mediana 15) e decide chi
+// guarda, col telecomando. Uscire dal player annulla la richiesta (`signal`) e il
+// backend uccide ffprobe, cosi' non ruba banda al torrent scelto dopo. Prima: 20 s
+// che correvano CONTRO il backend (Mac, 20,6 s: rinunciava a un'analisi quasi
+// finita), poi 90 s + 30 s nel backend, sempre numeri a caso.
 
 function probeEnabled() {
     try {
@@ -71,29 +69,26 @@ function probeEnabled() {
     }
 }
 
-function fetchJson(u, timeoutMs) {
-    var opts = {};
-    if (timeoutMs && typeof AbortController !== 'undefined') {
-        var ctrl = new AbortController();
-        setTimeout(function() { ctrl.abort(); }, timeoutMs);
-        opts.signal = ctrl.signal;
-    }
-    return fetch(u, opts).then(function(r) {
+function fetchJson(u, signal) {
+    return fetch(u, signal ? { signal: signal } : {}).then(function(r) {
         if (!r.ok) throw new Error('HTTP ' + r.status);
         return r.json();
     });
 }
 
-function fetchProbe(streamingServerURL, mediaURL) {
+function fetchProbe(streamingServerURL, mediaURL, signal) {
     var q = 'mediaURL=' + encodeURIComponent(mediaURL);
     var fromServer = function() {
-        return fetchJson(String(streamingServerURL).replace(/\/$/, '') + '/hlsv2/probe?' + q);
+        return fetchJson(String(streamingServerURL).replace(/\/$/, '') + '/hlsv2/probe?' + q, signal);
     };
     var origin = casaBackendOrigin();
     if (!probeEnabled() || !origin) return fromServer();
-    // server.js solo su un errore VERO del backend (o sulla rete di 90 s), mai in
-    // gara: su un torrent freddo aspetta i primi byte quanto noi.
-    return fetchJson(origin + '/casa-hls/probe?' + q, CASA_PROBE_TIMEOUT_MS).catch(fromServer);
+    // server.js solo su un errore VERO del backend, mai se l'annullamento e' nostro
+    // (uscita dal player): li' non serve piu' nessuna risposta.
+    return fetchJson(origin + '/casa-hls/probe?' + q, signal).catch(function(e) {
+        if (signal && signal.aborted) throw e;
+        return fromServer();
+    });
 }
 
 module.exports = { casaMasterUrl: casaMasterUrl, casaBackendOrigin: casaBackendOrigin, fetchProbe: fetchProbe };

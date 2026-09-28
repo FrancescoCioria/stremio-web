@@ -132,8 +132,10 @@ const useCasaEmbeddedSubs = (video, streamUrl, streamingServerUrl, selectedVideo
         if (probedForRef.current === streamUrl) return;
 
         let cancelled = false;
+        // Annullata all'uscita: l'analisi non ha limiti di tempo (casaHls.fetchProbe).
+        const probeCtrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
         // Stessa analisi della scelta diretto/HLS: prima il backend, poi server.js.
-        fetchProbe(streamingServerUrl, streamUrl)
+        fetchProbe(streamingServerUrl, streamUrl, probeCtrl ? probeCtrl.signal : undefined)
             .then(function(probe) {
                 if (cancelled) return;
                 const subs = (probe && Array.isArray(probe.streams) ? probe.streams : [])
@@ -146,11 +148,13 @@ const useCasaEmbeddedSubs = (video, streamUrl, streamingServerUrl, selectedVideo
                 setProbed(subs.length > 0 ? { streamUrl: streamUrl, subs: subs } : null);
             })
             .catch(function() {
+                // Uscita dal player (annullata da noi): non e' un fallimento.
+                if (cancelled) return;
                 // best-effort: senza probe resta il path in-band
                 report('probe-failed', { streamUrl: streamUrl });
             });
 
-        return function() { cancelled = true; };
+        return function() { cancelled = true; if (probeCtrl) probeCtrl.abort(); };
     }, [streamUrl, streamingServerUrl, selectedVideoId]);
 
     const selectedEmbeddedId = video.state.selectedSubtitlesTrackId;
