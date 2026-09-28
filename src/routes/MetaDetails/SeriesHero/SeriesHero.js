@@ -36,7 +36,6 @@ const { resumeAction, resumeHref } = require('stremio/common/casaResume');
 const LetterboxdMark = require('stremio/common/LetterboxdMark');
 const styles = require('./styles');
 
-const code = (v) => `S${String(v.season).padStart(2, '0')}E${String(v.episode).padStart(2, '0')}`;
 const validDate = (d) => d instanceof Date && !isNaN(d.getTime());
 const formatDate = (d) => d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' }).replace(/\.$/, '');
 
@@ -244,7 +243,12 @@ const SeriesHero = ({ className, name, logo, genres, seasonCount, episode, episo
                     {
                         episode ?
                             <React.Fragment>
-                                <span className={styles['code']}>{code(episode)}</span>
+                                {/* S01 · E01: il pallino stacca stagione ed episodio (richiesta utente). */}
+                                <span className={styles['code']}>
+                                    {`S${String(episode.season).padStart(2, '0')}`}
+                                    <span className={styles['code-dot']} />
+                                    {`E${String(episode.episode).padStart(2, '0')}`}
+                                </span>
                                 <span className={styles['episode-title']}>{episode.title || episode.name || ''}</span>
                             </React.Fragment>
                             :
