@@ -4,7 +4,9 @@ const React = require('react');
 
 const useMetaExtensionTabs = (metaExtensions) => {
     const tabs = React.useMemo(() => {
-        return metaExtensions
+        // core-web >= 0.60.2 non serializza piu' le meta extension (upstream ha tolto
+        // le tab): senza il ripiego la pagina dettagli andrebbe in crash su undefined.
+        return (metaExtensions || [])
             .map((extension) => ({
                 id: extension.url,
                 label: extension.addon.manifest.name,
