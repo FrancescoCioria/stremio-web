@@ -15,6 +15,7 @@ const CasaHomeOnColdStart = require('./CasaHomeOnColdStart');
 const CasaUpdater = require('./CasaUpdater');
 const CasaUiScaleInit = require('./CasaUiScaleInit');
 const DeepLinkHandler = require('./DeepLinkHandler');
+const { casaBackSkip } = require('stremio/common/casaNextVideoHistory');
 const { default: UpdaterBanner } = require('./UpdaterBanner');
 const { default: ShortcutsModal } = require('./ShortcutsModal');
 const { default: GamepadModal } = require('./GamepadModal');
@@ -64,7 +65,8 @@ const App = () => {
                 break;
             }
             case 'navigateHistory':
-                navigate(combo === 0 ? -1 : 1);
+                // Backspace (tasto DEL, tastiera del companion): stesso salto di 'exit'.
+                navigate(combo === 0 ? -1 - casaBackSkip() : 1);
                 break;
             case 'exit': {
                 // TV fork: il telecomando "B" manda Escape -> tasto "indietro".
@@ -89,7 +91,9 @@ const App = () => {
                 const path = locationRef.current.pathname;
                 const isDrillDown = path.startsWith('/metadetails') || path.startsWith('/detail');
                 if (isDrillDown) {
-                    navigate(-1);
+                    // Scavalca le pagine torrent lasciate sotto da "prossimo
+                    // episodio" (casaNextVideoHistory.js).
+                    navigate(-1 - casaBackSkip());
                 } else if (path !== '/') {
                     navigate('/');
                 }
