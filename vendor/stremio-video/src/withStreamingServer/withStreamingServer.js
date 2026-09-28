@@ -2,6 +2,7 @@ var EventEmitter = require('eventemitter3');
 var url = require('url');
 // Casa: la rendition video la serve il nostro backend (vedi casaHls.js).
 var casaMasterUrl = require('../casaHls').casaMasterUrl;
+var fetchProbe = require('../casaHls').fetchProbe;
 var hat = require('hat');
 var cloneDeep = require('lodash.clonedeep');
 var deepFreeze = require('deep-freeze');
@@ -362,11 +363,8 @@ function withStreamingServer(Video) {
                     return Video.canPlayStream(stream);
                 }
                 // probing normally gives more accurate results
-                var queryParams = new URLSearchParams([['mediaURL', stream.url]]);
-                return fetch(url.resolve(options.streamingServerURL, '/hlsv2/probe?' + queryParams.toString()))
-                    .then(function(resp) {
-                        return resp.json();
-                    })
+                // Casa: prima il nostro backend, poi server.js (casaHls.fetchProbe).
+                return fetchProbe(options.streamingServerURL, stream.url)
                     .then(function(probe) {
                         var isFormatSupported = options.formats.some(function(format) {
                             return probe.format.name.indexOf(format) !== -1;

@@ -70,6 +70,7 @@
 
 const React = require('react');
 const { casaBackendUrl, casaBeacon } = require('stremio/common/casaBackend');
+const { fetchProbe } = require('@stremio/stremio-video/src/casaHls');
 const {
     streamUrlMatchesVideo,
     nextRegistrationAction,
@@ -131,11 +132,8 @@ const useCasaEmbeddedSubs = (video, streamUrl, streamingServerUrl, selectedVideo
         if (probedForRef.current === streamUrl) return;
 
         let cancelled = false;
-        const base = String(streamingServerUrl).replace(/\/$/, '');
-        const probeUrl = base + '/hlsv2/probe?mediaURL=' + encodeURIComponent(streamUrl);
-
-        fetch(probeUrl)
-            .then(function(r) { return r.json(); })
+        // Stessa analisi della scelta diretto/HLS: prima il backend, poi server.js.
+        fetchProbe(streamingServerUrl, streamUrl)
             .then(function(probe) {
                 if (cancelled) return;
                 const subs = (probe && Array.isArray(probe.streams) ? probe.streams : [])

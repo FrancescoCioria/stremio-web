@@ -48,4 +48,46 @@ function casaMasterUrl(fallback, id, query) {
     return origin + '/casa-hls/' + id + '/master.m3u8?' + query;
 }
 
-module.exports = { casaMasterUrl: casaMasterUrl, casaBackendOrigin: casaBackendOrigin };
+// Analisi del file (formato, tracce): prima il backend di casa (`/casa-hls/probe`,
+// hls_probe.ts), poi server.js se il nostro non risponde — il caso peggiore e'
+// "come prima". Passo 1 dello spegnimento di server.js (2026-09-28). Stessa forma
+// di risposta, verificata sui file della cronologia.
+//   localStorage.setItem('casa.probe', 'off')   -> di nuovo solo server.js
+var PROBE_FLAG = 'casa.probe';
+var CASA_PROBE_TIMEOUT_MS = 20000;
+
+function probeEnabled() {
+    try {
+        return localStorage.getItem(PROBE_FLAG) !== 'off';
+    } catch (_e) {
+        return false;
+    }
+}
+
+function fetchJson(u, timeoutMs) {
+    var opts = {};
+    if (timeoutMs && typeof AbortController !== 'undefined') {
+        var ctrl = new AbortController();
+        setTimeout(function() { ctrl.abort(); }, timeoutMs);
+        opts.signal = ctrl.signal;
+    }
+    return fetch(u, opts).then(function(r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+    });
+}
+
+function fetchProbe(streamingServerURL, mediaURL) {
+    var q = 'mediaURL=' + encodeURIComponent(mediaURL);
+    var fromServer = function() {
+        return fetchJson(String(streamingServerURL).replace(/\/$/, '') + '/hlsv2/probe?' + q);
+    };
+    var origin = casaBackendOrigin();
+    if (!probeEnabled() || !origin) return fromServer();
+    // ⚠️ Tetto di 20 s sul nostro tentativo: senza, un ffprobe appeso lato backend
+    // (fino a 30 s) ritardava il ripiego su server.js. Piu' corto non serve: su un
+    // torrent freddo anche server.js aspetta i primi byte quanto noi.
+    return fetchJson(origin + '/casa-hls/probe?' + q, CASA_PROBE_TIMEOUT_MS).catch(fromServer);
+}
+
+module.exports = { casaMasterUrl: casaMasterUrl, casaBackendOrigin: casaBackendOrigin, fetchProbe: fetchProbe };
