@@ -54,7 +54,14 @@ function casaMasterUrl(fallback, id, query) {
 // di risposta, verificata sui file della cronologia.
 //   localStorage.setItem('casa.probe', 'off')   -> di nuovo solo server.js
 var PROBE_FLAG = 'casa.probe';
-var CASA_PROBE_TIMEOUT_MS = 20000;
+// ⚠️ Il FE ASPETTA il BE: il limite vero e' del backend (ffprobe 30 s, poi 502
+// esplicito, hls_probe.ts PROBE_TIMEOUT_MS). Questo e' solo una rete contro una
+// connessione appesa, volutamente molto piu' larga. Era 20 s e correva CONTRO il
+// backend (2026-09-28, Mac, torrent freddo): 4 s di metadata + 16 s per i primi
+// pezzi = 20,6 s, la tile rinunciava a 20,0 e chiedeva a server.js, che rispondeva
+// "subito" solo coi byte appena scaricati dalla nostra ffprobe. Senza server.js
+// sarebbe stato un errore su un'analisi che stava per riuscire.
+var CASA_PROBE_TIMEOUT_MS = 90000;
 
 function probeEnabled() {
     try {
@@ -84,9 +91,8 @@ function fetchProbe(streamingServerURL, mediaURL) {
     };
     var origin = casaBackendOrigin();
     if (!probeEnabled() || !origin) return fromServer();
-    // ⚠️ Tetto di 20 s sul nostro tentativo: senza, un ffprobe appeso lato backend
-    // (fino a 30 s) ritardava il ripiego su server.js. Piu' corto non serve: su un
-    // torrent freddo anche server.js aspetta i primi byte quanto noi.
+    // server.js solo su un errore VERO del backend (o sulla rete di 90 s), mai in
+    // gara: su un torrent freddo aspetta i primi byte quanto noi.
     return fetchJson(origin + '/casa-hls/probe?' + q, CASA_PROBE_TIMEOUT_MS).catch(fromServer);
 }
 
