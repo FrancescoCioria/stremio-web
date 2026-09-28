@@ -9,7 +9,7 @@ const { casaBackendUrl } = require('stremio/common/casaBackend');
 const torrserverOf = (url) => {
     const m = typeof url === 'string' && url.match(/\/ts\/([a-f0-9]{40})\b/i);
     if (!m) return null;
-    try { const u = new URL(url); return { hash: m[1].toLowerCase(), base: u.protocol + '//' + u.hostname + ':8090' }; }
+    try { const u = new URL(url); return { hash: m[1].toLowerCase(), base: u.protocol + '//' + u.hostname + ':8090', se: u.searchParams.get('se') }; }
     catch (_e) { return null; }
 };
 
@@ -54,14 +54,27 @@ const useStatistics = (player, streamingServer) => {
     // sotto per il perche' serve). Solo per stream TorrServer; niente
     // equivalente per gli infoHash del core, che non hanno questo bug.
     const [cacheBytes, setCacheBytes] = React.useState(0);
+    // Byte su disco del SOLO file in riproduzione ({cachedBytes, length}), o
+    // null (backend vecchio / torrent non attivo). Su un season pack il totale
+    // del torrent conta anche gli episodi gia' visti: "Scaricato 75%" a fine
+    // The Bear S05E02 era E01+E02 diviso E08 (2026-09-28).
+    const [fileCache, setFileCache] = React.useState(null);
     React.useEffect(() => {
-        if (!ts) { setCacheBytes(0); return; }
+        // Azzerati anche al cambio episodio: se no resta il valore del precedente
+        // fino alla prima risposta.
+        setCacheBytes(0);
+        setFileCache(null);
+        if (!ts) return;
         let alive = true;
         const poll = () => {
-            const url = casaBackendUrl('/stremio-addon/ts-cache/' + ts.hash);
+            const url = casaBackendUrl('/stremio-addon/ts-cache/' + ts.hash + (ts.se ? '?se=' + encodeURIComponent(ts.se) : ''));
             if (!url) return;
             fetch(url).then((r) => (r && r.ok ? r.json() : null))
-                .then((j) => { if (alive && j) setCacheBytes(+j.cachedBytes || 0); })
+                .then((j) => {
+                    if (!alive || !j) return;
+                    setCacheBytes(+j.cachedBytes || 0);
+                    setFileCache(j.file && +j.file.length > 0 ? { cachedBytes: +j.file.cachedBytes || 0, length: +j.file.length } : null);
+                })
                 .catch(() => { /* tieni l'ultimo valore */ });
         };
         poll();
@@ -104,9 +117,10 @@ const useStatistics = (player, streamingServer) => {
     // durante un download attivo il numero cresce in tempo reale (cacheBytes
     // arriva ogni 3s, non istantaneo) e a film gia' scaricato mostra il vero.
     const downloaded = React.useMemo(() => {
+        if (ts && fileCache) return fileCache.cachedBytes;
         if (ts) return Math.max(tsStats ? (+tsStats.bytes_read_useful_data || 0) : 0, cacheBytes);
         return coreStats?.downloaded ? coreStats.downloaded : 0;
-    }, [ts, tsStats, coreStats, cacheBytes]);
+    }, [ts, tsStats, coreStats, cacheBytes, fileCache]);
 
     // Percentuale accanto ai MB: stessa base dei MB (byte utili di sessione) sulla
     // dimensione del file in riproduzione. Vedi casaDownloadedPct.js.
@@ -114,8 +128,9 @@ const useStatistics = (player, streamingServer) => {
         if (!ts) {
             return downloadedPercent(coreStats?.downloaded ?? null, coreStats?.streamLen ?? null);
         }
+        if (fileCache) return downloadedPercent(fileCache.cachedBytes, fileCache.length);
         return downloadedPercent(downloaded, targetFileLength(tsStats && tsStats.file_stats));
-    }, [ts, tsStats, coreStats, downloaded]);
+    }, [ts, tsStats, coreStats, downloaded, fileCache]);
 
     // % = frazione di file gia' in cache (preloaded/size).
     // ⚠️ NON e' progresso di download e NON e' una finestra davanti alla testina:
