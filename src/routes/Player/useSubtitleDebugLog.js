@@ -20,6 +20,12 @@
 //                               una nuova texttrack) → fix = ri-assertare 'showing'.
 //   status = CUE_SUPPLY_LOW   → mode ok ma le cue smettono di arrivare in-band
 //                               (parser/eviction) → fix diverso (nudge/reload).
+//   status = CUE_FRONT_FROZEN → la cue piu' avanti non avanza da FROZEN_MS di film
+//                               mentre le cue CALANO (hls.js sfratta le vecchie,
+//                               non ne arrivano di nuove): il sintomo PRECOCE del
+//                               buio (CUE_SUPPLY_LOW arriva ~15s prima). Una scena
+//                               senza dialoghi tiene il fronte fermo ma NON fa
+//                               calare le cue: e' questo che le distingue.
 //   status = ok               → display/positioning (cue.line / CSS), non supply.
 //
 // Best-effort: sendBeacon, se il backend e' giu' fallisce in silenzio. Da
@@ -35,6 +41,7 @@ const SAMPLE_MS = 4000;       // cadenza della diagnostica verbosa (scan cue)
 const HEARTBEAT_MS = 30000;   // log periodico anche se nulla cambia
 const CUE_LOW_MS = 2500;      // "cue ahead" sotto cui la supply e' sospetta
 const END_GUARD_MS = 8000;    // vicino alla fine e' normale non avere piu' cue
+const FROZEN_MS = 60000;      // film avanzato col fronte fermo prima di dirlo congelato
 
 function embeddedIndex(trackId) {
     if (typeof trackId !== 'string' || trackId.indexOf('EMBEDDED_') !== 0) return null;
@@ -74,8 +81,19 @@ function snapshotTextTracks(videoEl, timeMs) {
     });
 }
 
+// Fronte delle cue della traccia selezionata: da quando (playhead) la cue piu'
+// avanti non cambia, e quante cue c'erano allora. Puro, stato passato dal chiamante.
+function frontFrozen(front, track, timeMs, playing) {
+    if (!track || track.maxEndMs == null || timeMs == null) return { front: null, frozen: false };
+    if (!front || front.idx !== track.i || front.maxEndMs !== track.maxEndMs || timeMs < front.sinceMs) {
+        return { front: { idx: track.i, maxEndMs: track.maxEndMs, cues: track.cues, sinceMs: timeMs }, frozen: false };
+    }
+    const frozen = playing && timeMs - front.sinceMs >= FROZEN_MS && track.cues < front.cues;
+    return { front: front, frozen: frozen };
+}
+
 function deriveStatus(s) {
-    // s: { selEmbeddedIdx, selExtra, tracks, timeMs, durMs, playing }
+    // s: { selEmbeddedIdx, selExtra, tracks, timeMs, durMs, playing, frozen }
     if (s.selExtra != null) return 'external'; // path gia' fixato, loggato per completezza
     if (s.selEmbeddedIdx == null) return 'none';
     const track = s.tracks.find(function(t) { return t.i === s.selEmbeddedIdx; });
@@ -85,12 +103,13 @@ function deriveStatus(s) {
         const nearEnd = s.durMs != null && s.timeMs > s.durMs - END_GUARD_MS;
         const ahead = track.maxEndMs != null ? track.maxEndMs - s.timeMs : 0;
         if (!nearEnd && track.cues > 0 && ahead < CUE_LOW_MS) return 'CUE_SUPPLY_LOW';
+        if (!nearEnd && s.frozen) return 'CUE_FRONT_FROZEN';
     }
     return 'ok';
 }
 
 const useSubtitleDebugLog = (video) => {
-    const prev = React.useRef({ sig: null, status: null, lastPostAt: 0, lastSampleAt: 0 });
+    const prev = React.useRef({ sig: null, status: null, lastPostAt: 0, lastSampleAt: 0, front: null });
     // Ref aggiornata ad ogni render: il player ri-renderizza di continuo
     // (video.state.time), quindi l'interval va armato UNA volta al mount e
     // leggere il video piu' recente via ref — non ricreato ad ogni render
@@ -152,6 +171,9 @@ const useSubtitleDebugLog = (video) => {
             p.lastSampleAt = now;
 
             const tracks = snapshotTextTracks(videoEl, timeMs);
+            const selTrackSnap = tracks.find(function(t) { return t.i === selEmbeddedIdx; });
+            const ff = frontFrozen(p.front, selTrackSnap, timeMs, playing);
+            p.front = ff.front;
 
             const status = deriveStatus({
                 selEmbeddedIdx: selEmbeddedIdx,
@@ -160,6 +182,7 @@ const useSubtitleDebugLog = (video) => {
                 timeMs: timeMs,
                 durMs: durMs,
                 playing: playing,
+                frozen: ff.frozen,
             });
 
             // Firma = cosa e' selezionato + numero/mode delle texttrack (cambi
@@ -169,7 +192,7 @@ const useSubtitleDebugLog = (video) => {
                 m: tracks.map(function(t) { return t.mode; }),
             });
 
-            const failure = status === 'MODE_NOT_SHOWING' || status === 'CUE_SUPPLY_LOW' || status === 'TRACK_MISSING';
+            const failure = status === 'MODE_NOT_SHOWING' || status === 'CUE_SUPPLY_LOW' || status === 'TRACK_MISSING' || status === 'CUE_FRONT_FROZEN';
             const changed = sig !== p.sig || status !== p.status;
             const heartbeat = now - p.lastPostAt > HEARTBEAT_MS;
             // POSTa su: cambio strutturale/stato, ogni sample in stato di guasto,
@@ -193,6 +216,7 @@ const useSubtitleDebugLog = (video) => {
                 stateEmbeddedTracks: Array.isArray(st.subtitlesTracks) ? st.subtitlesTracks.length : null,
                 stateExtraTracks: Array.isArray(st.extraSubtitlesTracks) ? st.extraSubtitlesTracks.length : null,
                 domTracks: tracks,
+                front: p.front,
             });
         }, HEAL_MS);
 
@@ -201,3 +225,5 @@ const useSubtitleDebugLog = (video) => {
 };
 
 module.exports = useSubtitleDebugLog;
+module.exports.frontFrozen = frontFrozen;
+module.exports.deriveStatus = deriveStatus;

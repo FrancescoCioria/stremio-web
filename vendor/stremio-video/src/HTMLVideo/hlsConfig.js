@@ -48,12 +48,12 @@ module.exports = {
     maxMaxBufferLength: 300,
     maxBufferSize: 500 * 1000 * 1000,
     maxFragLookUpTolerance: 0,
-    // Casa: era 0 (default Stremio) → ogni micro-gap audio ai confini dei
-    // frammenti HLS transcodificati (AAC) veniva scambiato per bufferStalledError
-    // → stall + nudge di currentTime (~1s di salto). 0.5 = default hls.js: i
-    // buchi <0.5s vengono ignorati senza stallare. Fix hickup ET (2026-06-27).
-    // Riscontri: hls.js#6169 (audio gap stall), risolto upstream solo in 1.6.0
-    // (PR#6972); stremio-video@0.0.80 pinna hls.js 1.5.4-patch2 → serve override.
+    // Casa: era 0 (default Stremio). Nato il 2026-06-27 per i micro-gap audio
+    // ai confini dei frammenti di server.js (hls.js#6169, risolto in 1.6): quel
+    // motivo non c'e' piu' (audio e segmenti di casa dal 28/09, hls.js 1.7.3).
+    // RESTA 0.5 per i RIP BUCATI (buchi veri nel file, qualunque segmentatore):
+    // un buco <0.5s si scavalca (salto minuscolo) invece di stallo + nudge (~1s
+    // fermo) come farebbe 0.1. Rivalutato 2026-09-28: nessun problema misurato.
     maxBufferHole: 0.5,
     appendErrorMaxRetry: 20,
     nudgeMaxRetry: 20,
