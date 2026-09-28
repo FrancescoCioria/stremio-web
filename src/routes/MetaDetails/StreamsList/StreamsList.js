@@ -149,6 +149,7 @@ const byPriority = (streams) =>
 // (shimmer anche a pending) invece del vecchio "Cerco il migliore…" statico.
 // steps = [{state}] da torrentRace onProgress; fallback a 1 step pending.
 const RaceProgress = ({ steps }) => {
+    const { t } = useTranslation();
     const list = (Array.isArray(steps) && steps.length) ? steps : [{ state: 'pending' }];
     return (
         <div className={styles['race-progress']}>
@@ -160,7 +161,7 @@ const RaceProgress = ({ steps }) => {
                     />
                 ))}
             </div>
-            <div className={styles['race-caption']}>Cerco la sorgente migliore…</div>
+            <div className={styles['race-caption']}>{t('CASA_FINDING_SOURCE')}</div>
         </div>
     );
 };

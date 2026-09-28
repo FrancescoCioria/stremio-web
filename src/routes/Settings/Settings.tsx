@@ -2,6 +2,7 @@
 
 import React, { useCallback, useRef } from 'react';
 import classnames from 'classnames';
+import { t } from 'i18next';
 import { usePlatform, useProfile, useStreamingServer, withCoreSuspender } from 'stremio/common';
 import { MainNavBars } from 'stremio/components';
 import Interface from './Interface';
@@ -83,7 +84,7 @@ const Settings = () => {
                     title={`Casa ${CASA_VERSION} · ${process.env.COMMIT_HASH}`}
                     style={{ position: 'fixed', bottom: '0.7rem', right: '1.1rem', zIndex: 9, fontSize: '1.1rem', fontWeight: 'bold', color: '#fff', opacity: 0.9, textShadow: '0 1px 3px rgba(0,0,0,0.8)', pointerEvents: 'none', fontFamily: 'monospace' }}
                 >
-                    {'Casa'}: {CASA_VERSION} · {(process.env.COMMIT_HASH || '').slice(0, 7)}
+                    {t('CASA_LABEL')}: {CASA_VERSION} · {(process.env.COMMIT_HASH || '').slice(0, 7)}
                 </div>
             </div>
         </MainNavBars>

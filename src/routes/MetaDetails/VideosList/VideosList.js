@@ -74,7 +74,7 @@ const SeasonRow = ({ row, metaType, metaId, focusTargetId, selectedVideoId, onOp
                         <div className={styles['season-title']}>{row.label}</div>
                         {
                             row.inProgress ?
-                                <div className={styles['season-chip']}>IN CORSO</div>
+                                <div className={styles['season-chip']}>{t('CASA_IN_PROGRESS')}</div>
                                 :
                                 null
                         }

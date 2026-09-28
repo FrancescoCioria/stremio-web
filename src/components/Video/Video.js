@@ -206,11 +206,11 @@ const Video = ({ className, id, title, thumbnail, season, episode, released, upc
                                         state === 'watched' ?
                                             <div className={seriesStyles['badge']}>
                                                 <Icon className={seriesStyles['badge-icon']} name={'checkmark'} />
-                                                VISTO
+                                                {t('CASA_WATCHED')}
                                             </div>
                                             :
                                             state === 'inProgress' ?
-                                                <div className={classnames(seriesStyles['badge'], seriesStyles['current'])}>IN CORSO</div>
+                                                <div className={classnames(seriesStyles['badge'], seriesStyles['current'])}>{t('CASA_IN_PROGRESS')}</div>
                                                 :
                                                 null
                                     }
@@ -318,7 +318,7 @@ const Video = ({ className, id, title, thumbnail, season, episode, released, upc
                     {
                         !future ?
                             <Button className={styles['context-menu-option-container']} title={'Guarda'}>
-                                <div className={styles['context-menu-option-label']}>Guarda</div>
+                                <div className={styles['context-menu-option-label']}>{t('CASA_WATCH')}</div>
                             </Button>
                             :
                             null

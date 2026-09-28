@@ -305,19 +305,19 @@ const Stream = ({ className, videoId, videoReleased, addonName, quality, name, d
                          * singolo -> "vai tranquillo"). dead/pack anche in fondo. */
                         (packByName || health === 'pack') ?
                             <div className={classnames(styles['health-badge'], styles['health-pack'])} title={'Raccolta multi-film: il file scelto e una fetta del torrent'}>
-                                {'RACCOLTA'}
+                                {t('CASA_STREAM_PACK')}
                             </div>
                             : health === 'dead' ?
                                 <div className={classnames(styles['health-badge'], styles['health-dead'])} title={'Nessun seeder attivo: non scarica'}>
-                                    {'MORTO'}
+                                    {t('CASA_STREAM_DEAD')}
                                 </div>
                                 : healthChecking ?
                                     <div className={classnames(styles['health-badge'], styles['health-checking'])} title={'Verifico la salute del torrent...'}>
-                                        {'VERIFICO…'}
+                                        {t('CASA_STREAM_CHECKING')}
                                     </div>
                                     : health === 'clean' ?
                                         <div className={classnames(styles['health-badge'], styles['health-ok'])} title={'Verificato: swarm vivo, file singolo'}>
-                                            {'OK'}
+                                            {t('CASA_STREAM_OK')}
                                         </div>
                                         :
                                         null
@@ -337,7 +337,7 @@ const Stream = ({ className, videoId, videoReleased, addonName, quality, name, d
                     incompatible ?
                         <div className={styles['firetv-badge']} title={'Guardalo dalla Fire TV'}>
                             <Icon className={styles['firetv-icon']} name={'tv-outline'} />
-                            <span className={styles['firetv-label']}>{'Fire TV'}</span>
+                            <span className={styles['firetv-label']}>{t('CASA_FIRE_TV')}</span>
                         </div>
                         :
                         <Icon className={styles['icon']} name={'play'} />

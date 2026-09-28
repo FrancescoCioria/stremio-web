@@ -183,7 +183,7 @@ const MetaPreview = React.forwardRef(({ className, compact, name, logo, backgrou
                                  * invece di ripiegare sul runtime nominale della serie,
                                  * che sarebbe lo stesso numero su ogni episodio. */
                                 typeof focusedEpisodeRuntime === 'number' ?
-                                    <div className={styles['runtime-label']}>{focusedEpisodeRuntime} min</div>
+                                    <div className={styles['runtime-label']}>{focusedEpisodeRuntime} {t('CASA_MINUTES')}</div>
                                     :
                                     null
                             }

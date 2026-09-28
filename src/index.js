@@ -17,6 +17,7 @@ const { HashRouter } = require('react-router-dom');
 const i18n = require('i18next');
 const { initReactI18next } = require('react-i18next');
 const stremioTranslations = require('stremio-translations');
+const casaStrings = require('stremio/common/casaStrings');
 const App = require('./App');
 const { CoreProvider } = require('./core');
 const { FileDropProvider, PlatformProvider } = require('./common');
@@ -51,8 +52,10 @@ if (/^(localhost|127\.0\.0\.1)$/.test(window.location.hostname)) {
     document.documentElement.classList.add('casa-tv');
 }
 
+// Scritte della casa unite a OGNI lingua (src/common/casaStrings.js): a schermo
+// restano le stesse qualunque sia la lingua scelta.
 const translations = Object.fromEntries(Object.entries(stremioTranslations()).map(([key, value]) => [key, {
-    translation: value
+    translation: { ...value, ...casaStrings }
 }]));
 
 i18n

@@ -26,6 +26,7 @@
 const React = require('react');
 const PropTypes = require('prop-types');
 const classnames = require('classnames');
+const { t } = require('i18next');
 const { useNavigate } = require('react-router');
 const { default: toPath } = require('stremio-router/toPath');
 const { default: Icon } = require('@stremio/stremio-icons/react');
@@ -294,7 +295,7 @@ const SeriesHero = ({ className, name, logo, genres, seasonCount, episode, episo
                             typeof trailerHref === 'string' ?
                                 <Button className={styles['pill']} title={'Trailer'} href={trailerHref} data-hero-action={''}>
                                     <Icon className={styles['pill-icon']} name={'trailer'} />
-                                    Trailer
+                                    {t('CASA_TRAILER')}
                                 </Button>
                                 :
                                 null
@@ -317,7 +318,7 @@ const SeriesHero = ({ className, name, logo, genres, seasonCount, episode, episo
                             showNotifications ?
                                 <Button className={classnames(styles['pill'], { [styles['on']]: notificationsEnabled })} title={'Notifiche nuovi episodi'} onClick={onToggleNotifications} data-hero-action={''}>
                                     <span className={classnames(styles['notif-dot'], { [styles['on']]: notificationsEnabled })} />
-                                    Notifiche
+                                    {t('CASA_NOTIFICATIONS')}
                                 </Button>
                                 :
                                 null
@@ -353,7 +354,7 @@ const SeriesHero = ({ className, name, logo, genres, seasonCount, episode, episo
                                                         {
                                                             inLibrary ?
                                                                 <Button className={classnames(styles['menu-item'], styles['danger'])} onClick={() => setMenu('confirm-remove')}>
-                                                                    Rimuovi dalla libreria
+                                                                    {t('CASA_REMOVE_FROM_LIBRARY')}
                                                                 </Button>
                                                                 :
                                                                 null
@@ -361,12 +362,12 @@ const SeriesHero = ({ className, name, logo, genres, seasonCount, episode, episo
                                                     </React.Fragment>
                                                     :
                                                     <React.Fragment>
-                                                        <div className={styles['menu-question']}>Rimuovere dalla libreria?</div>
+                                                        <div className={styles['menu-question']}>{t('CASA_REMOVE_FROM_LIBRARY_QUESTION')}</div>
                                                         <Button className={styles['menu-item']} data-menu-default={''} onClick={() => closeMenu()}>
-                                                            Annulla
+                                                            {t('CASA_CANCEL')}
                                                         </Button>
                                                         <Button className={classnames(styles['menu-item'], styles['danger'])} onClick={() => { if (typeof onRemoveFromLibrary === 'function') onRemoveFromLibrary(); closeMenu(); }}>
-                                                            Rimuovi
+                                                            {t('CASA_REMOVE')}
                                                         </Button>
                                                     </React.Fragment>
                                             }

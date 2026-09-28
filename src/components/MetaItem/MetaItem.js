@@ -369,7 +369,7 @@ const MetaItem = React.memo(({ className, type, id, name, poster, posterShape, p
                     Il dato `onPrime` arriva ancora dal backend. */}
                 {
                     inCinema ?
-                        <div className={styles['in-cinema-pill']}>Al Cinema</div>
+                        <div className={styles['in-cinema-pill']}>{t('CASA_IN_CINEMA')}</div>
                         :
                         null
                 }

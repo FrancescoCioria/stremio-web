@@ -73,7 +73,7 @@ const StatisticsMenu = React.memo(React.forwardRef(({ className, peers, speed, d
                     Ora e' il buffer vero del browser (casaClientBuffer.js). */}
                 <div className={styles['stat']}>
                     <div className={styles['label']}>
-                        {'Scaricato'}
+                        {t('CASA_DOWNLOADED')}
                     </div>
                     <div className={styles['value']}>
                         { formatDownloaded(downloaded, downloadedPct) }
@@ -81,7 +81,7 @@ const StatisticsMenu = React.memo(React.forwardRef(({ className, peers, speed, d
                 </div>
                 <div className={styles['stat']}>
                     <div className={styles['label']}>
-                        {'Buffer'}
+                        {t('CASA_BUFFER')}
                     </div>
                     <div className={styles['value']}>
                         { formatBuffer(buffer) }

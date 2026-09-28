@@ -7,6 +7,7 @@
 const React = require('react');
 const PropTypes = require('prop-types');
 const classnames = require('classnames');
+const { t } = require('i18next');
 const { Image } = require('stremio/components');
 const LetterboxdMark = require('stremio/common/LetterboxdMark');
 const ImdbMark = require('stremio/common/ImdbMark');
@@ -228,7 +229,7 @@ const BoardHero = ({ meta: rawMeta }) => {
                         <div className={styles['hero-cast']}>
                             {directorText ?
                                 <span className={styles['hero-credit']}>
-                                    <span className={styles['hero-credit-label']}>Regista</span>{directorText}
+                                    <span className={styles['hero-credit-label']}>{t('CASA_DIRECTOR')}</span>{directorText}
                                 </span>
                                 : null}
                             {directorText && castText ?
@@ -236,7 +237,7 @@ const BoardHero = ({ meta: rawMeta }) => {
                                 : null}
                             {castText ?
                                 <span className={styles['hero-credit']}>
-                                    <span className={styles['hero-credit-label']}>Cast</span>{castText}
+                                    <span className={styles['hero-credit-label']}>{t('CASA_CAST')}</span>{castText}
                                 </span>
                                 : null}
                         </div>
