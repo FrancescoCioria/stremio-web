@@ -271,8 +271,11 @@ const Board = () => {
     // key=index, e dopo aver guardato qualcosa Continue Watching si riordina
     // (il titolo va in testa) -> il nodo vecchio conterrebbe il vicino. Per
     // lo stesso motivo non basta `lastCardByRowRef` (nodi, per riga).
+    // ⚠️ Anche al CLICK, non solo al focus: su Mac (Firefox/Safari) cliccare un
+    // link non gli da' il focus -> col mouse non si registrava niente e si
+    // rientrava in cima (2026-09-29). Una sola funzione per mouse e telecomando.
     const lastCardRef = React.useRef(null);
-    const onBoardFocus = React.useCallback((e) => {
+    const rememberCard = React.useCallback((e) => {
         const card = e.target.closest('[class*="meta-item-container"]');
         const href = card && card.getAttribute('href');
         if (!href) return;
@@ -363,7 +366,7 @@ const Board = () => {
             <MainNavBars className={styles['board-content-container']} route={'board'}>
                 <div className={styles['board-vstack']}>
                     <BoardHero meta={focusedMeta} />
-                    <div ref={scrollContainerRef} className={styles['board-content']} onScroll={onScroll} onKeyDown={onBoardKeyDown} onFocus={onBoardFocus}>
+                    <div ref={scrollContainerRef} className={styles['board-content']} onScroll={onScroll} onKeyDown={onBoardKeyDown} onFocus={rememberCard} onClick={rememberCard}>
                         {
                             continueWatchingItems.length > 0 ?
                                 <MetaRow

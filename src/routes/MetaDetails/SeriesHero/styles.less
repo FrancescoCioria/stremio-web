@@ -120,18 +120,40 @@
         align-items: center;
         gap: (13 * @lp);
         margin-bottom: (22 * @lp);
-        /* 16 dell'handoff -> 20: sulla TV non si leggevano (richiesta
-         * dell'utente). Sempre presente e alta una riga anche vuota: cambiando
-         * episodio la pagina non deve saltare. */
-        font-size: calc(20 * @tp);
+        /* Sempre presente e alta una riga anche vuota: cambiando episodio la
+         * pagina non deve saltare.
+         * ⚠️ Il testo sta negli span figli, e `* { font-size: 1rem }` globale
+         * (App/styles.less) li rimetteva a 1rem: la taglia della riga (era
+         * "20 * @tp") non e' mai arrivata a schermo. Ora i figli EREDITANO;
+         * 12 * @tp = 1,2rem sulla TV, "un pelino" piu' del vecchio 1rem
+         * (richiesta utente 2026-09-29). */
+        font-size: calc(12 * @tp);
         min-height: 1.3em;
         color: @ink-tertiary;
 
+        > * {
+            font-size: inherit;
+        }
+
+        /* IMDb e Rotten Tomatoes col marchio ufficiale, come l'hero della
+         * home (prima: stella gialla e "RT 96%" in testo). */
         .rating {
             display: inline-flex;
-            gap: calc(6 * @tp);
+            align-items: center;
+            gap: calc(8 * @tp);
             font-weight: 600;
-            color: #f0c040;
+            color: @ink-primary;
+
+            .brand-mark {
+                display: block;
+                flex: none;
+                height: 1.15em;
+                width: auto;
+            }
+
+            .rt-mark {
+                border-radius: 0.15em;
+            }
         }
 
         .dot {

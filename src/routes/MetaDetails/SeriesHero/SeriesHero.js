@@ -34,6 +34,7 @@ const { Button, Image } = require('stremio/components');
 const { default: useRating } = require('stremio/components/MetaPreview/Ratings/useRating');
 const { resumeAction, resumeHref } = require('stremio/common/casaResume');
 const LetterboxdMark = require('stremio/common/LetterboxdMark');
+const ImdbMark = require('stremio/common/ImdbMark');
 const styles = require('./styles');
 
 const validDate = (d) => d instanceof Date && !isNaN(d.getTime());
@@ -164,7 +165,8 @@ const SeriesHero = ({ className, name, logo, genres, seasonCount, episode, episo
     if (typeof imdbRating === 'number') {
         metaParts.push(
             <span key={'rating'} className={styles['rating']}>
-                <span className={styles['star']}>★</span>
+                {/* Marchi ufficiali come nell'hero della home (BoardHero). */}
+                <ImdbMark className={styles['brand-mark']} />
                 {imdbRating.toFixed(1).replace('.', ',')}
             </span>
         );
@@ -177,7 +179,14 @@ const SeriesHero = ({ className, name, logo, genres, seasonCount, episode, episo
             </span>
         );
     }
-    if (isMovie && typeof rtScore === 'number') metaParts.push(<span key={'rt'}>{`RT ${rtScore}%`}</span>);
+    if (isMovie && typeof rtScore === 'number') {
+        metaParts.push(
+            <span key={'rt'} className={styles['rating']}>
+                <Image className={classnames(styles['brand-mark'], styles['rt-mark'])} src={require('/assets/images/rottentomatoes_icon.png')} alt={'Rotten Tomatoes'} />
+                {`${rtScore}%`}
+            </span>
+        );
+    }
     if (isMovie && typeof digitalReleaseLabel === 'string' && digitalReleaseLabel.length > 0) {
         metaParts.push(<span key={'digital'} className={styles['digital']}>{digitalReleaseLabel}</span>);
     }
