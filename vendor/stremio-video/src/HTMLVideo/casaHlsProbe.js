@@ -231,3 +231,4 @@ function casaHlsProbe(hls, videoElement, Hls) {
 }
 
 module.exports = casaHlsProbe;
+module.exports.beacon = beacon;
