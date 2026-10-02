@@ -17,20 +17,25 @@ const { casaBeacon } = require('./casaBackend');
 
 const ENDPOINT = '/debug/js-error';
 const MAX_EVENTS_PER_SESSION = 60;
+// Risorse che non caricano (poster, immagini, <video>): tetto SUO, cosi' una griglia
+// di poster rotti non consuma il budget degli errori JS veri.
+const MAX_RESOURCE_EVENTS_PER_SESSION = 15;
 const MAX_MSG_LEN = 800;
 
 let installed = false;
 let sent = 0;
+let sentResources = 0;
 const seen = new Set();
 
 const report = (kind, message) => {
-    if (sent >= MAX_EVENTS_PER_SESSION) return;
+    if (kind === 'resource-error' ? sentResources >= MAX_RESOURCE_EVENTS_PER_SESSION : sent >= MAX_EVENTS_PER_SESSION) return;
 
     const msg = String(message).slice(0, MAX_MSG_LEN);
     const key = kind + '|' + msg;
     if (seen.has(key)) return;
     seen.add(key);
-    sent++;
+    if (kind === 'resource-error') sentResources++;
+    else sent++;
 
     casaBeacon(ENDPOINT, {
         ev: 'js-error',
@@ -48,13 +53,28 @@ const describe = (value) => {
     return String(value);
 };
 
+// L'evento 'error' in fase di CATTURA su window riceve anche il mancato caricamento
+// di una risorsa (img, script, video): e' un Event semplice, senza message/filename/
+// lineno. Fino al 02/10/2026 finiva nel log come "errore @ :undefined" (114 in 14
+// giorni), senza dire QUALE risorsa: l'unica cosa che serve.
+const describeErrorEvent = (event) => {
+    const target = event && event.target;
+    const isResource = target && target !== event.currentTarget && typeof target.tagName === 'string' && !event.message;
+    if (isResource) {
+        const url = String(target.currentSrc || target.src || target.href || '');
+        return { kind: 'resource-error', message: target.tagName + ' ' + (url ? url.slice(-200) : '(senza url)') };
+    }
+    const where = String((event && event.filename) || '').slice(-60) + ':' + (event && event.lineno);
+    return { kind: 'window-error', message: ((event && event.message) || 'errore') + ' @ ' + where };
+};
+
 const installCasaErrorLog = () => {
     if (installed || typeof window === 'undefined') return;
     installed = true;
 
     window.addEventListener('error', (event) => {
-        const where = String(event.filename || '').slice(-60) + ':' + event.lineno;
-        report('window-error', (event.message || 'errore') + ' @ ' + where);
+        const { kind, message } = describeErrorEvent(event);
+        report(kind, message);
     }, true);
 
     window.addEventListener('unhandledrejection', (event) => {
@@ -68,4 +88,4 @@ const installCasaErrorLog = () => {
     };
 };
 
-module.exports = { installCasaErrorLog, report };
+module.exports = { installCasaErrorLog, report, describeErrorEvent };
