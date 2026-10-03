@@ -690,6 +690,7 @@ const StreamsList = ({ className, video, type, ...props }) => {
                                                                  * focus segue il torrent giusto. */
                                                                 videoId={video?.id}
                                                                 videoReleased={video?.released}
+                                                                videoCasaMetaId={video?.casaExtra ? video.casaMetaId : null}
                                                                 addonName={stream.addonName}
                                                                 quality={stream.quality}
                                                                 name={stream.name}

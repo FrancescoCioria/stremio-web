@@ -18,6 +18,7 @@ const { digitalReleaseLabel } = require('stremio/common/casaDigitalRelease');
 const StreamsList = require('./StreamsList');
 const VideosList = require('./VideosList');
 const useMetaDetails = require('./useMetaDetails');
+const useCasaSeriesVideos = require('./useCasaSeriesVideos');
 const useSeason = require('./useSeason');
 const SeriesHero = require('./SeriesHero');
 const { airedSeasonCount } = require('stremio/common/casaEpisodeFocus');
@@ -47,36 +48,43 @@ const MetaDetails = () => {
             :
             [null, null];
     }, [metaDetails.selected]);
+    const metaReady = metaDetails.metaItem !== null && metaDetails.metaItem.content.type === 'Ready' ? metaDetails.metaItem.content.content : null;
+    // Casa: la lista episodi UNITA (core + righe extra che Cinemeta non
+    // elenca) e le scritture del visto. Tutto cio' che in questa pagina chiede
+    // "quale episodio" o "la stagione e' vista?" passa da qui: con la sola
+    // lista del core, su X Factor S20 (Cinemeta = solo E01) l'hero dava la
+    // stagione per vista e "Togli il visto" toglieva il visto a E01 e basta.
+    const casaSeries = useCasaSeriesVideos(metaReady, metaDetails.libraryItem);
+    // Ritorno dalla pagina torrent alla lista: li' il player esterno puo' aver
+    // segnato visto un extra direttamente nel backend (Stream.js).
+    const wasStreamsRef = React.useRef(false);
+    React.useEffect(() => {
+        if (streamPath === null && wasStreamsRef.current) casaSeries.refresh();
+        wasStreamsRef.current = streamPath !== null;
+    }, [streamPath, casaSeries.refresh]);
     const video = React.useMemo(() => {
-        return streamPath !== null && metaDetails.metaItem !== null && metaDetails.metaItem.content.type === 'Ready' ?
-            metaDetails.metaItem.content.content.videos.reduce((result, video) => {
-                if (video.id === streamPath.id) {
-                    return video;
-                }
-
-                return result;
-            }, null)
+        return streamPath !== null && metaReady !== null ?
+            casaSeries.videos.find((v) => v.id === streamPath.id) || null
             :
             null;
-    }, [metaDetails.metaItem, streamPath]);
+    }, [metaReady, casaSeries.videos, streamPath]);
 
     // TV: track dell'episodio su cui e' il focus (non cliccato). MetaPreview
     // mostra dinamicamente i dati di QUELL'episodio (titolo, data, overview)
     // mentre l'utente naviga il rail col telecomando.
     const [focusedVideoId, setFocusedVideoId] = React.useState(null);
     const focusedVideo = React.useMemo(() => {
-        if (!focusedVideoId || !metaDetails?.metaItem || metaDetails.metaItem.content.type !== 'Ready') {
+        if (!focusedVideoId || !metaReady) {
             return null;
         }
-        return metaDetails.metaItem.content.content.videos.find((v) => v.id === focusedVideoId) || null;
-    }, [focusedVideoId, metaDetails.metaItem]);
+        return casaSeries.videos.find((v) => v.id === focusedVideoId) || null;
+    }, [focusedVideoId, metaReady, casaSeries.videos]);
     // Priorita': focused (hover-by-remote) > selected-by-url > null (show series-level)
     const previewVideo = focusedVideo || video;
 
     // Casa: pagina SERIE (handoff Claude Design, 2026-09-21) — hero nuovo
     // (SeriesHero) al posto di MetaPreview, SOLO sulla lista episodi: film,
     // pagina stream e pannello del player restano com'erano.
-    const metaReady = metaDetails.metaItem !== null && metaDetails.metaItem.content.type === 'Ready' ? metaDetails.metaItem.content.content : null;
     const isSeriesView = type === 'series' && streamPath === null && metaReady !== null;
     // La pagina torrent di un EPISODIO: stesso hero (solo informazioni,
     // sull'episodio scelto) e stesso sfondo della pagina serie.
@@ -127,21 +135,17 @@ const MetaDetails = () => {
             metaReady.trailerStreams[0].deepLinks?.player ?? null : null;
         return { seasonCount, genres, trailer };
     }, [metaReady]);
+    // Sulla lista UNITA: la stagione e' vista solo se lo sono anche le righe
+    // extra (e "segna/togli" scrive anche quelle, nel backend).
     const featuredSeasonWatched = React.useMemo(() => {
         if (!metaReady || !featuredVideo) return false;
-        const eps = (metaReady.videos || []).filter((v) => v.season === featuredVideo.season);
+        const eps = casaSeries.videos.filter((v) => v.season === featuredVideo.season);
         return eps.length > 0 && eps.every((v) => v.watched);
-    }, [metaReady, featuredVideo]);
+    }, [metaReady, featuredVideo, casaSeries.videos]);
     const markFeaturedSeasonWatched = React.useCallback(() => {
         if (!featuredVideo) return;
-        core.transport.dispatch({
-            action: 'MetaDetails',
-            args: {
-                action: 'MarkSeasonAsWatched',
-                args: [featuredVideo.season, !featuredSeasonWatched]
-            }
-        });
-    }, [featuredVideo, featuredSeasonWatched]);
+        casaSeries.markSeason(featuredVideo.season, featuredSeasonWatched);
+    }, [featuredVideo, featuredSeasonWatched, casaSeries.markSeason]);
 
     // TV: durata REALE dell'episodio in preview (minuti). Il `runtime` del meta
     // e' quello nominale della serie, uguale per ogni episodio -> per la riga
@@ -469,6 +473,9 @@ const MetaDetails = () => {
                                 className={styles['videos-list']}
                                 metaItem={metaDetails.metaItem}
                                 libraryItem={metaDetails.libraryItem}
+                                videos={casaSeries.videos}
+                                onMarkVideoAsWatched={casaSeries.markVideo}
+                                onMarkSeasonAsWatched={casaSeries.markSeason}
                                 season={season}
                                 selectedVideoId={metaDetails.libraryItem?.state?.video_id}
                                 onSeasonOpened={setSeason}

@@ -9,6 +9,7 @@ const { useCore } = require('stremio/core');
 const { useProfile, usePlatform, useToast, useBinaryState } = require('stremio/common');
 const { Button, Image, Popup } = require('stremio/components');
 const { default: useRouteFocused } = require('stremio/common/useRouteFocused');
+const { postExtraWatched } = require('stremio/common/casaExtraWatched');
 const StreamPlaceholder = require('./StreamPlaceholder');
 const styles = require('./styles');
 
@@ -23,7 +24,7 @@ const SaveIcon = ({ className }) => (
     </svg>
 );
 
-const Stream = ({ className, videoId, videoReleased, addonName, quality, name, description, thumbnail, progress, deepLinks, incompatible, health, healthChecking, packByName, ...props }) => {
+const Stream = ({ className, videoId, videoReleased, videoCasaMetaId, addonName, quality, name, description, thumbnail, progress, deepLinks, incompatible, health, healthChecking, packByName, ...props }) => {
     const profile = useProfile();
     const toast = useToast();
     const platform = usePlatform();
@@ -114,6 +115,12 @@ const Stream = ({ className, videoId, videoReleased, addonName, quality, name, d
     }, [deepLinks]);
 
     const markVideoAsWatched = React.useCallback(() => {
+        // Casa: episodio EXTRA (Cinemeta non lo elenca): il core non ha una
+        // casella per lui e salterebbe la scrittura in silenzio -> backend.
+        if (typeof videoId === 'string' && typeof videoCasaMetaId === 'string' && videoCasaMetaId) {
+            postExtraWatched(videoCasaMetaId, [videoId], true, 'external-player');
+            return;
+        }
         if (typeof videoId === 'string') {
             core.transport.dispatch({
                 action: 'MetaDetails',
@@ -123,7 +130,7 @@ const Stream = ({ className, videoId, videoReleased, addonName, quality, name, d
                 }
             });
         }
-    }, [videoId, videoReleased]);
+    }, [videoId, videoReleased, videoCasaMetaId]);
 
     const onClick = React.useCallback((event) => {
         if (event.nativeEvent.togglePopupPrevented) {
@@ -408,6 +415,7 @@ Stream.propTypes = {
     className: PropTypes.string,
     videoId: PropTypes.string,
     videoReleased: PropTypes.instanceOf(Date),
+    videoCasaMetaId: PropTypes.string,
     addonName: PropTypes.string,
     quality: PropTypes.string,
     name: PropTypes.string,

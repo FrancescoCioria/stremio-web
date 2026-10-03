@@ -4,9 +4,7 @@ const React = require('react');
 const PropTypes = require('prop-types');
 const classnames = require('classnames');
 const { t } = require('i18next');
-const { useCore } = require('stremio/core');
 const { Image, Video } = require('stremio/components');
-const { mergeCasaExtraVideos } = require('stremio/common/casaExtraVideos');
 const { pickSeason, pickFocusVideo, holdSeason, seasonSummary, seasonCountLabel, compareSeasons } = require('stremio/common/casaEpisodeFocus');
 const { casaBeacon } = require('stremio/common/casaBackend');
 const { revealCardInRail } = require('stremio/common/casaRailNav');
@@ -16,7 +14,6 @@ const { handleRowsKeyDown, revealRow: revealRowBy, heroFirstAction } = require('
 const ROW = '[data-season-row]';
 const RAIL = '[data-season-rail]';
 const CARD = '[data-video-id]';
-const useCasaExtraVideos = require('stremio/routes/MetaDetails/useCasaExtraVideos');
 const useEpisodeRuntimes = require('stremio/common/useEpisodeRuntimes');
 const { episodeState } = require('stremio/common/casaEpisodeCard');
 const { default: EpisodePicker } = require('../EpisodePicker');
@@ -156,8 +153,7 @@ SeasonRow.propTypes = {
 // scrollato a un punto che non significava niente.
 let savedScroll = null;
 
-const VideosList = ({ className, metaItem, libraryItem, season, selectedVideoId, onSeasonOpened, onEpisodeSearch, onFocusedVideoChange, onFeaturedChange, heroTakesFocus }) => {
-    const core = useCore();
+const VideosList = ({ className, metaItem, libraryItem, videos: casaVideos, season, selectedVideoId, onSeasonOpened, onEpisodeSearch, onFocusedVideoChange, onFeaturedChange, heroTakesFocus, onMarkVideoAsWatched, onMarkSeasonAsWatched }) => {
 
     // Track quale episodio ha il focus adesso (non clicked, solo focused) cosi'
     // il MetaPreview di sopra puo' aggiornarsi dinamicamente con i dati
@@ -243,13 +239,11 @@ const VideosList = ({ className, metaItem, libraryItem, season, selectedVideoId,
 
     const metaReady = metaItem && metaItem.content.type === 'Ready' ? metaItem.content.content : null;
     metaIdRef.current = metaReady ? metaReady.id : null;
-    // Casa: episodi che esistono ma che Cinemeta non elenca (X Factor
-    // 2026-09-18). Il merge de-duplica contro il meta vero -> appena il core li
-    // elenca, i nostri spariscono. Vedi common/casaExtraVideos.js.
-    const casaExtra = useCasaExtraVideos(metaReady ? metaReady.type : null, metaReady ? metaReady.id : null);
-    const videos = React.useMemo(() => {
-        return mergeCasaExtraVideos(metaReady ? metaReady.videos : [], casaExtra, metaReady ? metaReady.id : null, metaReady ? metaReady.background : null, libraryItem ? libraryItem.state : null);
-    }, [metaReady, casaExtra, libraryItem]);
+    // Casa: la lista UNITA (core + episodi che Cinemeta non elenca, X Factor
+    // 2026-09-18) arriva da MetaDetails (useCasaSeriesVideos), la stessa che usa
+    // l'hero: una lista sola per tutta la pagina. Anche le scritture del visto
+    // (core per i suoi episodi, backend per le righe extra) stanno li'.
+    const videos = casaVideos || (metaReady ? metaReady.videos : []);
 
     const seasons = React.useMemo(() => {
         return videos
@@ -490,26 +484,6 @@ const VideosList = ({ className, metaItem, libraryItem, season, selectedVideoId,
         };
     }, [focusTarget, focusSeason, metaReady, heroTakesFocus, season]);
 
-    const onMarkVideoAsWatched = (video, watched) => {
-        core.transport.dispatch({
-            action: 'MetaDetails',
-            args: {
-                action: 'MarkVideoAsWatched',
-                args: [video, !watched]
-            }
-        });
-    };
-
-    const onMarkSeasonAsWatched = (season, watched) => {
-        core.transport.dispatch({
-            action: 'MetaDetails',
-            args: {
-                action: 'MarkSeasonAsWatched',
-                args: [season, !watched]
-            }
-        });
-    };
-
     if (!metaItem || metaItem.content.type === 'Loading') {
         return (
             <div className={classnames(className, styles['videos-list-container'])}>
@@ -571,6 +545,7 @@ VideosList.propTypes = {
     className: PropTypes.string,
     metaItem: PropTypes.object,
     libraryItem: PropTypes.object,
+    videos: PropTypes.array,
     season: PropTypes.number,
     selectedVideoId: PropTypes.string,
     onSeasonOpened: PropTypes.func,
@@ -578,6 +553,8 @@ VideosList.propTypes = {
     onFeaturedChange: PropTypes.func,
     heroTakesFocus: PropTypes.bool,
     onFocusedVideoChange: PropTypes.func,
+    onMarkVideoAsWatched: PropTypes.func.isRequired,
+    onMarkSeasonAsWatched: PropTypes.func.isRequired,
 };
 
 module.exports = VideosList;
