@@ -1539,6 +1539,7 @@ const Player = () => {
                 <SideDrawer
                     className={classnames(styles['layer'], styles['side-drawer-layer'])}
                     metaItem={player.metaItem?.content}
+                    libraryItem={player.libraryItem}
                     seriesInfo={player.seriesInfo}
                     closeSideDrawer={closeSideDrawer}
                     selected={player.selected?.streamRequest?.path?.id}

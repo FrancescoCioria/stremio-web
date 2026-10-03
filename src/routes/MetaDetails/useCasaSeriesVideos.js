@@ -27,7 +27,10 @@ const autoTried = new Set();
 const migrateTried = new Set();
 const confirmTried = new Set();
 
-const useCasaSeriesVideos = (metaReady, libraryItem) => {
+// `model` = il modello del core a cui vanno le scritture del core: 'MetaDetails'
+// (pagina serie) o 'Player' (menu episodi del player, SideDrawer). La migrazione
+// verso il core la fa solo la pagina serie (`migrate`): basta un posto.
+const useCasaSeriesVideos = (metaReady, libraryItem, { model = 'MetaDetails', migrate = true } = {}) => {
     const core = useCore();
     const type = metaReady ? metaReady.type : null;
     const metaId = metaReady ? metaReady.id : null;
@@ -108,7 +111,7 @@ const useCasaSeriesVideos = (metaReady, libraryItem) => {
     // migrationPlan). Solo con l'item in library: senza, MarkVideoAsWatched
     // del core non ha dove scrivere e la migrazione si perderebbe.
     React.useEffect(() => {
-        if (flags === null || !metaReady || !libraryItem || type !== 'series') return;
+        if (!migrate || flags === null || !metaReady || !libraryItem || type !== 'series') return;
         const plan = migrationPlan(metaReady.videos, flags);
         const toDispatch = plan.dispatch.filter((v) => {
             if (migrateTried.has(v.id)) return false;
@@ -123,7 +126,7 @@ const useCasaSeriesVideos = (metaReady, libraryItem) => {
             });
             for (const v of toDispatch) {
                 core.transport.dispatch({
-                    action: 'MetaDetails',
+                    action: model,
                     args: { action: 'MarkVideoAsWatched', args: [{ id: v.id, released: v.released }, true] },
                 });
             }
@@ -137,7 +140,7 @@ const useCasaSeriesVideos = (metaReady, libraryItem) => {
             return true;
         }));
         if (done.length > 0) writeExtra(done, true, 'migrated');
-    }, [metaReady, libraryItem, flags, metaId, type]);
+    }, [metaReady, libraryItem, flags, metaId, type, migrate, model]);
 
     // Rilettura dei flag dall'esterno della lista: la pagina torrent scrive il
     // visto (player esterno) senza passare da qui, e tornando alla lista
@@ -154,22 +157,22 @@ const useCasaSeriesVideos = (metaReady, libraryItem) => {
             return;
         }
         core.transport.dispatch({
-            action: 'MetaDetails',
+            action: model,
             args: { action: 'MarkVideoAsWatched', args: [video, !watched] },
         });
-    }, [extraIds, writeExtra]);
+    }, [extraIds, writeExtra, model]);
 
     // `watched` = la stagione e' vista ADESSO (calcolato sulla lista unita).
     const markSeason = React.useCallback((season, watched) => {
         const split = seasonWriteSplit(videos, season);
         if (split.core) {
             core.transport.dispatch({
-                action: 'MetaDetails',
+                action: model,
                 args: { action: 'MarkSeasonAsWatched', args: [season, !watched] },
             });
         }
         writeExtra(split.extraIds, !watched, 'season');
-    }, [videos, writeExtra]);
+    }, [videos, writeExtra, model]);
 
     return { videos, markVideo, markSeason, refresh };
 };

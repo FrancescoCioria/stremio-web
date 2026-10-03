@@ -3,23 +3,32 @@
 import React, { useMemo, useCallback, useState, useRef, forwardRef, memo } from 'react';
 import classNames from 'classnames';
 import Icon from '@stremio/stremio-icons/react';
-import { useCore } from 'stremio/core';
 import { CONSTANTS } from 'stremio/common';
 import { MetaPreview, Video } from 'stremio/components';
 import SeasonsBar from 'stremio/routes/MetaDetails/VideosList/SeasonsBar';
+import useCasaSeriesVideos from 'stremio/routes/MetaDetails/useCasaSeriesVideos';
 import styles from './SideDrawer.less';
 
 type Props = {
     className?: string;
     seriesInfo: SeriesInfo;
     metaItem: MetaItem;
+    libraryItem?: LibraryItem | null;
     closeSideDrawer: () => void;
     selected: string;
     transitionEnded: boolean;
 };
 
-const SideDrawer = memo(forwardRef<HTMLDivElement, Props>(({ seriesInfo, className, closeSideDrawer, selected, ...props }: Props, ref) => {
-    const core = useCore();
+// Casa: stagione/episodio da un id `tt123:S:E`. Il core ricava `seriesInfo` dai
+// SOLI video di Cinemeta: in riproduzione su un episodio che Cinemeta non elenca
+// (X Factor S20E04) era null e il menu non mostrava nessun episodio.
+const seriesInfoFromVideoId = (id?: string): SeriesInfo | null => {
+    const m = typeof id === 'string' ? id.match(/^tt\d+:(\d+):(\d+)$/) : null;
+    return m ? { season: Number(m[1]), episode: Number(m[2]) } as SeriesInfo : null;
+};
+
+const SideDrawer = memo(forwardRef<HTMLDivElement, Props>(({ className, closeSideDrawer, selected, ...props }: Props, ref) => {
+    const seriesInfo = props.seriesInfo ?? (props.metaItem?.type === 'series' ? seriesInfoFromVideoId(selected) : null);
     const [season, setSeason] = useState<number>(seriesInfo?.season);
     const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
     const videosRef = useRef<HTMLDivElement>(null);
@@ -33,20 +42,27 @@ const SideDrawer = memo(forwardRef<HTMLDivElement, Props>(({ seriesInfo, classNa
             :
             props.metaItem;
     }, [props.metaItem]);
+    // Casa: la STESSA lista unita della pagina serie (core + episodi che Cinemeta
+    // non elenca ancora, useCasaSeriesVideos). Prima qui c'erano solo i video del
+    // core: su X Factor S20 (Cinemeta = solo E01) E02-E04 non comparivano, e
+    // "stagione vista" guardava E01 soltanto. Scritture: core via 'Player', righe
+    // extra al backend.
+    const casaSeries = useCasaSeriesVideos(seriesInfo ? props.metaItem : null, props.libraryItem ?? null, { model: 'Player', migrate: false });
+    const allVideos: Video[] = seriesInfo ? casaSeries.videos : props.metaItem.videos;
     const videos = useMemo(() => {
-        return Array.isArray(metaItem.videos) ?
-            metaItem.videos.filter((video) => video.season === season)
+        return Array.isArray(allVideos) ?
+            allVideos.filter((video) => video.season === season)
             :
-            metaItem.videos;
-    }, [metaItem, season]);
+            allVideos;
+    }, [allVideos, season]);
     const seasons = useMemo(() => {
-        return props.metaItem.videos
+        return allVideos
             .map(({ season }) => season)
             .filter((season, index, seasons) => {
                 return seasons.indexOf(season) === index;
             })
             .sort((a, b) => (a || Number.MAX_SAFE_INTEGER) - (b || Number.MAX_SAFE_INTEGER));
-    }, [props.metaItem.videos]);
+    }, [allVideos]);
 
     const seasonOnSelect = useCallback((event: { value: string | number }) => {
         setSeason(parseInt(String(event.value), 10));
@@ -56,26 +72,6 @@ const SideDrawer = memo(forwardRef<HTMLDivElement, Props>(({ seriesInfo, classNa
     const seasonWatched = React.useMemo(() => {
         return videos.every((video) => video.watched);
     }, [videos]);
-
-    const onMarkVideoAsWatched = useCallback((video: Video, watched: boolean) => {
-        core.transport.dispatch({
-            action: 'Player',
-            args: {
-                action: 'MarkVideoAsWatched',
-                args: [video, !watched]
-            }
-        });
-    }, []);
-
-    const onMarkSeasonAsWatched = (season: number, watched: boolean) => {
-        core.transport.dispatch({
-            action: 'Player',
-            args: {
-                action: 'MarkSeasonAsWatched',
-                args: [season, !watched]
-            }
-        });
-    };
 
     const onMouseDown = (event: React.MouseEvent) => {
         event.stopPropagation();
@@ -129,8 +125,8 @@ const SideDrawer = memo(forwardRef<HTMLDivElement, Props>(({ seriesInfo, classNa
                                     deepLinks={video.deepLinks}
                                     scheduled={video.scheduled}
                                     selected={video.id === selectedVideoId}
-                                    onMarkVideoAsWatched={onMarkVideoAsWatched}
-                                    onMarkSeasonAsWatched={onMarkSeasonAsWatched}
+                                    onMarkVideoAsWatched={casaSeries.markVideo}
+                                    onMarkSeasonAsWatched={casaSeries.markSeason}
                                 />
                             ))}
                         </div>
