@@ -8,7 +8,7 @@ const React = require('react');
 const { EVENT, fetchWatchlist, normalizeWatchlist } = require('stremio/common/casaWatchlist');
 const { PersistentCache } = require('stremio/common/casaPersistentCache');
 
-const EMPTY = { items: [], activity: {}, awaiting: [] };
+const EMPTY = { items: [], activity: {}, awaiting: [], durations: {} };
 
 // Ultima risposta del backend, per il PRIMO disegno della riga.
 //

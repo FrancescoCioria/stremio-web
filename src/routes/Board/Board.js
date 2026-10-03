@@ -12,6 +12,8 @@ const useCasaPrefetch = require('./useCasaPrefetch');
 const useCasaWatchlist = require('./useCasaWatchlist');
 const ContinueWatchingRowItem = require('./ContinueWatchingRowItem');
 const { mergeWatchlist } = require('stremio/common/casaWatchlist');
+const { isFinishedMovie } = require('stremio/common/casaCreditsSkip');
+const { casaBeacon } = require('stremio/common/casaBackend');
 const { isCasaHomeCatalog } = require('stremio/common/casaAddon');
 const BoardHero = require('./BoardHero');
 const styles = require('./styles');
@@ -34,9 +36,32 @@ const Board = () => {
     // partire e fermarlo subito — l'unica azione che scrive `time_offset > 0`,
     // che e' cio' che il core richiede per considerarlo "in continue watching".
     const casaWatchlist = useCasaWatchlist();
+    // Casa: film fermi nei titoli di coda fuori dalla riga, e alle card la
+    // durata del loro video (`casaDuration`) per decidere "titoli di coda" in
+    // minuti anche al click delle serie. Vedi casaCreditsSkip.js.
+    const { coreItems, hiddenFinished } = React.useMemo(() => {
+        const durations = casaWatchlist.durations || {};
+        const items = Array.isArray(continueWatchingPreview.items) ? continueWatchingPreview.items : [];
+        const kept = [];
+        const hidden = [];
+        for (const item of items) {
+            if (isFinishedMovie(item, durations)) {
+                hidden.push(item._id);
+                continue;
+            }
+            const d = durations[item._id];
+            kept.push(d ? { ...item, casaDuration: d } : item);
+        }
+        return { coreItems: kept, hiddenFinished: hidden.join(',') };
+    }, [continueWatchingPreview.items, casaWatchlist.durations]);
+    // Una riga per insieme diverso: "perche' Superman non c'e' piu'?" deve
+    // avere una risposta nei log.
+    React.useEffect(() => {
+        if (hiddenFinished) casaBeacon('/debug/player-event', { ev: 'casa-cw-hide-finished', ids: hiddenFinished.split(',') });
+    }, [hiddenFinished]);
     const continueWatchingItems = React.useMemo(() => {
-        return mergeWatchlist(continueWatchingPreview.items, casaWatchlist.items, casaWatchlist.activity, casaWatchlist.awaiting);
-    }, [continueWatchingPreview.items, casaWatchlist]);
+        return mergeWatchlist(coreItems, casaWatchlist.items, casaWatchlist.activity, casaWatchlist.awaiting);
+    }, [coreItems, casaWatchlist]);
     const continueWatchingCatalog = React.useMemo(() => {
         return { ...continueWatchingPreview, items: continueWatchingItems };
     }, [continueWatchingPreview, continueWatchingItems]);

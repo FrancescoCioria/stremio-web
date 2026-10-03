@@ -4,7 +4,7 @@
 // E09 uscito il 28/08. La soglia e' quella del core (0.9), la scelta del
 // successivo e' MetaItem::next_video del core.
 
-const { decideCreditsSkip, nextVideoAfter, needsCreditsCheck, CREDITS_THRESHOLD_COEF, isNotificationOnly } = require('../src/common/casaCreditsSkip');
+const { decideCreditsSkip, nextVideoAfter, needsCreditsCheck, CREDITS_THRESHOLD_COEF, isNotificationOnly, isInCredits, isFinishedMovie, durationFor } = require('../src/common/casaCreditsSkip');
 
 const NOW = Date.parse('2026-09-14T19:30:00Z');
 const ep = (s, e, released) => ({ id: `tt14688458:${s}:${e}`, season: s, episode: e, released });
@@ -97,4 +97,77 @@ describe('isNotificationOnly (card in CW solo per un nuovo episodio)', () => {
     });
     it('in corso + notifica -> si riprende (no)', () => expect(isNotificationOnly(42, 1)).toBe(false));
     it('senza notifiche -> comportamento di prima (no)', () => expect(isNotificationOnly(0, 0)).toBe(false));
+});
+
+// Titoli di coda in minuti (regola utente 03/10/2026): 1 min + 5% della durata.
+const MIN = 60 * 1000;
+const pct = (offsetMin, durMin) => (offsetMin / durMin) * 100;
+
+describe('isInCredits', () => {
+    it('i due punti dell\'utente: 20 min -> 2 min di titoli, 3h -> 10 min', () => {
+        expect(isInCredits(pct(18.1, 20), 20 * MIN)).toBe(true);
+        expect(isInCredits(pct(17.9, 20), 20 * MIN)).toBe(false);
+        expect(isInCredits(pct(170.1, 180), 180 * MIN)).toBe(true);
+        expect(isInCredits(pct(169.9, 180), 180 * MIN)).toBe(false);
+    });
+
+    it('film di 3h al 91%: per il core e\' finito, qui mancano 16 minuti di film', () => {
+        expect(91 > CREDITS_THRESHOLD_COEF * 100).toBe(true);
+        expect(isInCredits(91, 180 * MIN)).toBe(false);
+    });
+
+    it('casi reali del 03/10: Superman, Coyote vs. Acme, Eternity dentro; Bugonia fuori', () => {
+        expect(isInCredits((7759085 / 7762046) * 100, 7762046)).toBe(true);
+        expect(isInCredits(pct(98.5, 102.9), 102.9 * MIN)).toBe(true);
+        expect(isInCredits(pct(108.6, 114.1), 114.1 * MIN)).toBe(true);
+        expect(isInCredits(pct(110.5, 119.1), 119.1 * MIN)).toBe(false);
+    });
+
+    it('senza durata -> soglia del core (90%)', () => {
+        expect(isInCredits(91, null)).toBe(true);
+        expect(isInCredits(89, 0)).toBe(false);
+    });
+
+    it('progresso zero o assente -> mai', () => {
+        expect(isInCredits(0, 100 * MIN)).toBe(false);
+        expect(isInCredits(undefined, 100 * MIN)).toBe(false);
+    });
+});
+
+describe('isFinishedMovie', () => {
+    const SUPERMAN = { _id: 'tt5950044', type: 'movie', progress: (7759085 / 7762046) * 100 };
+    const DUR = { tt5950044: { videoId: 'tt5950044', duration: 7762046 } };
+
+    it('film nei titoli di coda con durata nota -> fuori', () => {
+        expect(isFinishedMovie(SUPERMAN, DUR)).toBe(true);
+    });
+
+    it('serie nei titoli di coda -> resta (la card porta al successivo)', () => {
+        expect(isFinishedMovie({ ...SUPERMAN, type: 'series' }, DUR)).toBe(false);
+    });
+
+    it('film senza durata nota (Marty Supreme: duration 0) -> resta', () => {
+        expect(isFinishedMovie({ _id: 'tt32916440', type: 'movie', progress: 99 }, {})).toBe(false);
+        expect(isFinishedMovie({ _id: 'tt32916440', type: 'movie', progress: 99 }, { tt32916440: { duration: 0 } })).toBe(false);
+    });
+
+    it('film a meta\' -> resta', () => {
+        expect(isFinishedMovie({ _id: 'tt18272208', type: 'movie', progress: 45.5 }, { tt18272208: { duration: 104.3 * MIN } })).toBe(false);
+    });
+});
+
+describe('durationFor', () => {
+    it('durata solo se e\' dello stesso episodio della card', () => {
+        const entry = { videoId: 'tt1194223:20:4', duration: 9256000 };
+        expect(durationFor(entry, 'tt1194223:20:4')).toBe(9256000);
+        expect(durationFor(entry, 'tt1194223:20:3')).toBe(null);
+        expect(durationFor(null, 'tt1194223:20:4')).toBe(null);
+    });
+});
+
+describe('needsCreditsCheck con durata', () => {
+    it('episodio da 54 min al 92%: 4,3 min dalla fine, titoli 3,7 -> non ancora', () => {
+        expect(needsCreditsCheck(92, 'series', 54 * MIN)).toBe(false);
+        expect(needsCreditsCheck(92, 'series', null)).toBe(true);
+    });
 });

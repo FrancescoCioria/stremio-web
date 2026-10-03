@@ -14,8 +14,8 @@ describe('normalizeWatchlist', () => {
     });
 
     it('forme rotte -> liste vuote, nessuna eccezione', () => {
-        for (const bad of [null, undefined, 'x', 42, { items: 'no', activity: 'no', awaiting: {} }]) {
-            expect(normalizeWatchlist(bad)).toEqual({ items: [], activity: {}, awaiting: [] });
+        for (const bad of [null, undefined, 'x', 42, { items: 'no', activity: 'no', awaiting: {}, durations: 'no' }]) {
+            expect(normalizeWatchlist(bad)).toEqual({ items: [], activity: {}, awaiting: [], durations: {} });
         }
     });
 });

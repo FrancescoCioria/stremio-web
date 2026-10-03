@@ -153,7 +153,7 @@ const mergeWatchlist = (continueWatchingItems, watchlistEntries, activity, await
     return merged;
 };
 
-const EMPTY_LIST = { items: [], activity: {}, awaiting: [] };
+const EMPTY_LIST = { items: [], activity: {}, awaiting: [], durations: {} };
 
 // Forma sicura di una risposta (dal backend o dalla copia salvata in
 // localStorage, che puo' venire da un bundle vecchio).
@@ -161,6 +161,9 @@ const normalizeWatchlist = (j) => ({
     items: Array.isArray(j && j.items) ? j.items : [],
     activity: j && j.activity && typeof j.activity === 'object' ? j.activity : {},
     awaiting: Array.isArray(j && j.awaiting) ? j.awaiting : [],
+    // Durata del video corrente per titolo: titoli di coda in minuti
+    // (casaCreditsSkip.js). Assente con un backend vecchio -> {}.
+    durations: j && j.durations && typeof j.durations === 'object' ? j.durations : {},
 });
 
 // ⚠️ Un errore HTTP LANCIA, non torna vuoto: il chiamante tiene cio' che sta

@@ -33,8 +33,41 @@
 // vive solo nel click della card. Successivo non ancora uscito -> si riprende
 // dalla sigla, come prima.
 
-// = CREDITS_THRESHOLD_COEF di stremio-core (src/constants.rs).
+// = CREDITS_THRESHOLD_COEF di stremio-core (src/constants.rs). Resta solo come
+// ripiego quando la durata non e' nota (vedi isInCredits).
 const CREDITS_THRESHOLD_COEF = 0.9;
+
+// "E' nei titoli di coda?" = UNA decisione, per serie e film.
+//
+// In MINUTI, non in percentuale (regola utente, 03/10/2026): un episodio da
+// 20 min ha ~2 min di titoli (10%), un film di 3h ~10 min (5,5%). Il 10% del
+// core su un film di 3h sono 18 minuti, cioe' il finale. Retta per quei due
+// punti: titoli = 1 min + 5% della durata (45 min -> 3,3; 2h -> 7; 3h -> 10).
+//
+// Sui dati del 03/10 (fermi davanti alla TV, poi tile chiusa da fuori):
+// Superman 0 min dalla fine su 129 (soglia 7,5), Coyote vs. Acme 4,4 su 103
+// (6,1), Sorry Baby 3,2 su 103 (6,2), Eternity 5,5 su 114 (6,7) -> dentro.
+// Bugonia 8,6 su 119 (7,0) -> fuori: o era ancora film, o la sigla e' lunga.
+// ⚠️ Valori iniziali dalla regola dell'utente, non tarati su un corpus.
+const CREDITS_BASE_MS = 60 * 1000;
+const CREDITS_PER_RUNTIME = 0.05;
+
+// `progress` = percentuale 0-100 della card; `durationMs` = durata del video
+// della card (dal backend, `durations` di /stremio-addon/watchlist). Senza
+// durata si torna alla soglia del core.
+const isInCredits = (progress, durationMs) => {
+    const p = Number(progress);
+    if (!(p > 0)) return false;
+    const d = Number(durationMs);
+    if (!(d > 0)) return p > CREDITS_THRESHOLD_COEF * 100;
+    const remainingMs = (1 - p / 100) * d;
+    return remainingMs <= CREDITS_BASE_MS + CREDITS_PER_RUNTIME * d;
+};
+
+// Durata della card SOLO se descrive lo stesso video: la library del backend
+// e' in cache 1h e per una serie puo' essere ancora sull'episodio prima.
+const durationFor = (entry, videoId) =>
+    entry && entry.duration > 0 && (!entry.videoId || entry.videoId === videoId) ? entry.duration : null;
 
 const seasonOf = (video) => (video && Number.isFinite(Number(video.season)) ? Number(video.season) : 0);
 
@@ -56,8 +89,8 @@ const nextVideoAfter = (videos, videoId, now) => {
 
 // `progress` = percentuale 0-100 della card, come la calcola il core.
 // `videos` = lista episodi del titolo (null se non e' arrivata).
-const decideCreditsSkip = ({ progress, videoId, videos, now }) => {
-    if (!(Number(progress) > CREDITS_THRESHOLD_COEF * 100)) return { skip: false, reason: 'not-in-credits' };
+const decideCreditsSkip = ({ progress, durationMs, videoId, videos, now }) => {
+    if (!isInCredits(progress, durationMs)) return { skip: false, reason: 'not-in-credits' };
     if (typeof videoId !== 'string' || !videoId) return { skip: false, reason: 'no-video-id' };
     if (!Array.isArray(videos)) return { skip: false, reason: 'no-meta' };
     const next = nextVideoAfter(videos, videoId, now);
@@ -67,8 +100,26 @@ const decideCreditsSkip = ({ progress, videoId, videos, now }) => {
 
 // Serve andare in rete solo per le card nei titoli di coda: le altre si aprono
 // come sempre, senza aspettare niente.
-const needsCreditsCheck = (progress, type) =>
-    type === 'series' && Number(progress) > CREDITS_THRESHOLD_COEF * 100;
+const needsCreditsCheck = (progress, type, durationMs) =>
+    type === 'series' && isInCredits(progress, durationMs);
+
+// FILM fermo nei titoli di coda: fuori da Continue Watching.
+//
+// Il core lo toglie da solo (offset azzerato oltre la soglia) ma solo su
+// `Unload` del player, che con la tile chiusa da fuori non arriva: al 03/10
+// 5 film visti fino in fondo restavano in riga (Superman al 99,96%). Le serie
+// no: li' la card serve ancora, porta al successivo (decideCreditsSkip).
+// Nessuna scrittura sulla library: altrove (telefono) restano come sono.
+// `durations` = mappa del backend { [id]: { videoId, duration } }.
+const isFinishedMovie = (item, durations) => {
+    if (!item || item.type !== 'movie') return false;
+    const id = item._id || item.id;
+    const d = durations && durations[id];
+    // Senza durata nota non si decide (ripiego del core = 90%: proprio la
+    // percentuale che sbaglia sui film lunghi).
+    if (!d || !(d.duration > 0)) return false;
+    return isInCredits(item.progress, d.duration);
+};
 
 // Serie in Continue Watching SOLO per una notifica di nuovo episodio: il core
 // ce la mette anche a posizione 0 (`library_items_update`: in CW oppure con
@@ -79,4 +130,4 @@ const needsCreditsCheck = (progress, type) =>
 // nuovo episodio e' gia' quello in evidenza.
 const isNotificationOnly = (progress, newVideos) => newVideos > 0 && !(Number(progress) > 0);
 
-module.exports = { decideCreditsSkip, nextVideoAfter, needsCreditsCheck, isNotificationOnly, CREDITS_THRESHOLD_COEF };
+module.exports = { decideCreditsSkip, nextVideoAfter, needsCreditsCheck, isNotificationOnly, isInCredits, isFinishedMovie, durationFor, CREDITS_THRESHOLD_COEF };

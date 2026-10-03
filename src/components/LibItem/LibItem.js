@@ -9,7 +9,7 @@ const MetaItem = require('stremio/components/MetaItem');
 const { t } = require('i18next');
 const { casaBeacon } = require('stremio/common/casaBackend');
 const { fetchSeriesVideos } = require('stremio/common/casaMetaCache');
-const { decideCreditsSkip, needsCreditsCheck, isNotificationOnly } = require('stremio/common/casaCreditsSkip');
+const { decideCreditsSkip, needsCreditsCheck, isNotificationOnly, durationFor } = require('stremio/common/casaCreditsSkip');
 
 // Casa: l'episodio della card, dal deep link della sua pagina torrent
 // (`#/detail/series/tt123/tt123%3A3%3A8` -> `tt123:3:8`).
@@ -23,7 +23,7 @@ const videoIdFromStreamsLink = (link) => {
     }
 };
 
-const LibItem = ({ _id, removable, notifications, watched, ...props }) => {
+const LibItem = ({ _id, removable, notifications, watched, casaDuration, ...props }) => {
     const navigate = useNavigate();
     const core = useCore();
 
@@ -184,16 +184,17 @@ const LibItem = ({ _id, removable, notifications, watched, ...props }) => {
             navigate(toPath(dl.metaDetailsVideos));
             return;
         }
-        if (!needsCreditsCheck(props.progress, metaType)) {
+        const videoId = videoIdFromStreamsLink(dl.metaDetailsStreams);
+        const durationMs = durationFor(casaDuration, videoId);
+        if (!needsCreditsCheck(props.progress, metaType, durationMs)) {
             openResume(dl);
             return;
         }
         if (openingRef.current) return;
         openingRef.current = true;
         try {
-            const videoId = videoIdFromStreamsLink(dl.metaDetailsStreams);
             const videos = videoId ? await fetchSeriesVideos(metaType, metaId) : null;
-            const decision = decideCreditsSkip({ progress: props.progress, videoId, videos, now: Date.now() });
+            const decision = decideCreditsSkip({ progress: props.progress, durationMs, videoId, videos, now: Date.now() });
             casaBeacon('/debug/player-event', {
                 ev: 'casa-cw-credits-skip',
                 skip: decision.skip,
@@ -201,6 +202,7 @@ const LibItem = ({ _id, removable, notifications, watched, ...props }) => {
                 videoId,
                 nextVideoId: decision.next ? decision.next.id : null,
                 progress: props.progress,
+                durationMs,
             });
             if (!decision.skip) {
                 openResume(dl);
@@ -214,7 +216,7 @@ const LibItem = ({ _id, removable, notifications, watched, ...props }) => {
         } finally {
             openingRef.current = false;
         }
-    }, [props.progress, newVideos, metaType, metaId, openResume, navigate]);
+    }, [props.progress, casaDuration, newVideos, metaType, metaId, openResume, navigate]);
 
     const onPlayClick = React.useMemo(() => {
         if (props.deepLinks && typeof props.deepLinks.player === 'string') {
@@ -265,6 +267,11 @@ LibItem.propTypes = {
     progress: PropTypes.number,
     notifications: PropTypes.object,
     watched: PropTypes.bool,
+    // Casa: { videoId, duration } dal backend (Board.js), titoli di coda in minuti.
+    casaDuration: PropTypes.shape({
+        videoId: PropTypes.string,
+        duration: PropTypes.number,
+    }),
     deepLinks: PropTypes.shape({
         metaDetailsVideos: PropTypes.string,
         metaDetailsStreams: PropTypes.string,
