@@ -54,8 +54,8 @@ const Board = () => {
         }
         return { coreItems: kept, hiddenFinished: hidden.join(',') };
     }, [continueWatchingPreview.items, casaWatchlist.durations]);
-    // Una riga per insieme diverso: "perche' Superman non c'e' piu'?" deve
-    // avere una risposta nei log.
+    // Una riga quando la home si disegna con film nascosti (e quando l'insieme
+    // cambia): "perche' Superman non c'e' piu'?" deve avere una risposta nei log.
     React.useEffect(() => {
         if (hiddenFinished) casaBeacon('/debug/player-event', { ev: 'casa-cw-hide-finished', ids: hiddenFinished.split(',') });
     }, [hiddenFinished]);
