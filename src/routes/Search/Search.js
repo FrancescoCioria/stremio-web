@@ -178,10 +178,18 @@ const Search = () => {
     }, []);
 
     // Default focus sulla prima card risultato dopo 500ms di stabilita'.
+    // ⚠️ Le righe arrivano in ordine SPARSO: Cinemeta a volte impiega secondi su
+    // una sola delle due ("office": film 3,1 s, serie 0,16 s, misurato 10/10).
+    // Serie prima -> la prima card del DOM e' una serie, focus li', riga Serie
+    // portata in cima e Film fuori vista; quando i film arrivavano il focus,
+    // ormai su una card, non si muoveva piu'. Ora il focus messo DA NOI
+    // (`autoFocusedRef`) si riposiziona sulla prima card finche' l'utente non si
+    // e' mosso; uno spostato dall'utente resta dov'e'.
     const catalogsStateKey = React.useMemo(() => {
         return (query || '') + ':' + search.catalogs.map((c) => c.content?.type || 'pending').join(',');
     }, [search.catalogs, query]);
     const initialFocusDoneRef = React.useRef(null);
+    const autoFocusedRef = React.useRef(null);
     React.useEffect(() => {
         if (initialFocusDoneRef.current === catalogsStateKey) return;
         const tid = setTimeout(() => {
@@ -189,9 +197,11 @@ const Search = () => {
             const root = scrollContainerRef.current;
             if (!root) return;
             const ae = document.activeElement;
-            if (ae && ae !== document.body && root.contains(ae) && ae.closest('[class*="meta-item-container"]')) return;
+            const onCard = ae && ae !== document.body && root.contains(ae) && ae.closest('[class*="meta-item-container"]');
+            if (onCard && ae !== autoFocusedRef.current) return;
             const firstCard = root.querySelector('[class*="meta-item-container"]');
-            if (firstCard) {
+            if (firstCard && firstCard !== ae) {
+                autoFocusedRef.current = firstCard;
                 firstCard.focus({ preventScroll: true });
                 // Scrolla la ROW intera (titolo + cards) al top, non la card
                 // isolata. Stessa logica di Board.js.
