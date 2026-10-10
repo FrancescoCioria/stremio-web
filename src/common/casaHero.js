@@ -45,10 +45,18 @@ const isFresh = (key) => {
 // ⚠️ `meta: null` = Cinemeta non ha risposto e il backend non ha cache: NON si
 // tiene (null), cosi' il titolo si richiede al prossimo focus/giro invece di
 // restare "senza scheda" per tutta la sessione.
+// Sfondo e logo arrivano come indirizzo RELATIVO del backend (cache su disco del
+// Beelink, `hero_images.ts`): l'host lo decide la pagina (localhost sulla TV,
+// beelink-cachyos dal Mac), come per tutte le chiamate al backend.
+const absolutize = (url) => (typeof url === 'string' && url.startsWith('/') ? casaBackendUrl(url) || url : url);
+
 const parseHero = (j) => {
     if (!j || typeof j !== 'object' || !j.meta || typeof j.meta !== 'object') return null;
+    const meta = { ...j.meta };
+    if (meta.background !== undefined) meta.background = absolutize(meta.background);
+    if (meta.logo !== undefined) meta.logo = absolutize(meta.logo);
     return {
-        meta: j.meta,
+        meta,
         ratings: parseRatings(j.ratings) || { ...NO_RATINGS, loaded: true },
         // null dal backend = titolo non in TMDB: un fatto, non "sto caricando".
         availability: parseAvailability(j.availability) || { ...NO_AVAILABILITY, loaded: true },
