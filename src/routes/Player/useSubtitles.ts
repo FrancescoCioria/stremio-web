@@ -11,6 +11,8 @@ import {
     resolveSavedExtraTrack,
 // @ts-expect-error — casaEmbeddedSubs e' un modulo JS (CommonJS) senza tipi
 } from 'stremio/common/casaEmbeddedSubs';
+// @ts-expect-error — casaSubsStale e' un modulo JS (CommonJS) senza tipi
+import { isStaleSubtitles } from './casaSubsStale';
 import { CONSTANTS, languages, onFileDrop, onShortcut } from 'stremio/common';
 
 const withFallbackLabels = (tracks?: SubtitleTrack[] | null): SubtitleTrack[] => {
@@ -199,13 +201,19 @@ const useSubtitles = ({
     // E03 aggiungevamo gli STESSI 24 file appena aggiunti per E02, e un secondo dopo
     // arrivavano i 23 veri.
     //
-    // Guardia: se lo stream e' cambiato ma le tracce sono IDENTICHE a quelle
-    // dell'ultima aggiunta, sono stantie per costruzione -> si aspetta (arrivano
-    // subito dopo e questo effetto rifiora, perche' `externalSubtitles` e' fra le
-    // dipendenze). NB: il latch resta false, quindi la selezione avviene sulle
-    // tracce giuste; nel frattempo l'embedded fa da fallback non bloccante, come
-    // gia' previsto dalla logica qui sotto.
-    const lastAddedRef = useRef<{ stream: unknown; sig: string } | null>(null);
+    // Guardia: se e' cambiato il VIDEO (episodio) ma le tracce sono IDENTICHE a
+    // quelle dell'ultima aggiunta, sono stantie per costruzione -> si aspetta
+    // (arrivano subito dopo e questo effetto rifiora, perche' `externalSubtitles`
+    // e' fra le dipendenze). NB: il latch resta false, quindi la selezione avviene
+    // sulle tracce giuste; nel frattempo l'embedded fa da fallback non bloccante,
+    // come gia' previsto dalla logica qui sotto.
+    // ⚠️ Il VIDEO, non lo STREAM (fino alla v4.162): lo stream cambia anche quando
+    // lo STESSO film si ricarica (watchdog di buffering, errore di decodifica,
+    // restart del backend) e li' le tracce identiche sono quelle giuste. Scartarle
+    // lasciava nel menu solo gli embedded: 48 scarti su 83 dal 20/06 erano
+    // ricariche (Minority Report 10/10: solo un PGS, a schermo spazzatura).
+    // Nei 35 cambi episodio il log dice gia' l'id NUOVO: la guardia li tiene.
+    const lastAddedRef = useRef<{ videoId: string | null; sig: string } | null>(null);
 
     useEffect(() => {
         if (video.state.stream === null) {
@@ -215,12 +223,13 @@ const useSubtitles = ({
         const sig = externalSubtitles
             .map((s: { url?: string; id?: string }) => String(s.url ?? s.id ?? ''))
             .join('|');
+        const videoId = player.selected?.streamRequest?.path?.id ?? null;
         const last = lastAddedRef.current;
-        const stale = last !== null && last.stream !== video.state.stream && last.sig === sig;
+        const stale = isStaleSubtitles(last, videoId, sig);
 
         casaBeacon('/debug/player-event', {
             ev: 'subs-add',
-            selectedVideoId: player.selected?.streamRequest?.path?.id ?? null,
+            selectedVideoId: videoId,
             count: externalSubtitles.length,
             stale, // true = scartate perche' del video precedente (il bug, ora tappato)
             subUrls: externalSubtitles.slice(0, 3).map((s: { url?: string; id?: string }) =>
@@ -231,7 +240,7 @@ const useSubtitles = ({
             return;
         }
 
-        lastAddedRef.current = { stream: video.state.stream, sig };
+        lastAddedRef.current = { videoId, sig };
         video.addExtraSubtitlesTracks(externalSubtitles);
     }, [externalSubtitles, video.state.stream]);
 
