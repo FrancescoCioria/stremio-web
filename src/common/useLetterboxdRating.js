@@ -37,10 +37,9 @@ const NONE = { rating: null, rating10: null, slug: null, imdb: null, rt: null, m
 // arriva da Cinemeta — che sui titoli nuovi e' indietro di settimane (misurato:
 // 4 film su 7 della riga "Ultime uscite" senza voto li' e con voto su IMDb) — ma
 // dal dataset ufficiale IMDb che il backend tiene aggiornato.
-const fetchRating = async (imdbId) => {
-    const r = await fetch(`${BACKEND_URL}/ratings/${encodeURIComponent(imdbId)}`);
-    if (!r.ok) return null;
-    const j = await r.json();
+// Risposta di `/ratings/:imdbId` (o il campo `ratings` dell'hero in blocco,
+// stessa forma: hero.ts nel backend) -> stato del hook. Null se illeggibile.
+const parseRatings = (j) => {
     if (!j || typeof j !== 'object') return null;
     const lb = j.letterboxd || {};
     const rating = typeof lb.rating === 'number' ? lb.rating : null;
@@ -59,7 +58,12 @@ const fetchRating = async (imdbId) => {
     };
 };
 
-// Scalda la cache senza montare niente: lo usa il prefetch della home.
+const fetchRating = async (imdbId) => {
+    const r = await fetch(`${BACKEND_URL}/ratings/${encodeURIComponent(imdbId)}`);
+    if (!r.ok) return null;
+    return parseRatings(await r.json());
+};
+
 const warmLetterboxd = (imdbId) => {
     if (!/^tt\d+$/.test(imdbId || '')) return Promise.resolve(null);
     const hit = cache.get(imdbId);
@@ -109,4 +113,5 @@ const useLetterboxdRating = (type, id) => {
 };
 
 module.exports = useLetterboxdRating;
-module.exports.warmLetterboxd = warmLetterboxd;
+module.exports.parseRatings = parseRatings;
+module.exports.NONE = NONE;

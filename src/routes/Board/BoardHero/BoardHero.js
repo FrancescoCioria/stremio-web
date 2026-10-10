@@ -11,70 +11,49 @@ const { t } = require('i18next');
 const { Image } = require('stremio/components');
 const LetterboxdMark = require('stremio/common/LetterboxdMark');
 const ImdbMark = require('stremio/common/ImdbMark');
-const useLetterboxdRating = require('stremio/common/useLetterboxdRating');
-const useTitleAvailability = require('stremio/common/useTitleAvailability');
-const { warmMeta, getCached: getCachedMeta, baseIdOf } = require('stremio/common/casaMetaCache');
+const { NONE: NO_RATINGS } = require('stremio/common/useLetterboxdRating');
+const { NONE: NO_AVAILABILITY } = require('stremio/common/useTitleAvailability');
+const { getHero, fetchHero, subscribe, keyOf } = require('stremio/common/casaHero');
 const styles = require('./styles');
 
-// Cache meta arricchiti da Cinemeta (CW items hanno solo poster+name+id,
-// mancano description/genres/cast/rating). ⚠️ Vive in `common/casaMetaCache.js`
-// e PERSISTE fra i reload: era una Map di modulo, quindi ogni ricarica del
-// bundle ricominciava da zero e l'hero tornava a caricare al focus su titoli
-// gia' visti. Lo stesso modulo espone `warmMeta`, che il Board usa per
-// scaldarli in anticipo.
-
-// Enrichment se manca almeno uno dei campi mostrati dall'hero. Le rail
-// Featured (Cinemeta) mandano tutto inline; altri addon spesso mandano
-// description+genres ma omettono rating/runtime/releaseInfo/background
-// — l'hero mostrerebbe solo titolo + cast se non li fetchassimo.
-const needsEnrichment = (m) => !m || (
-    !m.imdbRating || !m.runtime || !m.releaseInfo || !m.description ||
-    !m.background || !m.logo ||
-    (!Array.isArray(m.genres) || m.genres.length === 0) ||
-    (!Array.isArray(m.cast) || m.cast.length === 0) ||
-    (!Array.isArray(m.director) || m.director.length === 0)
-);
-
-const useEnrichedMeta = (meta) => {
-    const [enriched, setEnriched] = React.useState(meta);
-    // `done` distingue "enrichment in flight" da "skip/finito": durante
-    // l'in-flight non mostriamo il fallback testuale del titolo, cosi'
-    // l'utente non vede il flicker testo→logo (il logo arriva da Cinemeta).
-    const [done, setDone] = React.useState(false);
+// Tutto cio' che l'hero mostra di un titolo, dal backend (`common/casaHero.js`):
+// all'apertura della home arriva in blocco per tutte le righe, quindi al focus
+// c'e' gia'. Se l'utente arriva su una card prima del blocco (o su un titolo
+// che il blocco non ha portato), si chiede quel titolo da solo.
+// ⚠️ L'hero si legge dallo store (`useSyncExternalStore`), non da uno stato
+// copiato in un effect: copiato, per un frame avrebbe mostrato i dati del
+// titolo precedente sopra il nome di quello nuovo.
+const useCasaHero = (rawMeta) => {
+    const type = rawMeta ? rawMeta.type : null;
+    const id = rawMeta ? (rawMeta.id || rawMeta._id) : null;
+    const key = keyOf(type, id);
+    const hero = React.useSyncExternalStore(subscribe, () => getHero(type, id));
+    // `settledKey`: la richiesta per QUESTO titolo e' finita (anche male).
+    // Distingue "in arrivo" da "non c'e'": durante l'arrivo non si mostra il
+    // titolo in testo, che il logo sostituirebbe un attimo dopo (flicker).
+    const [settledKey, setSettledKey] = React.useState(null);
     React.useEffect(() => {
-        setEnriched(meta);
-        if (!meta || !needsEnrichment(meta) || !meta.type) {
-            setDone(true);
-            return undefined;
-        }
-        // Continue Watching items hanno `_id` invece di `id`. Per gli episodi di
-        // serie il formato e' `tt12345:1:1` — Cinemeta vuole solo il parent, e
-        // se ne occupa casaMetaCache.
-        const fullId = meta.id || meta._id;
-        const cached = getCachedMeta(meta.type, fullId);
-        if (cached) {
-            // Colpo di cache: nessun fetch, nessun `done: false` -> l'hero non
-            // passa mai dallo stato "sto caricando". E' tutto il punto del
-            // prefetch: al focus l'informazione c'e' gia'.
-            setEnriched({ ...meta, ...cached });
-            setDone(true);
-            return undefined;
-        }
-        if (!baseIdOf(fullId)) {
-            setDone(true);
-            return undefined;
-        }
-        setDone(false);
+        // null = fresco gia' in mano: niente richiesta, niente render in piu'.
+        // Vecchio (o assente): si chiede, intanto si mostra quello che c'e'.
+        const pending = fetchHero(type, id);
+        if (!pending) return undefined;
         let cancelled = false;
-        warmMeta(meta.type, fullId)
-            .then((enrichment) => {
-                if (cancelled || !enrichment) return;
-                setEnriched({ ...meta, ...enrichment });
-            })
-            .finally(() => { if (!cancelled) setDone(true); });
-        return () => { cancelled = true; };
-    }, [meta]);
-    return { meta: enriched, done };
+        pending.finally(() => {
+            if (!cancelled) setSettledKey(key);
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [key]);
+    return {
+        // Il meta del catalogo sotto, Cinemeta sopra (descrizione compresa:
+        // quella del catalogo dice PERCHE' la card e' nella riga, non di cosa
+        // parla il titolo).
+        meta: rawMeta && hero ? { ...rawMeta, ...hero.meta } : rawMeta,
+        ratings: hero ? hero.ratings : NO_RATINGS,
+        availability: hero ? hero.availability : NO_AVAILABILITY,
+        done: !key || !!hero || settledKey === key,
+    };
 };
 
 // Data compatta dell'uscita DIGITALE, o null se non la sappiamo / non e' un
@@ -106,12 +85,9 @@ const PLATFORM_CLASS = {
 };
 
 const BoardHero = ({ meta: rawMeta }) => {
-    const { meta, done: enrichmentDone } = useEnrichedMeta(rawMeta);
     // ⚠️ Prima delle uscite anticipate: gli hook non possono stare sotto un
-    // `return`. Con `meta` nullo passa (null, null) e non chiede niente.
-    const ratings = useLetterboxdRating(meta?.type, meta?.id);
-    // Serie comprese dal 2026-09-27: servono per il bollino della piattaforma.
-    const availability = useTitleAvailability(meta?.type, meta?.id);
+    // `return`. Con `meta` nullo non chiede niente.
+    const { meta, ratings, availability, done: enrichmentDone } = useCasaHero(rawMeta);
     if (!meta) {
         return <div className={styles['board-hero-container']} />;
     }

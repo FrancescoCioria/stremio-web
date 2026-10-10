@@ -79,7 +79,7 @@ const Board = () => {
             return acc;
         }, []);
     }, [board.catalogs]);
-    // Casa: scalda in anticipo le info dell'hero per la testa di ogni riga,
+    // Casa: porta in anticipo le info dell'hero per TUTTE le card delle righe,
     // invece di aspettare che l'utente ci passi sopra. Vedi useCasaPrefetch.js.
     // ⚠️ Solo le righe DISEGNATE: scaldare una riga che nessuno vedra' e' la
     // stessa spesa (meta + voto + disponibilita' per card) senza il beneficio.

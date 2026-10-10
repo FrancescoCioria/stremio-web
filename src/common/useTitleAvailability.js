@@ -31,10 +31,10 @@ const inflight = new Map(); // imdbId -> Promise
 // spariva col dato vero (2026-07-17).
 const NONE = { inCinema: false, onPrime: false, digitalRelease: null, platform: null, loaded: false };
 
-const fetchAvailability = async (kind, imdbId) => {
-    const r = await fetch(`${BACKEND_URL}/availability/${kind}/${encodeURIComponent(imdbId)}`);
-    if (!r.ok) return null;
-    const j = await r.json();
+// Risposta di `/availability/:type/:imdbId` (o il campo `availability`
+// dell'hero in blocco, stessa forma: hero.ts nel backend) -> stato del hook.
+// Null se illeggibile (il backend risponde null per un titolo non in TMDB).
+const parseAvailability = (j) => {
     if (!j || typeof j !== 'object') return null;
     return {
         inCinema: j.in_cinema === true,
@@ -49,7 +49,12 @@ const fetchAvailability = async (kind, imdbId) => {
     };
 };
 
-// Scalda la cache senza montare niente: lo usa il prefetch della home.
+const fetchAvailability = async (kind, imdbId) => {
+    const r = await fetch(`${BACKEND_URL}/availability/${kind}/${encodeURIComponent(imdbId)}`);
+    if (!r.ok) return null;
+    return parseAvailability(await r.json());
+};
+
 const warmAvailability = (kind, imdbId) => {
     if (!kind || !/^tt\d+$/.test(imdbId || '')) return Promise.resolve(null);
     const hit = cache.get(imdbId);
@@ -95,4 +100,5 @@ const useTitleAvailability = (type, id) => {
 };
 
 module.exports = useTitleAvailability;
-module.exports.warmAvailability = warmAvailability;
+module.exports.parseAvailability = parseAvailability;
+module.exports.NONE = NONE;

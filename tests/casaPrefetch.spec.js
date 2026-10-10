@@ -1,48 +1,45 @@
 // Copyright (C) 2017-2026 Smart code 203358507
 
-const { prefetchTargets } = require('../src/routes/Board/casaPrefetchTargets');
+const { missingItems } = require('../src/common/casaHero');
 const { pruneEntries } = require('../src/common/casaPersistentCache');
 
-const ready = (items) => ({ content: { type: 'Ready', content: items } });
-
-describe('prefetchTargets', () => {
-    it('prende solo la TESTA di ogni riga', () => {
-        const items = Array.from({ length: 20 }, (_, i) => ({ id: `tt${1000 + i}`, type: 'movie' }));
-        expect(prefetchTargets([ready(items)], 8)).toHaveLength(8);
+describe('missingItems (hero in blocco)', () => {
+    // Tutte le card, non la testa: oltre l'ottava l'hero restava a caricare.
+    it('prende TUTTE le card', () => {
+        const items = Array.from({ length: 100 }, (_, i) => ({ id: `tt${1000 + i}`, type: 'movie' }));
+        expect(missingItems(items)).toHaveLength(100);
     });
 
     // ⚠️ Lo stesso titolo sta spesso in piu' righe (Continue Watching + Ultime
-    // uscite): scaldarlo due volte sarebbe traffico buttato.
+    // uscite): chiederlo due volte sarebbe traffico buttato.
     it('deduplica fra righe diverse', () => {
-        const out = prefetchTargets([
-            ready([{ id: 'tt1', type: 'movie' }]),
-            ready([{ id: 'tt1', type: 'movie' }, { id: 'tt2', type: 'series' }]),
-        ], 8);
-        expect(out.map((t) => t.imdb)).toEqual(['tt1', 'tt2']);
+        const out = missingItems([{ id: 'tt1', type: 'movie' }, { id: 'tt1', type: 'movie' }, { id: 'tt2', type: 'series' }]);
+        expect(out.map((t) => t.key)).toEqual(['movie:tt1', 'series:tt2']);
     });
 
-    // Gli item di Continue Watching sono episodi: `tt123:1:4`. Cinemeta e il
-    // backend vogliono il titolo padre.
+    // Gli item di Continue Watching sono episodi: `tt123:1:4`. Il backend
+    // vuole il titolo padre (la chiave), l'id resta com'e' (lo riduce lui).
     it('riduce un id di episodio al suo titolo', () => {
-        expect(prefetchTargets([ready([{ id: 'tt123:1:4', type: 'series' }])], 8)[0].imdb).toBe('tt123');
+        expect(missingItems([{ id: 'tt123:1:4', type: 'series' }])[0].key).toBe('series:tt123');
     });
 
-    it('salta gli id non IMDb e gli item senza type', () => {
-        const out = prefetchTargets([ready([
+    it('salta gli id non IMDb, i tipi sconosciuti e i buchi', () => {
+        const out = missingItems([
             { id: 'kitsu:42', type: 'series' },
             { id: 'tt9', type: null },
+            { id: 'tt8', type: 'channel' },
+            null,
             { id: 'tt7', type: 'movie' },
-        ])], 8);
-        expect(out.map((t) => t.imdb)).toEqual(['tt7']);
-    });
-
-    it('ignora le righe non ancora caricate', () => {
-        expect(prefetchTargets([{ content: { type: 'Loading' } }, null], 8)).toEqual([]);
-        expect(prefetchTargets(undefined, 8)).toEqual([]);
+        ]);
+        expect(out.map((t) => t.key)).toEqual(['movie:tt7']);
     });
 
     it('usa `_id` quando manca `id` (item di library)', () => {
-        expect(prefetchTargets([ready([{ _id: 'tt55', type: 'movie' }])], 8)[0].imdb).toBe('tt55');
+        expect(missingItems([{ _id: 'tt55', type: 'movie' }])[0]).toEqual({ key: 'movie:tt55', type: 'movie', id: 'tt55' });
+    });
+
+    it('lista assente -> niente', () => {
+        expect(missingItems(undefined)).toEqual([]);
     });
 });
 
