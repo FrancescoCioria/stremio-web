@@ -203,7 +203,37 @@ const isCasaTrackPresent = (extraTracks, idx) => {
     );
 };
 
+// ⚠️ Sottotitoli che NON sappiamo mostrare (2026-10-10, richiesta utente: "fanno
+// solo danni"). Il browser disegna solo TESTO; PGS (Blu-ray), VobSub (DVD), DVB
+// e XSUB sono IMMAGINI: la traccia in-band non da' niente, e l'estrazione (prima
+// del fix di mkvsub) consegnava i byte delle immagini come testo = quadratini.
+// Elenco VIETATO = lo stesso `IGNORED_STREAM_CODECS` di server.js: i formati di
+// testo rari (ttml, eia_608...) ffmpeg li converte e restano.
+const BITMAP_SUB_CODECS = new Set(['hdmv_pgs_subtitle', 'dvd_subtitle', 'dvb_subtitle', 'xsub']);
+
+const isPlayableSubCodec = (codec) =>
+    !(typeof codec === 'string' && BITMAP_SUB_CODECS.has(codec.toLowerCase()));
+
+// Id `EMBEDDED_<n>` da togliere dal menu e dalla scelta automatica.
+// ⚠️ SOLO se il player ha TUTTE le tracce del probe (`embeddedCount` =
+// `video.state.subtitlesTracks.length`): e' il master NOSTRO (hls_playlist.ts),
+// che le elenca tutte, e li' `EMBEDDED_<n>` = `id` del probe. Il master di
+// server.js (ripiego: file senza indice, mp4, `casa.hlsVideo=off`) le bitmap le
+// toglie GIA' e gli indici scalano: nascondere per `id` toglierebbe la traccia di
+// testo accanto (PGS eng + SRT ita -> sparirebbe l'italiano). Meno tracce del
+// probe = gia' filtrate (o non ancora tutte arrivate): niente da nascondere.
+// Le tracce restano nel player: rinumerarle romperebbe `CASA_EMB_<n>`.
+const unplayableEmbeddedIds = (probeSubs, embeddedCount) => {
+    const subs = Array.isArray(probeSubs) ? probeSubs : [];
+    if (subs.length === 0 || embeddedCount !== subs.length) return new Set();
+    return new Set(
+        subs.filter((s) => s && !isPlayableSubCodec(s.codec)).map((s) => 'EMBEDDED_' + String(s.id))
+    );
+};
+
 module.exports = {
+    isPlayableSubCodec,
+    unplayableEmbeddedIds,
     casaIdForEmbedded,
     isCasaEmbeddedId,
     nextRegistrationAction,

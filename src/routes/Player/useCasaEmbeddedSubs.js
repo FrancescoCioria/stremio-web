@@ -75,6 +75,7 @@ const {
     streamUrlMatchesVideo,
     nextRegistrationAction,
     isCasaTrackPresent,
+    unplayableEmbeddedIds,
 } = require('stremio/common/casaEmbeddedSubs');
 
 // Solo i NOSTRI stream TorrServer (l'estrazione backend risolve hash+idx dall'url).
@@ -99,6 +100,17 @@ const report = (reason, extra) => {
 const useCasaEmbeddedSubs = (video, streamUrl, streamingServerUrl, selectedVideoId) => {
     // Elenco dei sottotitoli embedded del file (dal probe), per stream.
     const [probed, setProbed] = React.useState(null);
+    // Tracce embedded che non sappiamo mostrare (vedi casaEmbeddedSubs.js): qui
+    // non si estraggono, useSubtitles le toglie da menu e scelta automatica.
+    const embeddedCount = video.state.subtitlesTracks.length;
+    const unplayable = React.useMemo(function() {
+        return unplayableEmbeddedIds(probed && probed.streamUrl === streamUrl ? probed.subs : [], embeddedCount);
+    }, [probed, streamUrl, embeddedCount]);
+    // Letto da un ref nell'effetto di estrazione: fra le sue dipendenze, ogni
+    // traccia che hls.js aggancia (conteggio che cambia) farebbe ripartire
+    // l'effetto e la sua pulizia ABORTISCE l'estrazione in volo.
+    const unplayableRef = React.useRef(unplayable);
+    unplayableRef.current = unplayable;
     const probedForRef = React.useRef(null);
     // VTT gia' procurati: chiave `${streamUrl}#${idx}` -> url del file pronto.
     // NB: "pronto", non "registrato" — la registrazione la governa l'effetto 3.
@@ -175,6 +187,15 @@ const useCasaEmbeddedSubs = (video, streamUrl, streamingServerUrl, selectedVideo
         const sub = probed.subs.find(function(s) { return String(s.id) === idx; });
         if (!sub) {
             report('no-probe-match', { idx: idx, selected: String(selectedEmbeddedId) });
+            return;
+        }
+        // Immagini (PGS/VobSub/DVB): niente da estrarre come testo. Normalmente
+        // non si arriva qui (fuori dal menu e dalla scelta automatica), ma una
+        // preferenza salvata o la corsa col probe possono selezionarla un attimo.
+        // ⚠️ Dall'insieme, non da `sub.codec`: col master di server.js gli indici
+        // scalano e `sub` puo' essere la bitmap accanto alla traccia di testo.
+        if (unplayableRef.current.has(String(selectedEmbeddedId))) {
+            report('unplayable-codec', { idx: idx, codec: sub.codec });
             return;
         }
 
@@ -315,6 +336,10 @@ const useCasaEmbeddedSubs = (video, streamUrl, streamingServerUrl, selectedVideo
 
         return function() { clearTimeout(timer); };
     }, [video, probed, streamUrl, selectedEmbeddedId, extraTracks, tick]);
+
+    // Tracce embedded che non sappiamo mostrare: useSubtitles le toglie dal menu
+    // e dalla scelta automatica. Vuoto finche' il probe non c'e'.
+    return unplayable;
 };
 
 module.exports = useCasaEmbeddedSubs;

@@ -90,7 +90,7 @@ const Player = () => {
     // Casa: sottotitoli embedded estratti in VTT completo (fix "si spengono a
     // meta' film"), aggiunti come esterni -> overlay robusto invece del path
     // in-band di stremio-server che smette di produrre cue. Vedi useCasaEmbeddedSubs.
-    useCasaEmbeddedSubs(
+    const unplayableEmbeddedIds = useCasaEmbeddedSubs(
         video,
         player.selected?.stream?.url ?? null,
         streamingServer.selected?.transportUrl ?? null,
@@ -191,6 +191,7 @@ const Player = () => {
         closeMenus,
         closeSubtitlesMenu,
         toggleSubtitlesMenu,
+        unplayableEmbeddedIds,
     });
 
     const overlayHidden = React.useMemo(() => {

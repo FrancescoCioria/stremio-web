@@ -243,3 +243,42 @@ describe('isCasaTrackPresent', () => {
         expect(isCasaTrackPresent(undefined, '0')).toBe(false);
     });
 });
+
+const { isPlayableSubCodec, unplayableEmbeddedIds } = require('../src/common/casaEmbeddedSubs');
+
+describe('sottotitoli a immagini (PGS/VobSub/DVB)', () => {
+    it('testo -> riproducibile (anche formati rari che ffmpeg converte)', () => {
+        for (const c of ['subrip', 'ass', 'ssa', 'webvtt', 'mov_text', 'ttml', 'eia_608']) expect(isPlayableSubCodec(c)).toBe(true);
+    });
+
+    // Minority Report 10/10: due tracce hdmv_pgs_subtitle, a schermo quadratini.
+    it('immagini -> no (lo stesso elenco di server.js)', () => {
+        for (const c of ['hdmv_pgs_subtitle', 'dvd_subtitle', 'dvb_subtitle', 'xsub', 'HDMV_PGS_SUBTITLE']) expect(isPlayableSubCodec(c)).toBe(false);
+    });
+
+    it('codec assente o vuoto -> si tiene', () => {
+        expect(isPlayableSubCodec(undefined)).toBe(true);
+        expect(isPlayableSubCodec('')).toBe(true);
+    });
+
+    const probe = [
+        { id: 0, codec: 'hdmv_pgs_subtitle', language: 'eng' },
+        { id: 1, codec: 'subrip', language: 'ita' },
+        { id: 2, codec: 'dvd_subtitle', language: 'fre' },
+    ];
+
+    // Master NOSTRO: il player ha tutte e tre le tracce, EMBEDDED_<n> = id.
+    it('player con TUTTE le tracce del probe -> nasconde le bitmap per id', () => {
+        expect([...unplayableEmbeddedIds(probe, 3)]).toEqual(['EMBEDDED_0', 'EMBEDDED_2']);
+    });
+
+    // ⚠️ Master di server.js: le bitmap sono gia' fuori e l'italiano e'
+    // EMBEDDED_0. Nascondere per id toglierebbe proprio l'italiano.
+    it('player con MENO tracce del probe (gia\' filtrate) -> niente', () => {
+        expect(unplayableEmbeddedIds(probe, 1).size).toBe(0);
+    });
+
+    it('niente probe -> niente', () => {
+        expect(unplayableEmbeddedIds(null, 0).size).toBe(0);
+    });
+});

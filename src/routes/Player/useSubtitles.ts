@@ -56,6 +56,7 @@ const useSubtitles = ({
     closeSubtitlesMenu,
     toggleSubtitlesMenu,
     onUserSubtitlesLanguage,
+    unplayableEmbeddedIds,
 }: UseSubtitlesArgs): UseSubtitlesResult => {
     const videoRef = useRef(video);
     const settingsRef = useRef(settings);
@@ -73,9 +74,19 @@ const useSubtitles = ({
         return withFallbackLabels(player.subtitles);
     }, [player.subtitles]);
 
+    // Casa: le embedded che non sappiamo mostrare (PGS/VobSub/DVB = immagini)
+    // NON esistono per menu e scelta automatica. Restano nel player: gli indici
+    // `EMBEDDED_<n>` devono restare quelli del file (vedi casaEmbeddedSubs.js).
+    const subtitlesTracks = useMemo(() => {
+        return unplayableEmbeddedIds && unplayableEmbeddedIds.size > 0 ?
+            video.state.subtitlesTracks.filter((t: SubtitleTrack) => !unplayableEmbeddedIds.has(t.id))
+            :
+            video.state.subtitlesTracks;
+    }, [video.state.subtitlesTracks, unplayableEmbeddedIds]);
+
     const allTracks = useMemo(() => {
-        return video.state.subtitlesTracks.concat(video.state.extraSubtitlesTracks);
-    }, [video.state.subtitlesTracks, video.state.extraSubtitlesTracks]);
+        return subtitlesTracks.concat(video.state.extraSubtitlesTracks);
+    }, [subtitlesTracks, video.state.extraSubtitlesTracks]);
 
     const hasTracks = allTracks.length > 0;
 
@@ -257,12 +268,18 @@ const useSubtitles = ({
         }
 
         const savedTrack = player.streamState?.subtitleTrack;
-        const savedTrackId = savedTrack?.id;
+        // Casa: una preferenza salvata su una traccia a immagini vale solo per
+        // la LINGUA: cercata per id troverebbe solo lei (o la sua copia Casa,
+        // che non esiste) e OpenSubtitles nella stessa lingua non vincerebbe mai.
+        const savedTrackId = savedTrack?.id && !unplayableEmbeddedIds?.has(savedTrack.id) ?
+            savedTrack.id
+            :
+            undefined;
         const savedLanguage = savedTrack?.lang;
         const embeddedTrack = savedTrackId ?
-            findTrackById(video.state.subtitlesTracks, savedTrackId)
+            findTrackById(subtitlesTracks, savedTrackId)
             :
-            findTrackByLanguage(video.state.subtitlesTracks, savedLanguage ?? settings.subtitlesLanguage);
+            findTrackByLanguage(subtitlesTracks, savedLanguage ?? settings.subtitlesLanguage);
         // Casa: un id EMBEDDED_<n> salvato risolve anche alla controparte
         // CASA_EMB_<n> (stesso sub del file, estratto intero). Senza questo
         // alias il match-per-id-esatto non trova mai le nostre tracce, ricade
@@ -310,8 +327,23 @@ const useSubtitles = ({
         video.state.extraSubtitlesTracks,
         video.state.selectedExtraSubtitlesTrackId,
         video.state.selectedSubtitlesTrackId,
-        video.state.subtitlesTracks,
+        subtitlesTracks,
+        unplayableEmbeddedIds,
     ]);
+
+    // Casa: una embedded che non sappiamo mostrare GIA' selezionata (preferenza
+    // salvata, o scelta prima che arrivasse il probe con i codec) si sgancia e si
+    // riapre la scelta automatica, che ora la ignora: OpenSubtitles nella stessa
+    // lingua se c'e', altrimenti niente. Meglio niente dei quadratini.
+    useEffect(() => {
+        const selected = video.state.selectedSubtitlesTrackId;
+        if (!selected || !unplayableEmbeddedIds || !unplayableEmbeddedIds.has(selected)) {
+            return;
+        }
+        casaBeacon('/debug/player-event', { ev: 'casa-subs', reason: 'unplayable-deselected', id: selected });
+        video.setSubtitlesTrack(null);
+        defaultTrackSelected.current = false;
+    }, [video, video.state.selectedSubtitlesTrackId, unplayableEmbeddedIds]);
 
     // Casa: UPGRADE embedded -> Casa, indipendente dal latch.
     //
@@ -506,7 +538,7 @@ const useSubtitles = ({
     const menuProps = useMemo(() => ({
         subtitlesLanguage: settings.subtitlesLanguage,
         interfaceLanguage: settings.interfaceLanguage,
-        subtitlesTracks: video.state.subtitlesTracks,
+        subtitlesTracks,
         // Casa: per l'utente esiste UN sottotitolo per lingua. Le `CASA_EMB_*`
         // sono il backing della voce embedded omonima, non una scelta a se':
         // fuori dal menu (niente "Italiano" x2), e quando siamo su una di esse
@@ -548,7 +580,7 @@ const useSubtitles = ({
         video.state.selectedSubtitlesTrackId,
         video.state.subtitlesOffset,
         video.state.subtitlesSize,
-        video.state.subtitlesTracks,
+        subtitlesTracks,
     ]);
 
     return {

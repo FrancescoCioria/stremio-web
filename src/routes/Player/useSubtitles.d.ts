@@ -58,6 +58,8 @@ type UseSubtitlesArgs = {
     streamStateChanged: (state: Partial<StreamState>) => void,
     menusOpen: boolean,
     closeMenus: () => void,
+    // Casa: `EMBEDDED_<n>` a immagini (PGS/VobSub/DVB), da useCasaEmbeddedSubs.
+    unplayableEmbeddedIds?: Set<string>,
     closeSubtitlesMenu: () => void,
     toggleSubtitlesMenu: () => void,
     // Casa: chiamata SOLO quando e' l'utente a scegliere un sottotitolo dal
