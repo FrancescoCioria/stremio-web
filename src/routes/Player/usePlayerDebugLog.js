@@ -23,7 +23,7 @@ const { casaBeacon } = require('stremio/common/casaBackend');
 // erano cieche (fixato 2026-07-09). La regola vive in casaBackend.js.
 const ENDPOINT = '/debug/player-event';
 
-const usePlayerDebugLog = (video, streamingServer, statistics) => {
+const usePlayerDebugLog = (video, streamingServer, statistics, player) => {
     const prev = React.useRef({ paused: undefined, buffering: undefined, loaded: undefined });
 
     React.useEffect(() => {
@@ -46,6 +46,11 @@ const usePlayerDebugLog = (video, streamingServer, statistics) => {
             buffering: cur.buffering,
             loaded: cur.loaded,
             prev: p,
+            // COSA si sta guardando: senza, dal log si risaliva al titolo solo
+            // incrociando durata e infoHash (2026-10-11). `videoId` = `tt123`
+            // per un film, `tt123:1:2` per un episodio.
+            title: player.title || null,
+            videoId: player.selected?.streamRequest?.path?.id ?? null,
             // posizione player
             time: s.time,
             duration: s.duration,
