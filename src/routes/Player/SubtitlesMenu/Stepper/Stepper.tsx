@@ -73,6 +73,19 @@ const Stepper = ({ className, label, value, unit, step, min, max, disabled, onCh
         updateValue(step);
     }, [updateValue]);
 
+    // Casa: OK del telecomando / Invio / Spazio. Il `Button` li traduce in un
+    // `click()` (Button.tsx), ma qui si ascoltavano solo mousedown/mouseup:
+    // da telecomando i −/+ non facevano niente (13/10/2026, sul delay). Il click
+    // del mouse arriva DOPO il mouseup (che ha gia' fatto il passo) con
+    // `detail >= 1`; quello sintetico da tastiera ha `detail === 0`.
+    const onDecrementClick = useCallback((event: React.MouseEvent) => {
+        if (event.detail === 0 && !decreaseDisabled) updateValue(-step);
+    }, [updateValue, decreaseDisabled]);
+
+    const onIncrementClick = useCallback((event: React.MouseEvent) => {
+        if (event.detail === 0 && !increaseDisabled) updateValue(step);
+    }, [updateValue, increaseDisabled]);
+
     useEffect(() => {
         localValue.current = value;
     }, [value]);
@@ -87,6 +100,7 @@ const Stepper = ({ className, label, value, unit, step, min, max, disabled, onCh
                     className={classNames(styles['button'], { 'disabled': decreaseDisabled })}
                     onMouseDown={onDecrementMouseDown}
                     onMouseUp={onDecrementMouseUp}
+                    onClick={onDecrementClick}
                     onMouseLeave={cancel}
                 >
                     <Icon className={styles['icon']} name={'remove'} />
@@ -98,6 +112,7 @@ const Stepper = ({ className, label, value, unit, step, min, max, disabled, onCh
                     className={classNames(styles['button'], { 'disabled': increaseDisabled })}
                     onMouseDown={onIncrementMouseDown}
                     onMouseUp={onIncrementMouseUp}
+                    onClick={onIncrementClick}
                     onMouseLeave={cancel}
                 >
                     <Icon className={styles['icon']} name={'add'} />
