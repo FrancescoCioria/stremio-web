@@ -44,8 +44,16 @@ const MetaRow = ({ className, title, catalog, message, itemComponent, notificati
         const manifestUrl = decodeURIComponent(match[1]);
         const type = decodeURIComponent(match[2]);
         const id = decodeURIComponent(match[3]);
+        // Extra del catalogo (es. `search=Spider-Man` nella ricerca) nel path,
+        // formato addon `/<id>/<k>=<v>&....json`. Senza, la riga di ricerca si
+        // allungava col catalogo Popular intero (titoli a caso dopo i veri).
+        const extraArgs = [...new URLSearchParams(discoverLink.split('?')[1] || '')]
+            .filter(([name]) => name !== 'skip')
+            .map(([name, value]) => encodeURIComponent(name) + '=' + encodeURIComponent(value))
+            .join('&');
         const url = manifestUrl.replace(/manifest\.json$/, '') +
-            'catalog/' + encodeURIComponent(type) + '/' + encodeURIComponent(id) + '.json';
+            'catalog/' + encodeURIComponent(type) + '/' + encodeURIComponent(id) +
+            (extraArgs ? '/' + extraArgs : '') + '.json';
         let cancelled = false;
         fetch(url)
             .then((r) => r.ok ? r.json() : null)
