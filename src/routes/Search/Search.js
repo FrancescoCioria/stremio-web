@@ -135,10 +135,21 @@ const Search = () => {
     // (nessuno sposta il focus -> "game over" col telecomando). Garantiamo
     // sempre un'uscita: ↓ -> primi risultati, ← -> sidebar.
     const onSearchBarKeyDown = React.useCallback((e) => {
-        // Dentro il dropdown storia/suggerimenti la nav e' sua: non rubargliela.
-        if (e.target.closest('[class*="menu-container"]')) return;
         const wrapper = e.currentTarget;
         const input = wrapper.querySelector('input, textarea');
+        const menuItems = [...wrapper.querySelectorAll('[class*="menu-container"] [class*="item"]:is(a, [tabindex])')];
+        // Dentro il menu storia/suggerimenti: ↑/↓ fra le voci, ↑ dalla prima
+        // -> input, muro in fondo e ai lati. Col polyfill ↓ dall'ultima voce
+        // finiva sulle card col menu ancora aperto sopra.
+        if (e.target.closest('[class*="menu-container"]')) {
+            if (!e.key.startsWith('Arrow')) return;
+            e.preventDefault();
+            e.stopPropagation();
+            const idx = menuItems.indexOf(e.target.closest('a, [tabindex]'));
+            if (e.key === 'ArrowDown' && menuItems[idx + 1]) menuItems[idx + 1].focus();
+            if (e.key === 'ArrowUp') (menuItems[idx - 1] || input)?.focus();
+            return;
+        }
         const clearBtn = wrapper.querySelector('[class*="submit-button-container"]');
         const onClearBtn = clearBtn && clearBtn.contains(e.target);
         const onInput = input && e.target === input;
@@ -156,6 +167,14 @@ const Search = () => {
             return;
         }
         if (e.key === 'ArrowDown') {
+            // Menu storia/suggerimenti aperto -> prima voce del menu, non le
+            // card sotto (il menu restava aperto sopra i risultati).
+            if (onInput && menuItems.length > 0) {
+                e.preventDefault();
+                e.stopPropagation();
+                menuItems[0].focus();
+                return;
+            }
             const root = scrollContainerRef.current;
             const firstCard = root && root.querySelector('[class*="meta-item-container"]');
             if (firstCard) {

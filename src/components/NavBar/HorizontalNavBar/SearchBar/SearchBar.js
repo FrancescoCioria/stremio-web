@@ -45,6 +45,14 @@ const SearchBar = React.memo(({ className, query, active }) => {
         }
     }, [historyOpen]);
 
+    // Casa: col telecomando non c'e' mousedown fuori -> il menu si chiude
+    // quando il focus esce dalla barra (es. verso le card dei risultati).
+    const containerOnBlur = React.useCallback((event) => {
+        if (historyOpen && !event.currentTarget.contains(event.relatedTarget)) {
+            closeHistory();
+        }
+    }, [historyOpen]);
+
     React.useEffect(() => {
         document.addEventListener('mousedown', searchHistoryOnClose);
         return () => {
@@ -110,7 +118,7 @@ const SearchBar = React.memo(({ className, query, active }) => {
     }, []);
 
     return (
-        <div className={classnames(className, styles['search-bar-container'], { 'active': active })} onClick={searchBarOnClick} ref={containerRef}>
+        <div className={classnames(className, styles['search-bar-container'], { 'active': active })} onClick={searchBarOnClick} onBlur={containerOnBlur} ref={containerRef}>
             {
                 active ?
                     <TextInput
