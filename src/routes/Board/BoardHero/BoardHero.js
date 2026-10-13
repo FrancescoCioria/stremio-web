@@ -59,12 +59,18 @@ const useCasaHero = (rawMeta) => {
 // Data compatta dell'uscita DIGITALE, o null se non la sappiamo / non e' un
 // film. Formato uguale al resto della UI (`toLocaleDateString` senza locale
 // forzata), cosi' la riga non mescola due lingue.
-const digitalDateLabel = (type, availability) => {
-    if (type !== 'movie' || !availability || !availability.loaded) return null;
+// ⚠️ Solo se la data digitale cade entro l'anno dopo l'uscita del film: sui
+// film vecchi TMDB ha come "digitale" una riedizione (Spider-Man 2002 -> 13 dic
+// 2016), e mostrarla al posto dell'anno diceva l'anno sbagliato.
+const MAX_DIGITAL_YEARS_AFTER = 1;
+const digitalDateLabel = (meta, availability) => {
+    if (meta.type !== 'movie' || !availability || !availability.loaded) return null;
     const iso = availability.digitalRelease;
     if (typeof iso !== 'string' || iso.length === 0) return null;
     const t = Date.parse(iso);
     if (!isFinite(t)) return null;
+    const filmYear = parseInt(meta.year ?? meta.releaseInfo, 10);
+    if (filmYear > 0 && new Date(t).getFullYear() - filmYear > MAX_DIGITAL_YEARS_AFTER) return null;
     return new Date(t).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 };
 
@@ -113,7 +119,7 @@ const BoardHero = ({ meta: rawMeta }) => {
     // c'e' tutta la differenza. Quando conosciamo la data DIGITALE del film
     // (quella da cui lo si puo' guardare davvero) mostriamo quella, che l'anno
     // ce l'ha dentro. Serie e film senza data: resta l'anno, come prima.
-    const releaseText = digitalDateLabel(meta.type, availability) ?? meta.releaseInfo;
+    const releaseText = digitalDateLabel(meta, availability) ?? meta.releaseInfo;
     const genresText = Array.isArray(meta.genres) ? meta.genres.slice(0, 3).join(' · ') : null;
     const castText = Array.isArray(meta.cast) ? meta.cast.slice(0, 3).join(', ') : null;
     const directorText = Array.isArray(meta.director) ? meta.director.slice(0, 2).join(', ') : null;
