@@ -34,6 +34,7 @@ const Search = () => {
             null;
     }, [search.selected]);
     const scrollContainerRef = React.useRef();
+    const searchBarWrapperRef = React.useRef();
     const onVisibleRangeChange = React.useCallback(() => {
         if (search.catalogs.length === 0) {
             return;
@@ -74,6 +75,18 @@ const Search = () => {
             const allRows = [...root.querySelectorAll('[class*="meta-row-container"]')];
             const idx = allRows.indexOf(currentRow);
             const target = e.key === 'ArrowDown' ? allRows[idx + 1] : allRows[idx - 1];
+            // ArrowUp dalla PRIMA riga -> input della search bar. Senza, il
+            // polyfill sceglieva il focusable piu' vicino = bottone X.
+            if (!target && e.key === 'ArrowUp') {
+                const input = searchBarWrapperRef.current?.querySelector('input, textarea');
+                if (input) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    input.focus({ preventScroll: true });
+                    root.scrollTo({ top: 0 });
+                }
+                return;
+            }
             if (!target) return;
             e.preventDefault();
             e.stopPropagation();
@@ -215,7 +228,7 @@ const Search = () => {
     return (
         <MainNavBars className={styles['search-container']} route={'search'} query={query}>
             <div className={styles['search-vstack']}>
-                <div className={styles['search-bar-wrapper']} onKeyDown={onSearchBarKeyDown}>
+                <div ref={searchBarWrapperRef} className={styles['search-bar-wrapper']} onKeyDown={onSearchBarKeyDown}>
                     <SearchBar className={styles['search-bar']} query={query} active={true} />
                 </div>
                 {query !== null ? <BoardHero meta={focusedMeta} /> : null}
