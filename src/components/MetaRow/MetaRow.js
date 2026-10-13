@@ -6,6 +6,8 @@ const PropTypes = require('prop-types');
 const classnames = require('classnames');
 const useTranslate = require('stremio/common/useTranslate');
 const MetaRowPlaceholder = require('./MetaRowPlaceholder');
+const { casaBackendUrl } = require('stremio/common/casaBackend');
+const { freshnessOrder } = require('stremio/common/casaSearchOrder');
 const styles = require('./styles');
 
 // TV: mostriamo molte piu' card upfront rispetto al web classico
@@ -18,7 +20,9 @@ const styles = require('./styles');
 // raggiunte. Scartato per semplicita'; costo misurato nel commit v4.139.
 const TV_PREVIEW_SIZE = 100;
 
-const MetaRow = ({ className, title, catalog, message, itemComponent, notifications }) => {
+// `freshnessQuery` (solo la Ricerca): riordino "piu' recente fra titoli con
+// voti IMDb simili" sopra l'ordine di Cinemeta, vedi casaSearchOrder.js.
+const MetaRow = ({ className, title, catalog, message, itemComponent, notifications, freshnessQuery }) => {
     const t = useTranslate();
 
     const catalogTitle = React.useMemo(() => {
@@ -78,10 +82,38 @@ const MetaRow = ({ className, title, catalog, message, itemComponent, notificati
         return () => { cancelled = true; };
     }, [catalog]);
 
-    const items = React.useMemo(() => {
+    const listItems = React.useMemo(() => {
         const base = catalog?.items ?? catalog?.content?.content ?? [];
         return extraItems.length > 0 ? [...base, ...extraItems] : base;
     }, [catalog, extraItems]);
+
+    // Voti dal backend (dataset IMDb locale, una POST per lista). Fallita o
+    // non ancora arrivata -> ordine di Cinemeta.
+    const voteIds = React.useMemo(() => {
+        return typeof freshnessQuery === 'string' ? listItems.map((item) => item.id).filter(Boolean).join(',') : '';
+    }, [listItems, freshnessQuery]);
+    const [votes, setVotes] = React.useState(null);
+    React.useEffect(() => {
+        if (voteIds.length === 0) return undefined;
+        let cancelled = false;
+        fetch(casaBackendUrl('/stremio-addon/imdb-votes'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids: voteIds.split(',') }),
+        })
+            .then((r) => r.ok ? r.json() : null)
+            .then((data) => {
+                if (!cancelled && data && data.votes) setVotes(data.votes);
+            })
+            .catch(() => {});
+        return () => { cancelled = true; };
+    }, [voteIds]);
+    const items = React.useMemo(() => {
+        return votes !== null && typeof freshnessQuery === 'string' ?
+            freshnessOrder(listItems, freshnessQuery, votes)
+            :
+            listItems;
+    }, [listItems, votes, freshnessQuery]);
 
     // Event bus: quando una card della rail prende focus, emettiamo un
     // CustomEvent 'casa-meta-focus' con l'item completo. Board ascolta a
@@ -118,6 +150,12 @@ const MetaRow = ({ className, title, catalog, message, itemComponent, notificati
             detail: { item: it },
         }));
     }, []);
+    // Riordino (freshness) arrivato col focus gia' sulla riga: la card a fuoco
+    // (key = indice) ora mostra un altro titolo -> riallinea l'hero.
+    React.useEffect(() => {
+        const active = document.activeElement;
+        if (rowRef.current && active && rowRef.current.contains(active)) onRowFocus({ target: active });
+    }, [items]);
 
     const href = React.useMemo(() => {
         return catalog?.deepLinks?.discover ?? catalog?.deepLinks?.library;
@@ -194,6 +232,7 @@ MetaRow.propTypes = {
     }),
     itemComponent: PropTypes.elementType,
     notifications: PropTypes.object,
+    freshnessQuery: PropTypes.string,
 };
 
 module.exports = MetaRow;
