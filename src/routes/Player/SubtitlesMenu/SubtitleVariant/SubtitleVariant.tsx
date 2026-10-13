@@ -80,8 +80,10 @@ const SubtitleVariant = ({ track, selected, position, count, tried, onSelect }: 
             data-casa-variant={true}
         >
             <div className={styles['info']}>
-                <div className={styles['variant-label']}>
-                    {variantLabel}
+                <div className={styles['variant-label-row']}>
+                    <div className={styles['variant-label']}>
+                        {variantLabel}
+                    </div>
                 </div>
                 <div className={styles['variant-origin-row']}>
                     <div className={styles['variant-origin']}>
@@ -91,7 +93,6 @@ const SubtitleVariant = ({ track, selected, position, count, tried, onSelect }: 
                 </div>
             </div>
             {selected ? <div className={styles['icon']} /> : null}
-            {showTried ? <Icon className={styles['tried-icon']} name={'checkmark'} /> : null}
             {!track.embedded &&
                 <ContextMenu on={triggers} autoClose={true} lock={'bottom'}>
                     {downloadUrl ?
