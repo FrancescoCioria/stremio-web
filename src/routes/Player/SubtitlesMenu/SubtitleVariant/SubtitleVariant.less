@@ -31,13 +31,45 @@
             overflow: hidden;
         }
 
+        // Casa: origine + posizione "32/123". La posizione non si accorcia mai
+        // (e' cio' che distingue 97 righe "English / OpenSubtitles v3"):
+        // si accorcia l'origine.
+        .variant-origin-row {
+            display: flex;
+            flex-direction: row;
+            gap: 0.5rem;
+            min-width: 0;
+        }
+
         .variant-origin {
+            flex: 1;
+            min-width: 0;
             font-size: 0.9rem;
             color: var(--color-placeholder-text);
             text-wrap: nowrap;
             text-overflow: ellipsis;
             overflow: hidden;
         }
+
+        .variant-position {
+            flex: none;
+            font-size: 0.9rem;
+            color: var(--color-placeholder-text);
+            font-variant-numeric: tabular-nums;
+        }
+    }
+
+    // Casa: variante gia' provata in questa riproduzione: spunta + testo attenuato.
+    &.tried .info {
+        opacity: 0.55;
+    }
+
+    .tried-icon {
+        flex: none;
+        width: 1.2rem;
+        height: 1.2rem;
+        margin-left: 1rem;
+        color: var(--primary-foreground-color);
     }
 
     .icon {

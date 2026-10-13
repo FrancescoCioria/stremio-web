@@ -170,22 +170,42 @@ const SubtitlesMenu = React.memo(React.forwardRef((props, ref) => {
             }
         }
     }, [props.selectedSubtitlesTrackId, props.selectedExtraSubtitlesTrackId, props.subtitlesOffset, props.extraSubtitlesOffset, props.onSubtitlesOffsetChanged, props.onExtraSubtitlesOffsetChanged]);
-    // Al mount, focus sull'opzione lingua attualmente selezionata. Cosi'
-    // l'utente da telecomando puo' scorrere ←/→/↑/↓ partendo dalla scelta
-    // corrente invece che dal primo bottone (OFF). Doppio rAF: aspetta
-    // che la <Transition fade> abbia montato e dipinto.
+    // Al mount, focus sulla VARIANTE in uso (si riapre il menu per cambiarla),
+    // se no sulla lingua (OFF). Prima cercava `styles['variant-option']`, classe
+    // di SubtitleVariant.less e non di questo modulo -> undefined -> partiva
+    // sempre dalla lingua. Doppio rAF: aspetta che la <Transition fade> abbia
+    // montato e dipinto.
     React.useEffect(() => {
         const id = requestAnimationFrame(() => requestAnimationFrame(() => {
             const root = innerRef.current;
             if (!root) return;
-            const selected = root.querySelector(`.${styles['language-option']}.selected`)
-                || root.querySelector(`.${styles['variant-option']}.selected`);
+            const selected = root.querySelector('[data-casa-variant].selected')
+                || root.querySelector(`.${styles['language-option']}.selected`);
             if (selected && typeof selected.focus === 'function') {
                 selected.focus();
             }
         }));
         return () => cancelAnimationFrame(id);
     }, []);
+    // ↑/↓ nella lista varianti decisi QUI, non dal polyfill di navigazione
+    // spaziale: con ~100 varianti (13/10/2026: 26 embedded + 97 OpenSubtitles)
+    // il focus finiva sui −/+ della colonna Impostazioni e la lista smetteva di
+    // scorrere. Ai bordi il tasto e' consumato (muro, come casaRailNav): si esce
+    // con ←/→ o Indietro. preventDefault+stopPropagation zittiscono il polyfill.
+    const variantsListOnKeyDown = React.useCallback((event) => {
+        if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
+        const items = Array.from(event.currentTarget.querySelectorAll('[data-casa-variant]'));
+        const index = items.indexOf(document.activeElement);
+        if (index === -1) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const next = items[index + (event.key === 'ArrowDown' ? 1 : -1)];
+        if (next) {
+            next.focus({ preventScroll: true });
+            next.scrollIntoView({ block: 'nearest' });
+        }
+    }, []);
+    const triedIds = Array.isArray(props.triedSubtitlesTrackIds) ? props.triedSubtitlesTrackIds : [];
 
     return (
         <div ref={setRef} className={classnames(props.className, styles['subtitles-menu-container'])} onMouseDown={onMouseDown}>
@@ -222,11 +242,14 @@ const SubtitlesMenu = React.memo(React.forwardRef((props, ref) => {
                 <div className={styles['variants-header']}>{ t('PLAYER_SUBTITLES_VARIANTS') }</div>
                 {
                     subtitlesTracksForLanguage.length > 0 ?
-                        <div className={styles['variants-list']}>
+                        <div className={styles['variants-list']} onKeyDown={variantsListOnKeyDown}>
                             {subtitlesTracksForLanguage.map((track, index) => (
                                 <SubtitleVariant
-                                    key={index}
+                                    key={track.id}
                                     track={track}
+                                    position={index + 1}
+                                    count={subtitlesTracksForLanguage.length}
+                                    tried={triedIds.includes(track.id)}
                                     selected={props.selectedSubtitlesTrackId === track.id || props.selectedExtraSubtitlesTrackId === track.id}
                                     onSelect={subtitlesTrackOnSelect}
                                 />
@@ -307,6 +330,7 @@ SubtitlesMenu.propTypes = {
     selectedExtraSubtitlesTrackId: PropTypes.string,
     extraSubtitlesOffset: PropTypes.number,
     extraSubtitlesDelay: PropTypes.number,
+    triedSubtitlesTrackIds: PropTypes.arrayOf(PropTypes.string),
     extraSubtitlesSize: PropTypes.number,
     onSubtitlesTrackSelected: PropTypes.func,
     onExtraSubtitlesTrackSelected: PropTypes.func,

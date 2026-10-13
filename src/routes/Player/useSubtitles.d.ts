@@ -81,6 +81,7 @@ type SubtitlesMenuProps = {
     extraSubtitlesOffset: number | null,
     extraSubtitlesDelay: number | null,
     extraSubtitlesSize: number | null,
+    triedSubtitlesTrackIds: string[],
     onSubtitlesTrackSelected: (track: SubtitleTrack | null) => void,
     onExtraSubtitlesTrackSelected: (track: SubtitleTrack | null) => void,
     onSubtitlesOffsetChanged: (offset: number) => void,

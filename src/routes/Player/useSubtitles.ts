@@ -1,6 +1,6 @@
 // Copyright (C) 2017-2026 Smart code 203358507
 
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 // @ts-expect-error — casaBackend e' un modulo JS (CommonJS) senza tipi
 import { casaBeacon } from 'stremio/common/casaBackend';
 import {
@@ -552,6 +552,30 @@ const useSubtitles = ({
         toggleSubtitlesMenu();
     }, [closeMenus, toggleSubtitlesMenu]);
 
+    // Varianti gia' provate in QUESTA riproduzione (13/10/2026: 97 OpenSubtitles
+    // inglesi tutte uguali nel menu, non si capiva quali fossero gia' state
+    // guardate). Si registra cio' che il menu MOSTRA come scelto (CASA_EMB =
+    // la riga embedded), per stream: cambio episodio/torrent = lista nuova.
+    const shownEmbeddedId = displayedEmbeddedSelection(
+        video.state.selectedSubtitlesTrackId,
+        video.state.selectedExtraSubtitlesTrackId,
+    );
+    const shownExtraId = displayedExtraSelection(video.state.selectedExtraSubtitlesTrackId);
+    // Chiave della riproduzione: url, o infoHash+fileIdx per i torrent senza url
+    // (gli id EMBEDDED_<n> si ripetono fra episodi: senza, spunte false).
+    const stream = video.state.stream as { url?: string, infoHash?: string, fileIdx?: number } | null;
+    const streamKey = stream ? stream.url ?? `${stream.infoHash}/${stream.fileIdx}` : null;
+    const [tried, setTried] = useState<{ key: string | null, ids: string[] }>({ key: null, ids: [] });
+    useEffect(() => {
+        if (streamKey === null) return; // unload transitorio (ricarica): la lista resta
+        setTried((prev) => {
+            const base = prev.key === streamKey ? prev.ids : [];
+            const add = [shownEmbeddedId, shownExtraId].filter((id): id is string => typeof id === 'string' && !base.includes(id));
+            return prev.key === streamKey && add.length === 0 ? prev : { key: streamKey, ids: base.concat(add) };
+        });
+    }, [streamKey, shownEmbeddedId, shownExtraId]);
+    const triedSubtitlesTrackIds = tried.key === streamKey || streamKey === null ? tried.ids : [];
+
     const menuProps = useMemo(() => ({
         subtitlesLanguage: settings.subtitlesLanguage,
         interfaceLanguage: settings.interfaceLanguage,
@@ -573,6 +597,7 @@ const useSubtitles = ({
         ),
         extraSubtitlesOffset: video.state.extraSubtitlesOffset,
         extraSubtitlesDelay: activeDelay, // nome storico: e' il delay della traccia visibile
+        triedSubtitlesTrackIds,
         extraSubtitlesSize: video.state.extraSubtitlesSize,
         onSubtitlesTrackSelected: selectEmbeddedTrack,
         onExtraSubtitlesTrackSelected: selectExtraTrack,
@@ -590,6 +615,7 @@ const useSubtitles = ({
         settings.interfaceLanguage,
         settings.subtitlesLanguage,
         activeDelay,
+        triedSubtitlesTrackIds,
         video.state.extraSubtitlesOffset,
         video.state.extraSubtitlesSize,
         video.state.extraSubtitlesTracks,

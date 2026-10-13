@@ -24,17 +24,23 @@ type SubtitlesTrack = {
 type Props = {
     track: SubtitlesTrack,
     selected: boolean,
+    // Casa: posizione nella lista della lingua (righe OpenSubtitles tutte uguali
+    // altrimenti) e "gia' provata in questa riproduzione".
+    position: number,
+    count: number,
+    tried: boolean,
     onSelect: (track: SubtitlesTrack) => void,
 };
 
 const hasValidLabel = (label?: string) => label && label.length > 0 && !label.startsWith('http');
 
-const SubtitleVariant = ({ track, selected, onSelect }: Props) => {
+const SubtitleVariant = ({ track, selected, position, count, tried, onSelect }: Props) => {
     const { t } = useTranslation();
     const toast = useToast();
     const buttonRef = useRef<HTMLElement>(null);
     const triggers = useMemo(() => [buttonRef], []);
 
+    const showTried = tried && !selected;
     const downloadUrl = track.fallbackUrl || track.url;
     const variantLabel = hasValidLabel(track.label) ? track.label : languages.label(track.lang);
     const downloadFileName = hasValidLabel(track.label) ? track.label : `subtitle-${track.lang || 'unknown'}`;
@@ -70,17 +76,22 @@ const SubtitleVariant = ({ track, selected, onSelect }: Props) => {
             ref={buttonRef}
             title={hoverTitle}
             onClick={onSelectClick}
-            className={classNames(styles['variant-option'], { 'selected': selected })}
+            className={classNames(styles['variant-option'], { 'selected': selected, [styles['tried']]: showTried })}
+            data-casa-variant={true}
         >
             <div className={styles['info']}>
                 <div className={styles['variant-label']}>
                     {variantLabel}
                 </div>
-                <div className={styles['variant-origin']}>
-                    {t(track.origin)}
+                <div className={styles['variant-origin-row']}>
+                    <div className={styles['variant-origin']}>
+                        {t(track.origin)}
+                    </div>
+                    {count > 1 ? <div className={styles['variant-position']}>{`${position}/${count}`}</div> : null}
                 </div>
             </div>
             {selected ? <div className={styles['icon']} /> : null}
+            {showTried ? <Icon className={styles['tried-icon']} name={'checkmark'} /> : null}
             {!track.embedded &&
                 <ContextMenu on={triggers} autoClose={true} lock={'bottom'}>
                     {downloadUrl ?
