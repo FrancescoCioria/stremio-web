@@ -164,18 +164,29 @@ const useSubtitles = ({
         rememberTrack(track, false, true);
     }, [disableSubtitles, rememberTrack, video]);
 
+    // Il delay della traccia che si VEDE: extra (overlay) o nativa (EMBEDDED_<n>,
+    // che prima non ne aveva: Stepper spento finche' non arrivava CASA_EMB, minuti
+    // su torrent freddo). null = nessun sottotitolo, Stepper spento.
+    const activeDelay = video.state.selectedExtraSubtitlesTrackId !== null ? video.state.extraSubtitlesDelay :
+        video.state.selectedSubtitlesTrackId !== null ? video.state.subtitlesDelay : null;
+
     const changeDelay = useCallback((delay: number) => {
         video.setSubtitlesDelay(delay);
         streamStateChanged({ subtitleDelay: delay });
+        casaBeacon('/debug/player-event', {
+            ev: 'subtitle-delay',
+            delay,
+            sel: { embedded: video.state.selectedSubtitlesTrackId, extra: video.state.selectedExtraSubtitlesTrackId },
+        });
     }, [streamStateChanged, video]);
 
     const increaseDelay = useCallback(() => {
-        changeDelay((video.state.extraSubtitlesDelay ?? 0) + 250);
-    }, [changeDelay, video.state.extraSubtitlesDelay]);
+        changeDelay((activeDelay ?? 0) + 250);
+    }, [changeDelay, activeDelay]);
 
     const decreaseDelay = useCallback(() => {
-        changeDelay((video.state.extraSubtitlesDelay ?? 0) - 250);
-    }, [changeDelay, video.state.extraSubtitlesDelay]);
+        changeDelay((activeDelay ?? 0) - 250);
+    }, [changeDelay, activeDelay]);
 
     const changeSize = useCallback((size: number) => {
         video.setSubtitlesSize(size);
@@ -408,10 +419,16 @@ const useSubtitles = ({
         // l'embedded si tramanda, la nostra no.
         defaultTrackSelected.current = true;
         video.setExtraSubtitlesTrack(casaTrack.id);
+        // Il delay messo sul nativo segue: selezionare un extra lo azzera
+        // (withHTMLSubtitles), e l'upgrade deve restare invisibile.
+        if (video.state.subtitlesDelay) {
+            video.setSubtitlesDelay(video.state.subtitlesDelay);
+        }
         rememberTrack(casaTrack, false);
     }, [
         rememberTrack,
         video,
+        video.state.subtitlesDelay,
         video.state.extraSubtitlesTracks,
         video.state.selectedExtraSubtitlesTrackId,
         video.state.selectedSubtitlesTrackId,
@@ -555,7 +572,7 @@ const useSubtitles = ({
             video.state.selectedExtraSubtitlesTrackId,
         ),
         extraSubtitlesOffset: video.state.extraSubtitlesOffset,
-        extraSubtitlesDelay: video.state.extraSubtitlesDelay,
+        extraSubtitlesDelay: activeDelay, // nome storico: e' il delay della traccia visibile
         extraSubtitlesSize: video.state.extraSubtitlesSize,
         onSubtitlesTrackSelected: selectEmbeddedTrack,
         onExtraSubtitlesTrackSelected: selectExtraTrack,
@@ -572,7 +589,7 @@ const useSubtitles = ({
         selectExtraTrack,
         settings.interfaceLanguage,
         settings.subtitlesLanguage,
-        video.state.extraSubtitlesDelay,
+        activeDelay,
         video.state.extraSubtitlesOffset,
         video.state.extraSubtitlesSize,
         video.state.extraSubtitlesTracks,

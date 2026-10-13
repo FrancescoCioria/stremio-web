@@ -28,6 +28,7 @@ const useVideo = () => {
         subtitlesTracks: [],
         selectedSubtitlesTrackId: null,
         subtitlesOffset: null,
+        subtitlesDelay: null,
         subtitlesSize: null,
         subtitlesTextColor: null,
         subtitlesBackgroundColor: null,
@@ -130,7 +131,9 @@ const useVideo = () => {
         setProp('selectedExtraSubtitlesTrackId', id);
     };
 
+    // Come la dimensione: un delay solo, su nativi ed extra.
     const setSubtitlesDelay = (delay) => {
+        setProp('subtitlesDelay', delay);
         setProp('extraSubtitlesDelay', delay);
     };
 

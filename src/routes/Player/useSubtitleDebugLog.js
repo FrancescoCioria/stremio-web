@@ -58,9 +58,11 @@ function snapshotTextTracks(videoEl, timeMs) {
         let activeText = null;
         for (let j = 0; j < cues.length; j++) {
             const c = cues[j];
-            const endMs = c.endTime * 1000;
+            // Scorte sui tempi ORIGINALI (casaEnd, HTMLVideo.js): col delay
+            // negativo i tempi spostati farebbero scattare CUE_SUPPLY_LOW per nulla.
+            const endMs = (c.casaEnd !== undefined ? c.casaEnd : c.endTime) * 1000;
             if (maxEndMs === null || endMs > maxEndMs) maxEndMs = endMs;
-            if (timeMs !== null && c.startTime * 1000 <= timeMs && timeMs <= endMs) {
+            if (timeMs !== null && c.startTime * 1000 <= timeMs && timeMs <= c.endTime * 1000) {
                 activeCount++;
                 if (activeText === null && typeof c.text === 'string') {
                     activeText = c.text.slice(0, 60);
@@ -190,6 +192,7 @@ const useSubtitleDebugLog = (video) => {
             const sig = JSON.stringify({
                 e: selEmbedded, x: selExtra, n: tracks.length,
                 m: tracks.map(function(t) { return t.mode; }),
+                d: [st.subtitlesDelay, st.extraSubtitlesDelay],
             });
 
             const failure = status === 'MODE_NOT_SHOWING' || status === 'CUE_SUPPLY_LOW' || status === 'TRACK_MISSING' || status === 'CUE_FRONT_FROZEN';
@@ -212,7 +215,8 @@ const useSubtitleDebugLog = (video) => {
                 sel: { embedded: selEmbedded, extra: selExtra },
                 time: timeMs, duration: durMs, playing: playing,
                 paused: st.paused, buffering: st.buffering,
-                offset: st.subtitlesOffset,
+                offset: st.subtitlesOffset, // posizione verticale (%), NON il delay
+                delay: { native: st.subtitlesDelay, extra: st.extraSubtitlesDelay },
                 stateEmbeddedTracks: Array.isArray(st.subtitlesTracks) ? st.subtitlesTracks.length : null,
                 stateExtraTracks: Array.isArray(st.extraSubtitlesTracks) ? st.extraSubtitlesTracks.length : null,
                 domTracks: tracks,

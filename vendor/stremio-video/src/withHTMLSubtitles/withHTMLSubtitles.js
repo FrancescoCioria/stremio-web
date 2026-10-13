@@ -51,6 +51,7 @@ function withHTMLSubtitles(Video) {
             if (!selectedTrack) return false;
             var delayMs = delay || 0;
             nativeTextTrack = videoElement.addTextTrack('subtitles', selectedTrack.label || selectedTrack.lang, selectedTrack.lang || '');
+            nativeTextTrack.casaSynthetic = true;   // delay gia' applicato qui: HTMLVideo non lo risposta
             syntheticNativeTextTracks.push(nativeTextTrack);
             cuesByTime.times.forEach(function(time) {
                 cuesByTime[time].forEach(function(cue) {

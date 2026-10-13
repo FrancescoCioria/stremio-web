@@ -16,11 +16,14 @@ const VIDEO_SCALE_KEYS: Record<string, string> = {
     'fill': 'PLAYER_SCALE_STRETCH',
 };
 
+const SUBTITLES_DELAY: Property = {
+    label: 'SUBTITLES_DELAY',
+    format: (value) => `${(value / 1000).toFixed(2)}s`,
+};
+
 const PROPERTIES: Record<string, Property> = {
-    'extraSubtitlesDelay': {
-        label: 'SUBTITLES_DELAY',
-        format: (value) => `${(value / 1000).toFixed(2)}s`,
-    },
+    'extraSubtitlesDelay': SUBTITLES_DELAY,
+    'subtitlesDelay': SUBTITLES_DELAY, // tracce native (EMBEDDED_<n>)
     'videoScale': {
         label: 'VIDEO_SCALE',
         format: (value) => t(VIDEO_SCALE_KEYS[String(value)] || String(value)),

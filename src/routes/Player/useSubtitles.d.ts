@@ -23,6 +23,7 @@ type VideoSubtitleState = {
     subtitlesTracks: SubtitleTrack[],
     selectedSubtitlesTrackId: string | null,
     subtitlesOffset: number | null,
+    subtitlesDelay: number | null,
     subtitlesSize: number | null,
     extraSubtitlesTracks: SubtitleTrack[],
     selectedExtraSubtitlesTrackId: string | null,

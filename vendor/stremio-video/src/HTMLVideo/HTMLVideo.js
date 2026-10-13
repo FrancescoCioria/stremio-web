@@ -118,6 +118,11 @@ function HTMLVideo(options) {
     var destroyed = false;
     var stream = null;
     var subtitlesOffset = 0;
+    // Casa: delay delle tracce NATIVE (EMBEDDED_<n>, rese da Firefox), in ms. Prima
+    // esisteva solo per gli extra: sul nativo lo Stepper era spento, e la copia
+    // extra (CASA_EMB) su torrent freddo arriva dopo minuti (149 s il 13/10/2026,
+    // estrazione = scaricare il file) -> l'utente cambiava sottotitolo.
+    var subtitlesDelay = 0;
     var subtitlesOpacity = 1;
     var observedProps = {
         stream: false,
@@ -130,6 +135,7 @@ function HTMLVideo(options) {
         subtitlesTracks: false,
         selectedSubtitlesTrackId: false,
         subtitlesOffset: false,
+        subtitlesDelay: false,
         subtitlesSize: false,
         subtitlesTextColor: false,
         subtitlesBackgroundColor: false,
@@ -233,6 +239,13 @@ function HTMLVideo(options) {
                 }
 
                 return subtitlesOffset;
+            }
+            case 'subtitlesDelay': {
+                if (destroyed) {
+                    return null;
+                }
+
+                return subtitlesDelay;
             }
             case 'subtitlesSize': {
                 if (destroyed) {
@@ -349,11 +362,32 @@ function HTMLVideo(options) {
             }
         }
     }
+    // Casa: il delay sposta i tempi dei cue. Il tempo ORIGINALE resta sul cue
+    // (`casaStart`/`casaEnd`): ogni passata riparte da li', mai somme cumulate.
+    // hls.js riconosce i doppioni dall'`id` (calcolato sui tempi originali), quindi
+    // un cue spostato non viene riaggiunto. I cue nuovi arrivano coi tempi del file:
+    // si spostano a ogni frammento (SUBTITLE_FRAG_PROCESSED), non solo al cuechange,
+    // se no con delay negativo un cue comparirebbe in ritardo. Le tracce sintetiche
+    // di withHTMLSubtitles (fullscreen iOS) hanno gia' il loro delay: saltate, come
+    // le tracce che non sono sottotitoli (metadata ID3 di hls.js).
     function onCueChange() {
+        var delayS = subtitlesDelay / 1000;
         Array.from(videoElement.textTracks).forEach(function(track) {
+            var shift = !track.casaSynthetic && (track.kind === 'subtitles' || track.kind === 'captions');
             Array.from(track.cues || []).forEach(function(cue) {
                 cue.snapToLines = false;
                 cue.line = 100 - subtitlesOffset;
+                if (!shift) return;
+                if (cue.casaStart === undefined) {
+                    cue.casaStart = cue.startTime;
+                    cue.casaEnd = cue.endTime;
+                }
+                var start = Math.max(0, cue.casaStart + delayS);
+                var end = Math.max(start, cue.casaEnd + delayS);
+                if (cue.startTime !== start || cue.endTime !== end) {
+                    cue.startTime = start;
+                    cue.endTime = end;
+                }
             });
         });
     }
@@ -477,6 +511,15 @@ function HTMLVideo(options) {
                     subtitlesOffset = Math.max(0, Math.min(100, parseInt(propValue, 10)));
                     onCueChange();
                     onPropChanged('subtitlesOffset');
+                }
+
+                break;
+            }
+            case 'subtitlesDelay': {
+                if (propValue !== null && isFinite(propValue)) {
+                    subtitlesDelay = parseInt(propValue, 10);
+                    onCueChange();
+                    onPropChanged('subtitlesDelay');
                 }
 
                 break;
@@ -663,6 +706,7 @@ function HTMLVideo(options) {
                                     casaProbeOff();
                                 };
                                 hls.on(Hls.Events.BUFFER_APPENDED, onHlsBufferAppended);
+                                hls.on(Hls.Events.SUBTITLE_FRAG_PROCESSED, onCueChange);
                                 hls.loadSource(stream.url);
                                 hls.attachMedia(videoElement);
                             } else {
@@ -703,6 +747,8 @@ function HTMLVideo(options) {
                 videoElement.removeAttribute('src');
                 videoElement.load();
                 videoElement.currentTime = 0;
+                subtitlesDelay = 0;   // per stream, come il delay degli extra (lo rimette useSubtitles)
+                onPropChanged('subtitlesDelay');
                 onPropChanged('stream');
                 onPropChanged('loaded');
                 onPropChanged('paused');
@@ -809,7 +855,7 @@ HTMLVideo.canPlayStream = function(stream) {
 HTMLVideo.manifest = {
     name: 'HTMLVideo',
     external: false,
-    props: ['stream', 'loaded', 'paused', 'time', 'duration', 'buffering', 'buffered', 'audioTracks', 'selectedAudioTrackId', 'subtitlesTracks', 'selectedSubtitlesTrackId', 'subtitlesOffset', 'subtitlesSize', 'subtitlesTextColor', 'subtitlesBackgroundColor', 'subtitlesOutlineColor', 'subtitlesOpacity', 'volume', 'muted', 'playbackSpeed', 'videoScale', 'fullscreen'],
+    props: ['stream', 'loaded', 'paused', 'time', 'duration', 'buffering', 'buffered', 'audioTracks', 'selectedAudioTrackId', 'subtitlesTracks', 'selectedSubtitlesTrackId', 'subtitlesOffset', 'subtitlesDelay', 'subtitlesSize', 'subtitlesTextColor', 'subtitlesBackgroundColor', 'subtitlesOutlineColor', 'subtitlesOpacity', 'volume', 'muted', 'playbackSpeed', 'videoScale', 'fullscreen'],
     commands: ['load', 'unload', 'destroy'],
     events: ['propValue', 'propChanged', 'ended', 'error', 'subtitlesTrackLoaded', 'audioTrackLoaded']
 };
