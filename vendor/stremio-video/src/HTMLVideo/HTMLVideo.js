@@ -7,6 +7,7 @@ var ERROR = require('../error');
 var getContentType = require('./getContentType');
 var HLS_CONFIG = require('./hlsConfig');
 var casaHlsProbe = require('./casaHlsProbe');
+var casaGlitchMonitor = casaHlsProbe.glitchMonitor;
 var casaFragRecovery = require('./casaFragRecovery');
 
 function HTMLVideo(options) {
@@ -680,6 +681,12 @@ function HTMLVideo(options) {
                     onPropChanged('audioTracks');
                     onPropChanged('selectedAudioTrackId');
                     onPropChanged('fullscreen');
+                    // Riproduzione diretta (senza hls.js): i fotogrammi persi li perde
+                    // Firefox anche qui, quindi la stessa sonda dei saltelli (casaHlsProbe).
+                    var playDirect = function(url) {
+                        casaProbeDestroy = casaGlitchMonitor(videoElement);
+                        videoElement.src = url;
+                    };
                     getContentType(stream)
                         .then(function(contentType) {
                             if (stream !== commandArgs.stream) {
@@ -710,7 +717,7 @@ function HTMLVideo(options) {
                                 hls.loadSource(stream.url);
                                 hls.attachMedia(videoElement);
                             } else {
-                                videoElement.src = stream.url;
+                                playDirect(stream.url);
                             }
                         })
                         .catch(function() {
@@ -718,7 +725,7 @@ function HTMLVideo(options) {
                                 return;
                             }
 
-                            videoElement.src = stream.url;
+                            playDirect(stream.url);
                         });
                 } else {
                     onError(Object.assign({}, ERROR.UNSUPPORTED_STREAM, {

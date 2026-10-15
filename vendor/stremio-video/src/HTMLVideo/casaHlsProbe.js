@@ -35,6 +35,8 @@
 //                       micro-buchi: distingue "buffer sempre rasoterra" da "buffer
 //                       pieno e bucato". Senza ranges completi, per non gonfiare il log.
 //                       `frames` = fotogrammi dei 30 s per tappa (frameCounters).
+//   ev:"frame-glitch"   fotogrammi persi, col secondo di film di ognuno; al massimo
+//                       uno ogni 10 s (glitchMonitor).
 
 var BACKEND_PORT = 8765;
 var HEARTBEAT_MS = 30000;
@@ -117,6 +119,71 @@ function frameDelta(now, prev) {
         out[k] = now[k] >= p ? now[k] - p : now[k];
     });
     return out;
+}
+
+// Saltelli NEL MOMENTO in cui avvengono, con l'istante del film: il battito da 30 s
+// dice "quanti", non "quando". Gli scatti di Spider-Man NWH (14/10/2026) non erano
+// stalli (nessun `waiting`, buffer a 300 s): sotto la soglia di `hls-stall`, invisibili.
+// Segnale = `droppedVideoFrames` letto ogni secondo: un fotogramma perso si vede come un
+// saltello nelle panoramiche e nell'azione, non nelle scene ferme. Misurato il 15/10 sul
+// file vero: ~1 ogni 3-5 minuti, uno alla volta, a qualsiasi bitrate.
+// ⚠️ NON `requestVideoFrameCallback`: provato il 15/10 (4 minuti, 5.770 fotogrammi). In
+// Firefox `presentationTime` = ora del callback (thread della pagina, non lo schermo) e
+// il 5-12% degli intervalli e' irregolare in OGNI tratto, a 2 come a 36 Mbps: rumore
+// che sembra evidenza.
+// Si conta solo in riproduzione a velocita' 1 (il 2x tenendo premuto Spazio cambia la
+// cadenza), a pagina visibile (nascosta, Firefox sospende la decodifica e al ritorno
+// scarta a raffica) e mai a cavallo di seek/attesa/pausa ne' nel secondo della ripresa
+// (Firefox scarta per raggiungere l'audio: non e' un saltello). Un evento `frame-glitch` al massimo
+// ogni GLITCH_WINDOW_MS, solo se c'e' qualcosa, con il secondo di film di ogni perdita.
+var GLITCH_WINDOW_MS = 10000;
+
+function glitchMonitor(videoElement) {
+    var prev = null;
+    var drops = [];
+    var doc = typeof document !== 'undefined' ? document : null;
+    function counting() { return !videoElement.paused && !videoElement.seeking && videoElement.playbackRate === 1 && !(doc && doc.hidden === true); }
+    // Un secondo che contiene seek/attesa/pausa/ripresa non si confronta col precedente.
+    function reset() { prev = null; }
+    var EVENTS = ['seeking', 'seeked', 'waiting', 'playing', 'pause', 'emptied', 'ratechange'];
+    EVENTS.forEach(function(ev) { videoElement.addEventListener(ev, reset); });
+    if (doc) doc.addEventListener('visibilitychange', reset);
+
+    var tick = setInterval(function() {
+        var cur = counting() ? frameCounters(videoElement) : null;
+        if (cur && prev && typeof cur.dropped === 'number' && cur.dropped > prev.dropped) {
+            var d = frameDelta(cur, prev);
+            drops.push({
+                t: +videoElement.currentTime.toFixed(2),
+                dropped: d.dropped,
+                decoded: d.decoded,
+                presented: d.presented,
+                painted: d.painted
+            });
+        }
+        prev = cur;
+    }, 1000);
+
+    function send() {
+        if (drops.length === 0) return;
+        var list = drops;
+        drops = [];
+        beacon({
+            ev: 'frame-glitch',
+            time: +videoElement.currentTime.toFixed(3),
+            dropped: list.reduce(function(n, x) { return n + x.dropped; }, 0),
+            seconds: list
+        });
+    }
+    var flush = setInterval(send, GLITCH_WINDOW_MS);
+
+    return function destroy() {
+        send();   // la coda degli ultimi 10 s, o la chiusura del player la perde
+        clearInterval(tick);
+        clearInterval(flush);
+        EVENTS.forEach(function(ev) { videoElement.removeEventListener(ev, reset); });
+        if (doc) doc.removeEventListener('visibilitychange', reset);
+    };
 }
 
 function casaHlsProbe(hls, videoElement, Hls) {
@@ -235,6 +302,7 @@ function casaHlsProbe(hls, videoElement, Hls) {
     hls.on(Hls.Events.MEDIA_ATTACHED, onMediaAttached);
 
     var lastFrames = null;
+    var stopGlitches = glitchMonitor(videoElement);
     heartbeat = setInterval(function() {
         if (videoElement.ended) return;
         var t = videoElement.currentTime;
@@ -260,6 +328,7 @@ function casaHlsProbe(hls, videoElement, Hls) {
     }, HEARTBEAT_MS);
 
     return function destroy() {
+        stopGlitches();
         clearInterval(heartbeat);
         clearTimeout(openTimer);
         videoElement.removeEventListener('waiting', onWaiting);
@@ -275,3 +344,4 @@ function casaHlsProbe(hls, videoElement, Hls) {
 
 module.exports = casaHlsProbe;
 module.exports.beacon = beacon;
+module.exports.glitchMonitor = glitchMonitor;
