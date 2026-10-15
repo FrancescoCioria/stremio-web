@@ -34,6 +34,7 @@
 //   ev:"hls-buffer"     battito (30s) col buffer avanti per traccia e il numero di
 //                       micro-buchi: distingue "buffer sempre rasoterra" da "buffer
 //                       pieno e bucato". Senza ranges completi, per non gonfiare il log.
+//                       `frames` = fotogrammi dei 30 s per tappa (frameCounters).
 
 var BACKEND_PORT = 8765;
 var HEARTBEAT_MS = 30000;
@@ -81,6 +82,41 @@ function countHoles(ranges) {
         if (gap > 0.001 && gap < MAX_HOLE_S) n++;
     }
     return n;
+}
+
+// Contatori CUMULATIVI di fotogrammi del <video>: lo standard (`total`/`dropped`
+// di getVideoPlaybackQuality) piu' quelli di Firefox (la tile gira li'), che
+// separano le tappe: `parsed` (demuxati) -> `decoded` -> `presented` (consegnati
+// al compositor in tempo) -> `painted` (disegnati). Dove il conto cala, li' si
+// perde il fotogramma. Nato dagli scatti sulle scene ad alto bitrate (Spider-Man
+// NWH, 14/10/2026): buffer pieno, decoder VAAPI 16x il tempo reale, CPU scarica,
+// segmenti integri -> il buco era DOPO il file, e nessun log lo vedeva.
+var MOZ_FRAMES = { parsed: 'mozParsedFrames', decoded: 'mozDecodedFrames', presented: 'mozPresentedFrames', painted: 'mozPaintedFrames' };
+
+function frameCounters(videoElement) {
+    var out = {};
+    try {
+        if (typeof videoElement.getVideoPlaybackQuality === 'function') {
+            var q = videoElement.getVideoPlaybackQuality();
+            out.total = q.totalVideoFrames;
+            out.dropped = q.droppedVideoFrames;
+        }
+        Object.keys(MOZ_FRAMES).forEach(function(k) {
+            if (typeof videoElement[MOZ_FRAMES[k]] === 'number') out[k] = videoElement[MOZ_FRAMES[k]];
+        });
+    } catch (_e) { /* best-effort */ }
+    return out;
+}
+
+// Differenza fra due letture. Un contatore che SCENDE = media ricaricato (si
+// azzera): il delta e' il valore nuovo.
+function frameDelta(now, prev) {
+    var out = {};
+    Object.keys(now).forEach(function(k) {
+        var p = prev && typeof prev[k] === 'number' ? prev[k] : 0;
+        out[k] = now[k] >= p ? now[k] - p : now[k];
+    });
+    return out;
 }
 
 function casaHlsProbe(hls, videoElement, Hls) {
@@ -198,10 +234,14 @@ function casaHlsProbe(hls, videoElement, Hls) {
     }
     hls.on(Hls.Events.MEDIA_ATTACHED, onMediaAttached);
 
+    var lastFrames = null;
     heartbeat = setInterval(function() {
         if (videoElement.ended) return;
         var t = videoElement.currentTime;
         var b = buffers(t);
+        var frames = frameCounters(videoElement);
+        var framesDelta = frameDelta(frames, lastFrames);
+        lastFrames = frames;
         beacon({
             ev: 'hls-buffer',
             time: +t.toFixed(3),
@@ -212,7 +252,10 @@ function casaHlsProbe(hls, videoElement, Hls) {
             readyState: videoElement.readyState,
             media: b.media,
             tracks: b.tracks,
-            holes: countHoles(videoElement.buffered)   // buffer pieno-e-bucato vs vuoto
+            holes: countHoles(videoElement.buffered),   // buffer pieno-e-bucato vs vuoto
+            // Fotogrammi negli ultimi 30 s (frameCounters): a 24 fps ~720 per
+            // tappa; `dropped` > 0 o `painted` < `decoded` = scatto visto.
+            frames: framesDelta
         });
     }, HEARTBEAT_MS);
 
