@@ -91,7 +91,7 @@ function countHoles(ranges) {
 // separano le tappe: `parsed` (demuxati) -> `decoded` -> `presented` (consegnati
 // al compositor in tempo) -> `painted` (disegnati). Dove il conto cala, li' si
 // perde il fotogramma. Nato dagli scatti sulle scene ad alto bitrate (Spider-Man
-// NWH, 14/10/2026): buffer pieno, decoder VAAPI 16x il tempo reale, CPU scarica,
+// NWH, 15/10/2026): buffer pieno, decoder VAAPI 16x il tempo reale, CPU scarica,
 // segmenti integri -> il buco era DOPO il file, e nessun log lo vedeva.
 var MOZ_FRAMES = { parsed: 'mozParsedFrames', decoded: 'mozDecodedFrames', presented: 'mozPresentedFrames', painted: 'mozPaintedFrames' };
 
@@ -122,7 +122,7 @@ function frameDelta(now, prev) {
 }
 
 // Saltelli NEL MOMENTO in cui avvengono, con l'istante del film: il battito da 30 s
-// dice "quanti", non "quando". Gli scatti di Spider-Man NWH (14/10/2026) non erano
+// dice "quanti", non "quando". Gli scatti di Spider-Man NWH (15/10/2026) non erano
 // stalli (nessun `waiting`, buffer a 300 s): sotto la soglia di `hls-stall`, invisibili.
 // Segnale = `droppedVideoFrames` letto ogni secondo: un fotogramma perso si vede come un
 // saltello nelle panoramiche e nell'azione, non nelle scene ferme. Misurato il 15/10 sul
