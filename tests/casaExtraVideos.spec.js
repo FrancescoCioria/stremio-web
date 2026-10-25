@@ -266,3 +266,26 @@ describe('repairCoreVideos', () => {
         expect(out).toHaveLength(1);
     });
 });
+
+describe('applyItalianTexts', () => {
+    const { applyItalianTexts } = require('../src/common/casaExtraVideos');
+    const v1 = { id: 'tt5875444:1:1', title: "Failure's Contagious", overview: 'River is ousted', watched: true };
+    const v2 = { id: 'tt5875444:1:2', title: 'Work Drinks', overview: 'EN' };
+
+    test('titolo e trama italiani; il resto del video intatto', () => {
+        const out = applyItalianTexts([v1, v2], [{ id: v1.id, title: 'Il fallimento è contagioso', overview: 'River viene espulso' }]);
+        expect(out[0]).toMatchObject({ title: 'Il fallimento è contagioso', overview: 'River viene espulso', watched: true });
+        expect(out[1]).toBe(v2);
+    });
+
+    test('campo assente (titolo generico, trama vuota) = resta Cinemeta', () => {
+        const [out] = applyItalianTexts([v1], [{ id: v1.id, title: null, overview: 'Trama it' }]);
+        expect(out).toMatchObject({ title: "Failure's Contagious", overview: 'Trama it' });
+    });
+
+    test('nessun testo = STESSO array', () => {
+        const vs = [v1];
+        expect(applyItalianTexts(vs, [])).toBe(vs);
+        expect(applyItalianTexts(vs, [{ id: 'tt1:1:1', title: 'x', overview: null }])).toBe(vs);
+    });
+});

@@ -8,10 +8,10 @@
 // storia degli 883", scheda Cinemeta grezza (da IMDb) senza trama, sfondo,
 // poster ne' nome: pagina scura con un buco al posto della trama.
 //
-// ⚠️ Si RIEMPIE, non si sostituisce: un campo che Cinemeta ha resta il suo.
-// Misurato quel giorno sulle 50 serie della home: trama, sfondo e nome c'erano
-// su tutte, quindi per loro la pagina esce identica. Il passaggio ai testi
-// italiani di TMDB AL POSTO di quelli inglesi e' un'altra decisione.
+// Nome, sfondo, logo: si RIEMPIONO, non si sostituiscono (il nome resta
+// l'originale di Cinemeta: e' quello dei torrent, e di solito si vede il logo).
+// Trama: quella ITALIANA di TMDB vince su quella inglese di Cinemeta (scelta
+// utente 25/10/2026; cambiava su 48 serie su 50 della home); senza, Cinemeta.
 // ⚠️ Solo per mostrare: a chi scrive nel core (libreria) va il meta del core.
 //
 // Logo: Cinemeta mette sempre l'indirizzo di metahub, anche quando metahub
@@ -21,13 +21,15 @@
 
 const has = (s) => typeof s === 'string' && s.length > 0;
 const FIELDS = ['name', 'description', 'background', 'logo'];
+// Campi in cui TMDB vince anche se Cinemeta li ha (la trama in italiano).
+const PREFER_TMDB = new Set(['description']);
 
 const fillSeriesMeta = (meta, fill) => {
     if (!meta || !fill) return meta;
     const out = { ...meta };
     let changed = false;
     for (const k of FIELDS) {
-        if (!has(meta[k]) && has(fill[k])) {
+        if ((!has(meta[k]) || PREFER_TMDB.has(k)) && has(fill[k]) && fill[k] !== meta[k]) {
             out[k] = fill[k];
             changed = true;
         }

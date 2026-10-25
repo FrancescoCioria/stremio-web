@@ -185,6 +185,25 @@ const repairCoreVideos = (videos, repairs, metaId) => {
     return changed ? out : videos;
 };
 
+// TESTI IN ITALIANO (25/10/2026, scelta utente): titolo e trama dell'episodio
+// da TMDB al posto dell'inglese di Cinemeta. L'abbinamento e la guardia sulle
+// date (numerazione TMDB diversa = stagione scartata) li fa il backend
+// (`texts`, extra_videos.ts pickItalianTexts); qui si applicano. Campo assente
+// (titolo generico "Episodio N", trama vuota) = resta quello di Cinemeta.
+// Nessun testo = STESSO array.
+const applyItalianTexts = (videos, texts) => {
+    if (!Array.isArray(videos) || !Array.isArray(texts) || texts.length === 0) return videos;
+    const byId = new Map(texts.filter((t) => t && typeof t.id === 'string').map((t) => [t.id, t]));
+    let changed = false;
+    const out = videos.map((v) => {
+        const t = v && byId.get(v.id);
+        if (!t) return v;
+        changed = true;
+        return { ...v, title: t.title || v.title, overview: t.overview || v.overview };
+    });
+    return changed ? out : videos;
+};
+
 // Righe extra viste per la library ma che il backend non sa ancora: vanno
 // fissate (source 'auto') prima che l'ultimo aperto cambi e la ricostruzione
 // non le veda piu'.
@@ -225,4 +244,4 @@ const seasonWriteSplit = (videos, season) => {
     };
 };
 
-module.exports = { buildCasaVideo, mergeCasaExtraVideos, repairCoreVideos, libraryProgress, extraWatchedState, autoWatchedIds, migrationPlan, seasonWriteSplit };
+module.exports = { buildCasaVideo, mergeCasaExtraVideos, repairCoreVideos, applyItalianTexts, libraryProgress, extraWatchedState, autoWatchedIds, migrationPlan, seasonWriteSplit };
