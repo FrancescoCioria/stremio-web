@@ -69,6 +69,17 @@
             line-height: 0.94;
             text-transform: uppercase;
             color: @ink-primary;
+
+            /* Nomi lunghi senza logo: stesso ingombro di un logo (2 righe). */
+            &.long {
+                font-size: calc(28 * @tp);
+                letter-spacing: calc(4 * @tp);
+                line-height: 1.1;
+                display: -webkit-box;
+                -webkit-box-orient: vertical;
+                -webkit-line-clamp: 2;
+                overflow: hidden;
+            }
         }
     }
 

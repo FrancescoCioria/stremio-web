@@ -45,6 +45,9 @@ const formatDate = (d) => d.toLocaleDateString('it-IT', { day: 'numeric', month:
 // polyfill porta il focus dove capita (stessa regola delle rail).
 const ACTION_SELECTOR = '[data-hero-action]';
 
+// ~2 righe del corpo pieno (830 px, 54 px, spaziatura 11).
+const WORDMARK_LONG_CHARS = 28;
+
 const SeriesHero = ({ className, name, logo, genres, seasonCount, episode, episodeRuntime, seriesDescription, imdbRating, featured, featuredRuntime, featuredSeasonWatched, trailerHref, inLibrary, onAddToLibrary, onRemoveFromLibrary, showNotifications, notificationsEnabled, onToggleNotifications, ratingInfo, onMarkSeasonWatched, autoFocus, infoOnly, kind, movieRuntime, year, letterboxdRating, rtScore, digitalReleaseLabel, watched, onToggleWatched }) => {
     // Casa, 2026-09-21: anche i FILM (richiesta dell'utente). Stesso hero,
     // senza episodio: il kicker dice FILM, i metadati portano cio' che il film
@@ -196,6 +199,12 @@ const SeriesHero = ({ className, name, logo, genres, seasonCount, episode, episo
 
     const summary = episode && typeof episode.overview === 'string' && episode.overview.length > 0 ? episode.overview : seriesDescription;
 
+    // Senza logo il titolo e' testo: a 54 px con lettere spaziate un nome
+    // lungo andava su 5 righe e spingeva gli episodi fuori dallo schermo (Mac,
+    // "Nord Sud Ovest Est: La leggendaria storia degli 883", 52 caratteri,
+    // 25/10/2026). Oltre la soglia corpo piu' piccolo e al massimo 2 righe
+    // (l'ingombro di un logo).
+    const wordmark = <div className={classnames(styles['wordmark'], { [styles['long']]: typeof name === 'string' && name.length > WORDMARK_LONG_CHARS })}>{name}</div>;
     return (
         <div className={classnames(className, styles['series-hero'])}>
             <div className={styles['kicker']}>
@@ -235,12 +244,12 @@ const SeriesHero = ({ className, name, logo, genres, seasonCount, episode, episo
                             className={styles['logo']}
                             src={logo}
                             alt={name}
-                            renderFallback={() => <div className={styles['wordmark']}>{name}</div>}
+                            renderFallback={() => wordmark}
                         />
                         :
                         // Fallback tipografico dell'handoff: la copertura dei
                         // loghi e' a macchia di leopardo.
-                        <div className={styles['wordmark']}>{name}</div>
+                        wordmark
                 }
             </div>
             {/* Sempre presente (alta una riga anche vuota): l'episodio in
