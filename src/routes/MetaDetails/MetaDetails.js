@@ -20,6 +20,7 @@ const VideosList = require('./VideosList');
 const useMetaDetails = require('./useMetaDetails');
 const useCasaSeriesVideos = require('./useCasaSeriesVideos');
 const { fillSeriesMeta } = require('stremio/common/casaSeriesFill');
+const useCasaMovieDescription = require('./useCasaMovieDescription');
 const useSeason = require('./useSeason');
 const SeriesHero = require('./SeriesHero');
 const { airedSeasonCount } = require('stremio/common/casaEpisodeFocus');
@@ -59,6 +60,8 @@ const MetaDetails = () => {
     // Cio' che la pagina serie MOSTRA: il meta del core con i campi vuoti
     // riempiti da TMDB (casaSeriesFill.js). Alle scritture nel core resta metaReady.
     const seriesShown = React.useMemo(() => fillSeriesMeta(metaReady, casaSeries.fill), [metaReady, casaSeries.fill]);
+    // Film: trama italiana dall'hero (useCasaMovieDescription), se c'e'.
+    const movieDescription = useCasaMovieDescription(metaReady ? metaReady.type : null, metaReady ? metaReady.id : null);
     // Ritorno dalla pagina torrent alla lista: li' il player esterno puo' aver
     // segnato visto un extra direttamente nel backend (Stream.js).
     const wasStreamsRef = React.useRef(false);
@@ -339,7 +342,7 @@ const MetaDetails = () => {
                                             genres={seriesInfo.genres}
                                             movieRuntime={metaReady.runtime}
                                             year={metaReady.releaseInfo}
-                                            seriesDescription={metaReady.description}
+                                            seriesDescription={movieDescription || metaReady.description}
                                             imdbRating={letterboxd.imdb}
                                             letterboxdRating={letterboxd.rating10}
                                             rtScore={letterboxd.rt}
