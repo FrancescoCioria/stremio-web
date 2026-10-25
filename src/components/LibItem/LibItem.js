@@ -6,6 +6,7 @@ const { default: toPath } = require('stremio-router/toPath');
 const PropTypes = require('prop-types');
 const { useCore } = require('stremio/core');
 const MetaItem = require('stremio/components/MetaItem');
+const { posterFallback } = require('stremio/common/casaPoster');
 const { t } = require('i18next');
 const { casaBeacon } = require('stremio/common/casaBackend');
 const { fetchSeriesVideos } = require('stremio/common/casaMetaCache');
@@ -251,6 +252,7 @@ const LibItem = ({ _id, removable, notifications, watched, casaDuration, ...prop
             {...props}
             type={metaType}
             id={metaId}
+            poster={posterFallback(props.poster, metaId)}
             watched={watched}
             newVideos={newVideos}
             options={options}
@@ -263,6 +265,7 @@ const LibItem = ({ _id, removable, notifications, watched, casaDuration, ...prop
 
 LibItem.propTypes = {
     _id: PropTypes.string,
+    poster: PropTypes.string,
     removable: PropTypes.bool,
     progress: PropTypes.number,
     notifications: PropTypes.object,

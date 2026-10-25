@@ -97,6 +97,13 @@
             line-height: 1.05;
             letter-spacing: -0.02em;
             overflow: hidden;
+
+            &.long {
+                font-size: 2.6rem;
+                display: -webkit-box;
+                -webkit-box-orient: vertical;
+                -webkit-line-clamp: 3;
+            }
         }
 
         .hero-subline {
@@ -303,6 +310,10 @@
 
             .hero-title {
                 font-size: 4.05rem;
+
+                &.long {
+                    font-size: 2.65rem;
+                }
             }
 
             .hero-subline {

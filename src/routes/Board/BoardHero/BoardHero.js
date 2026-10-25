@@ -90,6 +90,9 @@ const PLATFORM_CLASS = {
     'Crunchyroll': 'crunchyroll',
 };
 
+// ~2 righe a 4rem nel riquadro del logo (28rem).
+const HERO_TITLE_LONG_CHARS = 20;
+
 const BoardHero = ({ meta: rawMeta }) => {
     // ⚠️ Prima delle uscite anticipate: gli hook non possono stare sotto un
     // `return`. Con `meta` nullo non chiede niente.
@@ -129,6 +132,15 @@ const BoardHero = ({ meta: rawMeta }) => {
         : (typeof meta.poster === 'string' && meta.poster.length > 0 ? meta.poster : null);
     const bgIsPoster = bgSrc === meta.poster;
 
+    // Senza logo il titolo e' testo a 4rem in un riquadro alto 10rem: un nome
+    // lungo andava su 5 righe e usciva dall'alto ("Nord Sud Ovest Est: La
+    // leggendaria storia degli 883", 25/10/2026). Oltre la soglia corpo piu'
+    // piccolo, massimo 3 righe (stessa idea del titolo della pagina serie).
+    const title = (
+        <div className={classnames(styles['hero-title'], { [styles['long']]: typeof meta.name === 'string' && meta.name.length > HERO_TITLE_LONG_CHARS })}>
+            {meta.name}
+        </div>
+    );
     return (
         <div className={classnames(styles['board-hero-container'], 'animation-fade-in')}>
             {
@@ -155,13 +167,9 @@ const BoardHero = ({ meta: rawMeta }) => {
                                 className={styles['hero-logo']}
                                 src={meta.logo}
                                 alt={meta.name}
-                                renderFallback={() => (
-                                    <div className={styles['hero-title']}>{meta.name}</div>
-                                )}
+                                renderFallback={() => title}
                             />
-                            : enrichmentDone ?
-                                <div className={styles['hero-title']}>{meta.name}</div>
-                                : null
+                            : enrichmentDone ? title : null
                     }
                 </div>
                 <div className={styles['hero-subline']}>
