@@ -32,13 +32,20 @@
 // `extraWatchedState` (sotto), dal flag del backend e dalla library.
 // `casaMetaId` serve a chi deve SCRIVERE il visto senza avere il meta in mano
 // (Stream.js, player esterno).
+const { validDate } = require('./casaEpisodeCard');
+
+// "2026-10-09" (data TMDB del backend) -> Date valida, o null.
+const toDate = (s) => {
+    const d = typeof s === 'string' && s ? new Date(s) : null;
+    return validDate(d) ? d : null;
+};
+
 const buildCasaVideo = (metaId, v, fallbackThumbnail) => {
-    const released = typeof v.released === 'string' && v.released ? new Date(v.released) : null;
     return {
         id: v.id,
         title: v.title,
         overview: null,
-        released: released && !isNaN(released.getTime()) ? released : null,
+        released: toDate(v.released),
         thumbnail: v.thumbnail || fallbackThumbnail || null,
         season: v.season,
         episode: v.episode,
@@ -134,6 +141,50 @@ const mergeCasaExtraVideos = (videos, extra, metaId, fallbackThumbnail, libraryS
     return add.length > 0 ? (videos || []).concat(add) : videos;
 };
 
+// Episodi che Cinemeta ELENCA ma con la scheda GREZZA (da IMDb, non da TVDB):
+// senza `episode` il core non riconosce stagione ne' episodio -> "Sundefined ·
+// Eundefined", "Episode #1.1", card nere, una riga senza stagione. Caso reale
+// 2026-10-25: "Nord Sud Ovest Est: La leggendaria storia degli 883"
+// (`tt42026819`). Misurato quel giorno: 0 su 50 serie passate dalla home.
+//
+// Si RIPARA il video del core, non lo si sostituisce: deepLinks, bitfield del
+// visto ed "episodio successivo" del core funzionano per id, quindi restano
+// suoi. Stagione/episodio dall'id (`tt…:S:E`, la forma che il core stesso
+// usa), titolo/data/foto dai dati TMDB del backend (`repairs` di
+// `/stremio-addon/extra-videos`). Backend giu' = si ripara solo dall'id.
+// ⚠️ Solo i video SENZA stagione/episodio: una scheda normale esce identica
+// (stesso array), qualunque cosa dica il backend.
+// Limite noto: ripara la lista della pagina serie e del menu episodi del
+// player (useCasaSeriesVideos). La card in Continua a guardare
+// (casaMetaCache.fetchSeriesVideos) legge Cinemeta grezzo; "episodio
+// successivo" del core va per posizione nella lista e regge comunque.
+// ⚠️ `released` dalla useMetaDetails arriva come Date anche quando manca
+// (`new Date(NaN)`): "c'e'" = Date valida.
+const isRaw = (v) => !!v && typeof v.id === 'string' && (typeof v.season !== 'number' || typeof v.episode !== 'number');
+
+const repairCoreVideos = (videos, repairs, metaId) => {
+    if (!Array.isArray(videos) || !metaId || !videos.some(isRaw)) return videos;
+    const byId = new Map((repairs || []).filter((r) => r && typeof r.id === 'string').map((r) => [r.id, r]));
+    let changed = false;
+    const out = videos.map((v) => {
+        if (!isRaw(v)) return v;
+        const m = /^(.+):(\d+):(\d+)$/.exec(v.id);
+        if (!m || m[1] !== metaId) return v;
+        changed = true;
+        const r = byId.get(v.id) || {};
+        return {
+            ...v,
+            season: parseInt(m[2], 10),
+            episode: parseInt(m[3], 10),
+            title: r.title || v.title,
+            released: validDate(v.released) ? v.released : (toDate(r.released) || v.released),
+            thumbnail: v.thumbnail || r.thumbnail || null,
+            casaRepaired: true,
+        };
+    });
+    return changed ? out : videos;
+};
+
 // Righe extra viste per la library ma che il backend non sa ancora: vanno
 // fissate (source 'auto') prima che l'ultimo aperto cambi e la ricostruzione
 // non le veda piu'.
@@ -161,12 +212,17 @@ const migrationPlan = (coreVideos, flags) => {
 
 // Chi scrive "segna la stagione": il core per i suoi episodi, il backend per
 // le righe extra. Puro.
+// ⚠️ Episodi RIPARATI (repairCoreVideos): sono del core, ma `MarkSeasonAsWatched`
+// sceglie gli episodi dalla SUA `series_info`, che su una scheda grezza non
+// c'e' -> non segnerebbe niente, in silenzio. Per quelli uno per uno
+// (`coreVideos`, MarkVideoAsWatched: il bitfield e' per id e funziona).
 const seasonWriteSplit = (videos, season) => {
     const inSeason = (videos || []).filter((v) => v && v.season === season);
     return {
-        core: inSeason.some((v) => !v.casaExtra),
+        core: inSeason.some((v) => !v.casaExtra && !v.casaRepaired),
+        coreVideos: inSeason.filter((v) => !v.casaExtra && v.casaRepaired),
         extraIds: inSeason.filter((v) => v.casaExtra).map((v) => v.id),
     };
 };
 
-module.exports = { buildCasaVideo, mergeCasaExtraVideos, libraryProgress, extraWatchedState, autoWatchedIds, migrationPlan, seasonWriteSplit };
+module.exports = { buildCasaVideo, mergeCasaExtraVideos, repairCoreVideos, libraryProgress, extraWatchedState, autoWatchedIds, migrationPlan, seasonWriteSplit };

@@ -5,7 +5,7 @@
 // riga sparisce da sola (se no si vedrebbe doppia proprio nel giorno in cui
 // il ritardo di TVDB rientra).
 
-const { buildCasaVideo, mergeCasaExtraVideos, libraryProgress, extraWatchedState, autoWatchedIds, migrationPlan, seasonWriteSplit } = require('../src/common/casaExtraVideos');
+const { buildCasaVideo, mergeCasaExtraVideos, repairCoreVideos, libraryProgress, extraWatchedState, autoWatchedIds, migrationPlan, seasonWriteSplit } = require('../src/common/casaExtraVideos');
 
 const META = 'tt1194223';
 const CORE_E1 = { id: 'tt1194223:20:1', title: 'Episode 1', season: 20, episode: 1, watched: true };
@@ -210,9 +210,59 @@ describe('migrationPlan (Cinemeta aggiunge l\'episodio)', () => {
 describe('seasonWriteSplit', () => {
     it('S20: il core per E01, il backend per le extra della stagione e basta', () => {
         const vs = [CORE_E1, { ...E(2), casaExtra: true }, { ...E(3), casaExtra: true }, { id: `${XF}:19:9`, season: 19, casaExtra: true }];
-        expect(seasonWriteSplit(vs, 20)).toEqual({ core: true, extraIds: [`${XF}:20:2`, `${XF}:20:3`] });
+        expect(seasonWriteSplit(vs, 20)).toEqual({ core: true, coreVideos: [], extraIds: [`${XF}:20:2`, `${XF}:20:3`] });
+    });
+    it('episodi riparati (scheda grezza): uno per uno, mai MarkSeasonAsWatched', () => {
+        const r1 = { id: 'tt42026819:1:1', season: 1, episode: 1, casaRepaired: true };
+        const r2 = { id: 'tt42026819:1:2', season: 1, episode: 2, casaRepaired: true };
+        expect(seasonWriteSplit([r1, r2], 1)).toEqual({ core: false, coreVideos: [r1, r2], extraIds: [] });
     });
     it('stagione di sole extra -> niente core', () => {
-        expect(seasonWriteSplit([{ ...E(2), season: 21, casaExtra: true }], 21)).toEqual({ core: false, extraIds: [`${XF}:20:2`] });
+        expect(seasonWriteSplit([{ ...E(2), season: 21, casaExtra: true }], 21)).toEqual({ core: false, coreVideos: [], extraIds: [`${XF}:20:2`] });
+    });
+});
+
+// Scheda Cinemeta GREZZA (2026-10-25, tt42026819): il core non ha stagione ne'
+// episodio, `released` e' un Date invalido (useMetaDetails fa new Date(NaN)).
+describe('repairCoreVideos', () => {
+    const RAW = 'tt42026819';
+    const raw = (e) => ({ id: `${RAW}:1:${e}`, title: `Episode #1.${e}`, released: new Date(NaN), thumbnail: null, watched: false });
+    const REPAIRS = [
+        { id: `${RAW}:1:1`, season: 1, episode: 1, title: 'Episodio 1', released: '2026-10-09', thumbnail: 'https://img/e1.jpg' },
+        { id: `${RAW}:1:5`, season: 1, episode: 5, title: 'Episodio 5', released: '2026-10-30', thumbnail: null },
+    ];
+
+    test('stagione/episodio dall\'id, titolo/data/foto dal backend; resto del video intatto', () => {
+        const v1 = { ...raw(1), watched: true, deepLinks: { player: '#/player/x' } };
+        const [out] = repairCoreVideos([v1], REPAIRS, RAW);
+        expect(out).toMatchObject({ season: 1, episode: 1, title: 'Episodio 1', thumbnail: 'https://img/e1.jpg', watched: true, casaRepaired: true });
+        expect(out.deepLinks).toBe(v1.deepLinks);
+        expect(out.released).toEqual(new Date('2026-10-09'));
+    });
+
+    test('senza dati dal backend: solo stagione/episodio dall\'id', () => {
+        const [out] = repairCoreVideos([raw(3)], [], RAW);
+        expect(out).toMatchObject({ season: 1, episode: 3, title: 'Episode #1.3', thumbnail: null });
+    });
+
+    test('data futura dal backend -> l\'episodio diventa riconoscibile come futuro', () => {
+        const [, out] = repairCoreVideos([raw(1), raw(5)], REPAIRS, RAW);
+        expect(out.released.getTime()).toBe(new Date('2026-10-30').getTime());
+    });
+
+    test('scheda normale: STESSO array, anche se il backend manda riparazioni', () => {
+        const videos = [{ id: `${RAW}:1:1`, title: 'Pilot', season: 1, episode: 1 }];
+        expect(repairCoreVideos(videos, REPAIRS, RAW)).toBe(videos);
+    });
+
+    test('id di un\'altra serie o senza S:E: non si tocca', () => {
+        const odd = [{ id: 'tt1:1:1' }, { id: `${RAW}:special` }];
+        expect(repairCoreVideos(odd, REPAIRS, RAW)).toBe(odd);
+    });
+
+    test('la riga riparata conta come presente: niente extra doppio', () => {
+        const repaired = repairCoreVideos([raw(1)], REPAIRS, RAW);
+        const out = mergeCasaExtraVideos(repaired, [REPAIRS[0]], RAW);
+        expect(out).toHaveLength(1);
     });
 });

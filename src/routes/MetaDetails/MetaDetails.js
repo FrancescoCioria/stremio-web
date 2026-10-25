@@ -126,15 +126,16 @@ const MetaDetails = () => {
         featuredRuntimes.runtimes[String(featuredVideo.episode)] ?? null : null;
     const seriesInfo = React.useMemo(() => {
         if (!metaReady) return null;
-        const videos = Array.isArray(metaReady.videos) ? metaReady.videos : [];
-        // Le stagioni USCITE, non quelle elencate (Silo: la S4 e' solo annunciata).
-        const seasonCount = airedSeasonCount(videos);
         // Il core trasforma i generi di Cinemeta in `links` di categoria Genres.
         const genres = (metaReady.links || []).filter((l) => l && l.category === 'Genres').map((l) => l.name);
         const trailer = Array.isArray(metaReady.trailerStreams) && metaReady.trailerStreams.length > 0 ?
             metaReady.trailerStreams[0].deepLinks?.player ?? null : null;
-        return { seasonCount, genres, trailer };
+        return { genres, trailer };
     }, [metaReady]);
+    // Le stagioni USCITE, non quelle elencate (Silo: la S4 e' solo annunciata).
+    // Sulla lista UNITA: una scheda Cinemeta grezza (casaExtraVideos.js,
+    // repairCoreVideos) ha stagione e data solo dopo la riparazione.
+    const seasonCount = React.useMemo(() => airedSeasonCount(casaSeries.videos), [casaSeries.videos]);
     // Sulla lista UNITA: la stagione e' vista solo se lo sono anche le righe
     // extra (e "segna/togli" scrive anche quelle, nel backend).
     const featuredSeasonWatched = React.useMemo(() => {
@@ -371,7 +372,7 @@ const MetaDetails = () => {
                                                 name={metaReady.name}
                                                 logo={metaReady.logo}
                                                 genres={seriesInfo.genres}
-                                                seasonCount={seriesInfo.seasonCount}
+                                                seasonCount={seasonCount}
                                                 episode={video}
                                                 episodeRuntime={previewVideoRuntime}
                                                 seriesDescription={metaReady.description}
@@ -387,7 +388,7 @@ const MetaDetails = () => {
                                                     name={metaReady.name}
                                                     logo={metaReady.logo}
                                                     genres={seriesInfo.genres}
-                                                    seasonCount={seriesInfo.seasonCount}
+                                                    seasonCount={seasonCount}
                                                     episode={heroVideo}
                                                     episodeRuntime={heroRuntime}
                                                     seriesDescription={metaReady.description}

@@ -1,7 +1,8 @@
 // Copyright (C) 2017-2026 Smart code 203358507
 //
-// Casa: la lista episodi UNITA della pagina serie — quelli del core piu' le
-// righe extra (episodi che Cinemeta non elenca, common/casaExtraVideos.js) —
+// Casa: la lista episodi UNITA della pagina serie — quelli del core (riparati
+// se la scheda Cinemeta e' grezza) piu' le righe extra (episodi che Cinemeta
+// non elenca, common/casaExtraVideos.js) —
 // e le scritture del "visto" su quella lista.
 //
 // ⚠️ UNA lista per tutta la pagina. Prima la fusione la faceva solo VideosList,
@@ -16,7 +17,7 @@
 const React = require('react');
 const { useCore } = require('stremio/core');
 const { casaBeacon } = require('stremio/common/casaBackend');
-const { mergeCasaExtraVideos, autoWatchedIds, migrationPlan, seasonWriteSplit } = require('stremio/common/casaExtraVideos');
+const { mergeCasaExtraVideos, repairCoreVideos, autoWatchedIds, migrationPlan, seasonWriteSplit } = require('stremio/common/casaExtraVideos');
 const { fetchExtraWatched, postExtraWatched } = require('stremio/common/casaExtraWatched');
 const useCasaExtraVideos = require('./useCasaExtraVideos');
 
@@ -59,16 +60,21 @@ const useCasaSeriesVideos = (metaReady, libraryItem, { model = 'MetaDetails', mi
     }, [type, metaId]);
     const flags = state.metaId === metaId ? state.flags : null;
 
+    // Memo a parte: le righe riparate restano gli STESSI oggetti quando cambiano
+    // solo library o flag.
+    const coreVideos = React.useMemo(() => {
+        return repairCoreVideos(metaReady ? metaReady.videos : [], extra.repairs, metaId);
+    }, [metaReady, extra.repairs, metaId]);
     const videos = React.useMemo(() => {
         return mergeCasaExtraVideos(
-            metaReady ? metaReady.videos : [],
-            extra,
+            coreVideos,
+            extra.videos,
             metaId,
             metaReady ? metaReady.background : null,
             libraryItem ? libraryItem.state : null,
             flags,
         );
-    }, [metaReady, extra, libraryItem, flags]);
+    }, [coreVideos, extra.videos, metaId, metaReady, libraryItem, flags]);
 
     const extraIds = React.useMemo(() => new Set(videos.filter((v) => v && v.casaExtra).map((v) => v.id)), [videos]);
 
@@ -169,6 +175,14 @@ const useCasaSeriesVideos = (metaReady, libraryItem, { model = 'MetaDetails', mi
             core.transport.dispatch({
                 action: model,
                 args: { action: 'MarkSeasonAsWatched', args: [season, !watched] },
+            });
+        }
+        // Uno per episodio: il core non ha un "segna questi" in blocco (raro:
+        // solo schede grezze).
+        for (const v of split.coreVideos) {
+            core.transport.dispatch({
+                action: model,
+                args: { action: 'MarkVideoAsWatched', args: [v, !watched] },
             });
         }
         writeExtra(split.extraIds, !watched, 'season');
