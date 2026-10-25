@@ -40,6 +40,9 @@ const toDate = (s) => {
     return validDate(d) ? d : null;
 };
 
+// Minuti reali (TMDB) o null: 0 e null di TMDB = non noto, mai "0 min".
+const minutes = (x) => (typeof x === 'number' && x > 0 ? x : null);
+
 const buildCasaVideo = (metaId, v, fallbackThumbnail) => {
     return {
         id: v.id,
@@ -47,6 +50,7 @@ const buildCasaVideo = (metaId, v, fallbackThumbnail) => {
         overview: null,
         released: toDate(v.released),
         thumbnail: v.thumbnail || fallbackThumbnail || null,
+        casaRuntime: minutes(v.runtime),
         season: v.season,
         episode: v.episode,
         streams: [],
@@ -185,24 +189,35 @@ const repairCoreVideos = (videos, repairs, metaId) => {
     return changed ? out : videos;
 };
 
-// TESTI IN ITALIANO (25/10/2026, scelta utente): titolo e trama dell'episodio
-// da TMDB al posto dell'inglese di Cinemeta. L'abbinamento e la guardia sulle
-// date (numerazione TMDB diversa = stagione scartata) li fa il backend
-// (`texts`, extra_videos.ts pickItalianTexts); qui si applicano. Campo assente
-// (titolo generico "Episodio N", trama vuota) = resta quello di Cinemeta.
-// Nessun testo = STESSO array.
-const applyItalianTexts = (videos, texts) => {
-    if (!Array.isArray(videos) || !Array.isArray(texts) || texts.length === 0) return videos;
-    const byId = new Map(texts.filter((t) => t && typeof t.id === 'string').map((t) => [t.id, t]));
+// DATI TMDB PER EPISODIO (25/10/2026): titolo e trama in italiano al posto
+// dell'inglese di Cinemeta (scelta utente) e DURATA REALE (`casaRuntime`, prima
+// /episode-runtimes per stagione). L'abbinamento e la guardia sulle date
+// (numerazione TMDB diversa = stagione scartata) li fa il backend (`episodes`,
+// extra_videos.ts pickEpisodeData); qui si applicano. Campo assente (titolo
+// generico "Episodio N", trama vuota) = resta quello di Cinemeta.
+// Nessun dato = STESSO array.
+const applyEpisodeData = (videos, episodes) => {
+    if (!Array.isArray(videos) || !Array.isArray(episodes) || episodes.length === 0) return videos;
+    const byId = new Map(episodes.filter((t) => t && typeof t.id === 'string').map((t) => [t.id, t]));
     let changed = false;
     const out = videos.map((v) => {
         const t = v && byId.get(v.id);
         if (!t) return v;
         changed = true;
-        return { ...v, title: t.title || v.title, overview: t.overview || v.overview };
+        return {
+            ...v,
+            title: t.title || v.title,
+            overview: t.overview || v.overview,
+            casaRuntime: minutes(t.runtime),
+        };
     });
     return changed ? out : videos;
 };
+
+// Durata reale di un episodio della lista unita, o null (mai la nominale della
+// serie: il `runtime` del meta e' uguale per tutti e spesso lontano dal vero).
+// Speciali (stagione 0) mai: il backend non li abbina (numerazioni diverse).
+const runtimeOf = (video) => (video ? minutes(video.casaRuntime) : null);
 
 // Righe extra viste per la library ma che il backend non sa ancora: vanno
 // fissate (source 'auto') prima che l'ultimo aperto cambi e la ricostruzione
@@ -244,4 +259,4 @@ const seasonWriteSplit = (videos, season) => {
     };
 };
 
-module.exports = { buildCasaVideo, mergeCasaExtraVideos, repairCoreVideos, applyItalianTexts, libraryProgress, extraWatchedState, autoWatchedIds, migrationPlan, seasonWriteSplit };
+module.exports = { buildCasaVideo, mergeCasaExtraVideos, repairCoreVideos, applyEpisodeData, runtimeOf, libraryProgress, extraWatchedState, autoWatchedIds, migrationPlan, seasonWriteSplit };

@@ -17,7 +17,7 @@
 const React = require('react');
 const { useCore } = require('stremio/core');
 const { casaBeacon } = require('stremio/common/casaBackend');
-const { mergeCasaExtraVideos, repairCoreVideos, applyItalianTexts, autoWatchedIds, migrationPlan, seasonWriteSplit } = require('stremio/common/casaExtraVideos');
+const { mergeCasaExtraVideos, repairCoreVideos, applyEpisodeData, autoWatchedIds, migrationPlan, seasonWriteSplit } = require('stremio/common/casaExtraVideos');
 const { fetchExtraWatched, postExtraWatched } = require('stremio/common/casaExtraWatched');
 const useCasaExtraVideos = require('./useCasaExtraVideos');
 
@@ -63,8 +63,8 @@ const useCasaSeriesVideos = (metaReady, libraryItem, { model = 'MetaDetails', mi
     // Memo a parte: le righe riparate restano gli STESSI oggetti quando cambiano
     // solo library o flag.
     const coreVideos = React.useMemo(() => {
-        return applyItalianTexts(repairCoreVideos(metaReady ? metaReady.videos : [], extra.repairs, metaId), extra.texts);
-    }, [metaReady, extra.repairs, extra.texts, metaId]);
+        return applyEpisodeData(repairCoreVideos(metaReady ? metaReady.videos : [], extra.repairs, metaId), extra.episodes);
+    }, [metaReady, extra.repairs, extra.episodes, metaId]);
     const videos = React.useMemo(() => {
         return mergeCasaExtraVideos(
             coreVideos,

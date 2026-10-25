@@ -11,7 +11,7 @@ const { backdropFor } = require('stremio/common/casaBackdrop');
 const CasaBackdrop = require('./CasaBackdrop');
 // TV fork: niente HorizontalNavBar (nessuna top bar su TV).
 const { VerticalNavBar, DelayedRenderer, Image, MetaPreview, ModalDialog } = require('stremio/components');
-const useEpisodeRuntimes = require('stremio/common/useEpisodeRuntimes');
+const { runtimeOf } = require('stremio/common/casaExtraVideos');
 const useTitleAvailability = require('stremio/common/useTitleAvailability');
 const useLetterboxdRating = require('stremio/common/useLetterboxdRating');
 const { digitalReleaseLabel } = require('stremio/common/casaDigitalRelease');
@@ -122,12 +122,9 @@ const MetaDetails = () => {
         isSeriesView ? backdropFor({ video: heroVideo, background: seriesShown.background, hideSpoilers }) :
             isSeriesStreams ? backdropFor({ video, background: seriesShown.background, hideSpoilers }) :
                 metaReady.background;
-    const heroRuntimes = useEpisodeRuntimes(type, id, heroVideo?.season);
-    const heroRuntime = typeof heroVideo?.episode === 'number' && heroRuntimes.season === heroVideo.season ?
-        heroRuntimes.runtimes[String(heroVideo.episode)] ?? null : null;
-    const featuredRuntimes = useEpisodeRuntimes(type, id, featuredVideo?.season);
-    const featuredRuntime = typeof featuredVideo?.episode === 'number' && featuredRuntimes.season === featuredVideo.season ?
-        featuredRuntimes.runtimes[String(featuredVideo.episode)] ?? null : null;
+    // Durate REALI dall'episodio stesso (`casaRuntime`, dati TMDB del backend).
+    const heroRuntime = runtimeOf(heroVideo);
+    const featuredRuntime = runtimeOf(featuredVideo);
     const seriesInfo = React.useMemo(() => {
         if (!metaReady) return null;
         // Il core trasforma i generi di Cinemeta in `links` di categoria Genres.
@@ -152,16 +149,8 @@ const MetaDetails = () => {
         casaSeries.markSeason(featuredVideo.season, featuredSeasonWatched);
     }, [featuredVideo, featuredSeasonWatched, casaSeries.markSeason]);
 
-    // TV: durata REALE dell'episodio in preview (minuti). Il `runtime` del meta
-    // e' quello nominale della serie, uguale per ogni episodio -> per la riga
-    // stats la prendiamo dal backend (TMDB, per stagione). Assente = non mostrata.
-    // Il gate su `season` scarta la mappa della stagione precedente (race del
-    // refetch post-paint, vedi useEpisodeRuntimes).
-    const episodeRuntimes = useEpisodeRuntimes(type, id, previewVideo?.season);
-    const previewVideoRuntime = typeof previewVideo?.episode === 'number' && episodeRuntimes.season === previewVideo.season ?
-        episodeRuntimes.runtimes[String(previewVideo.episode)] ?? null
-        :
-        null;
+    // TV: durata REALE dell'episodio in preview (minuti); assente = non mostrata.
+    const previewVideoRuntime = runtimeOf(previewVideo);
 
     // TV Casa: data di uscita DIGITALE per i FILM (quando escono i primi rip
     // buoni). id null per le serie -> l'hook non chiama il backend. La label

@@ -14,7 +14,7 @@ const { handleRowsKeyDown, revealRow: revealRowBy, heroFirstAction } = require('
 const ROW = '[data-season-row]';
 const RAIL = '[data-season-rail]';
 const CARD = '[data-video-id]';
-const useEpisodeRuntimes = require('stremio/common/useEpisodeRuntimes');
+const { runtimeOf } = require('stremio/common/casaExtraVideos');
 const { episodeState } = require('stremio/common/casaEpisodeCard');
 const { default: EpisodePicker } = require('../EpisodePicker');
 const styles = require('./styles');
@@ -51,17 +51,13 @@ const withSeason = (deepLinks, season) => {
     return { ...deepLinks, metaDetailsStreams: `${link}?season=${season}` };
 };
 
-// Una riga stagione. Componente a se' per poter chiedere le durate REALI della
-// sua stagione (un hook per stagione: non si chiama un hook in un ciclo).
-// ⚠️ Una richiesta per stagione all'apertura, deliberato: mediana 2 stagioni
-// sulla library vera, e il backend le tiene in cache 24h.
-const SeasonRow = ({ row, metaType, metaId, focusTargetId, selectedVideoId, onOpen, onMarkVideoAsWatched, onMarkSeasonAsWatched }) => {
-    // ⚠️ Sugli Extra (stagione 0) la durata NON si chiede: TMDB e Cinemeta
-    // numerano gli speciali in modo diverso (Rick and Morty: 37 contro 113, lo
-    // speciale 2 di Cinemeta e' uno spot, quello di TMDB un'altra cosa), e la
-    // card mostrerebbe durate sbagliate ma credibili — l'errore che la durata
-    // "reale" esiste per evitare. Senza, si omette. Preso in review.
-    const runtimes = useEpisodeRuntimes(metaType, metaId, row.season === 0 ? null : row.season);
+// Una riga stagione. Le durate REALI viaggiano sugli episodi (`casaRuntime`,
+// dati TMDB del backend insieme a titoli e trame): nessuna richiesta per riga.
+const SeasonRow = ({ row, focusTargetId, selectedVideoId, onOpen, onMarkVideoAsWatched, onMarkSeasonAsWatched }) => {
+    // ⚠️ Sugli Extra (stagione 0) niente durata: TMDB e Cinemeta numerano gli
+    // speciali in modo diverso (Rick and Morty: 37 contro 113), la card
+    // mostrerebbe durate sbagliate ma credibili. Lo garantisce il backend
+    // (pickEpisodeData salta la stagione 0).
     const seasonWatched = row.videos.every((video) => video.watched);
     return (
         <div className={styles['season-row']} data-season-row={row.season === null ? '' : row.season}>
@@ -89,9 +85,7 @@ const SeasonRow = ({ row, metaType, metaId, focusTargetId, selectedVideoId, onOp
                         // niente onSelect, quindi OK non fa niente. Resta a fuoco
                         // (lo si legge), non e' un vicolo cieco: le frecce vanno.
                         const upcoming = episodeState(video) === 'upcoming';
-                        const runtime = runtimes.season === row.season && typeof runtimes.runtimes[video.episode] === 'number'
-                            ? runtimes.runtimes[video.episode]
-                            : null;
+                        const runtime = runtimeOf(video);
                         return (
                             <div
                                 key={video.id}
@@ -130,8 +124,6 @@ const SeasonRow = ({ row, metaType, metaId, focusTargetId, selectedVideoId, onOp
 
 SeasonRow.propTypes = {
     row: PropTypes.object.isRequired,
-    metaType: PropTypes.string,
-    metaId: PropTypes.string,
     focusTargetId: PropTypes.string,
     selectedVideoId: PropTypes.string,
     onOpen: PropTypes.func.isRequired,
@@ -526,8 +518,6 @@ const VideosList = ({ className, metaItem, libraryItem, videos: casaVideos, seas
                         <SeasonRow
                             key={row.season === null ? 'all' : row.season}
                             row={row}
-                            metaType={metaReady ? metaReady.type : null}
-                            metaId={metaReady ? metaReady.id : null}
                             focusTargetId={focusTarget ? focusTarget.id : null}
                             selectedVideoId={selectedVideoId}
                             onOpen={saveScrollPosition}

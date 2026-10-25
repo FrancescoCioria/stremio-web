@@ -178,7 +178,7 @@ const MetaPreview = React.forwardRef(({ className, compact, name, logo, backgrou
                                     null
                             }
                             {
-                                /* Durata dell'episodio (TMDB, via useEpisodeRuntimes).
+                                /* Durata dell'episodio (TMDB, `casaRuntime` sul video, casaExtraVideos.js).
                                  * Assente per le serie che TMDB non conosce: si omette
                                  * invece di ripiegare sul runtime nominale della serie,
                                  * che sarebbe lo stesso numero su ogni episodio. */

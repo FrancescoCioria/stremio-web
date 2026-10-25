@@ -38,9 +38,9 @@ const upcomingAirLabel = (released) => {
     return `${released.getDate()} ${month.toUpperCase()}`;
 };
 
-// La riga sotto il titolo. `runtime` = minuti REALI dell'episodio (TMDB, via
-// useEpisodeRuntimes) o null: senza, la durata si OMETTE — mai il runtime
-// nominale della serie, che su Cinemeta e' uguale per tutti gli episodi e
+// La riga sotto il titolo. `runtime` = minuti REALI dell'episodio (TMDB,
+// `casaRuntime` sul video, casaExtraVideos.js) o null: senza, la durata si
+// OMETTE — mai il runtime nominale della serie, che su Cinemeta e' uguale per tutti gli episodi e
 // spesso lontano dal vero (The Last of Us dichiara 56, vanno da 46 a 81).
 const episodeMeta = (video, runtime, now = Date.now()) => {
     const state = episodeState(video, now);

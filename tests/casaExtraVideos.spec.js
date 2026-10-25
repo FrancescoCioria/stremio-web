@@ -267,25 +267,36 @@ describe('repairCoreVideos', () => {
     });
 });
 
-describe('applyItalianTexts', () => {
-    const { applyItalianTexts } = require('../src/common/casaExtraVideos');
+describe('applyEpisodeData', () => {
+    const { applyEpisodeData, runtimeOf } = require('../src/common/casaExtraVideos');
     const v1 = { id: 'tt5875444:1:1', title: "Failure's Contagious", overview: 'River is ousted', watched: true };
     const v2 = { id: 'tt5875444:1:2', title: 'Work Drinks', overview: 'EN' };
 
     test('titolo e trama italiani; il resto del video intatto', () => {
-        const out = applyItalianTexts([v1, v2], [{ id: v1.id, title: 'Il fallimento è contagioso', overview: 'River viene espulso' }]);
+        const out = applyEpisodeData([v1, v2], [{ id: v1.id, title: 'Il fallimento è contagioso', overview: 'River viene espulso', runtime: 55 }]);
         expect(out[0]).toMatchObject({ title: 'Il fallimento è contagioso', overview: 'River viene espulso', watched: true });
         expect(out[1]).toBe(v2);
+        expect(runtimeOf(out[0])).toBe(55);
+        expect(runtimeOf(out[1])).toBe(null);
     });
 
     test('campo assente (titolo generico, trama vuota) = resta Cinemeta', () => {
-        const [out] = applyItalianTexts([v1], [{ id: v1.id, title: null, overview: 'Trama it' }]);
+        const [out] = applyEpisodeData([v1], [{ id: v1.id, title: null, overview: 'Trama it' }]);
         expect(out).toMatchObject({ title: "Failure's Contagious", overview: 'Trama it' });
     });
 
     test('nessun testo = STESSO array', () => {
         const vs = [v1];
-        expect(applyItalianTexts(vs, [])).toBe(vs);
-        expect(applyItalianTexts(vs, [{ id: 'tt1:1:1', title: 'x', overview: null }])).toBe(vs);
+        expect(applyEpisodeData(vs, [])).toBe(vs);
+        expect(applyEpisodeData(vs, [{ id: 'tt1:1:1', title: 'x', overview: null }])).toBe(vs);
+    });
+});
+
+describe('buildCasaVideo, durata', () => {
+    test('runtime -> casaRuntime; 0 o null -> null', () => {
+        const base = { id: 'tt1194223:20:2', season: 20, episode: 2, title: 'x', released: null, thumbnail: null };
+        expect(buildCasaVideo('tt1194223', { ...base, runtime: 144 }).casaRuntime).toBe(144);
+        expect(buildCasaVideo('tt1194223', { ...base, runtime: 0 }).casaRuntime).toBe(null);
+        expect(buildCasaVideo('tt1194223', { ...base, runtime: null }).casaRuntime).toBe(null);
     });
 });
