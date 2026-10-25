@@ -188,7 +188,8 @@ const useCasaSeriesVideos = (metaReady, libraryItem, { model = 'MetaDetails', mi
         writeExtra(split.extraIds, !watched, 'season');
     }, [videos, writeExtra, model]);
 
-    return { videos, markVideo, markSeason, refresh };
+    // `fill` = campi TMDB della scheda (casaSeriesFill.js), o null.
+    return { videos, markVideo, markSeason, refresh, fill: extra.meta };
 };
 
 module.exports = useCasaSeriesVideos;

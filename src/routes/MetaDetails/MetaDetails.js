@@ -19,6 +19,7 @@ const StreamsList = require('./StreamsList');
 const VideosList = require('./VideosList');
 const useMetaDetails = require('./useMetaDetails');
 const useCasaSeriesVideos = require('./useCasaSeriesVideos');
+const { fillSeriesMeta } = require('stremio/common/casaSeriesFill');
 const useSeason = require('./useSeason');
 const SeriesHero = require('./SeriesHero');
 const { airedSeasonCount } = require('stremio/common/casaEpisodeFocus');
@@ -55,6 +56,9 @@ const MetaDetails = () => {
     // lista del core, su X Factor S20 (Cinemeta = solo E01) l'hero dava la
     // stagione per vista e "Togli il visto" toglieva il visto a E01 e basta.
     const casaSeries = useCasaSeriesVideos(metaReady, metaDetails.libraryItem);
+    // Cio' che la pagina serie MOSTRA: il meta del core con i campi vuoti
+    // riempiti da TMDB (casaSeriesFill.js). Alle scritture nel core resta metaReady.
+    const seriesShown = React.useMemo(() => fillSeriesMeta(metaReady, casaSeries.fill), [metaReady, casaSeries.fill]);
     // Ritorno dalla pagina torrent alla lista: li' il player esterno puo' aver
     // segnato visto un extra direttamente nel backend (Stream.js).
     const wasStreamsRef = React.useRef(false);
@@ -115,8 +119,8 @@ const MetaDetails = () => {
     const profile = useProfile();
     const hideSpoilers = !!(profile && profile.settings && profile.settings.hideSpoilers);
     const backdropSrc = !metaReady ? null :
-        isSeriesView ? backdropFor({ video: heroVideo, background: metaReady.background, hideSpoilers }) :
-            isSeriesStreams ? backdropFor({ video, background: metaReady.background, hideSpoilers }) :
+        isSeriesView ? backdropFor({ video: heroVideo, background: seriesShown.background, hideSpoilers }) :
+            isSeriesStreams ? backdropFor({ video, background: seriesShown.background, hideSpoilers }) :
                 metaReady.background;
     const heroRuntimes = useEpisodeRuntimes(type, id, heroVideo?.season);
     const heroRuntime = typeof heroVideo?.episode === 'number' && heroRuntimes.season === heroVideo.season ?
@@ -250,13 +254,14 @@ const MetaDetails = () => {
     }, [urlParams, location]);
 
     const renderBackgroundImageFallback = React.useCallback(() => null, []);
+    // Sfondo anche quando lo da' solo TMDB (scheda Cinemeta grezza, casaSeriesFill.js).
     const renderBackground = React.useMemo(() => !!(
         metaPath &&
         metaDetails?.metaItem &&
         metaDetails.metaItem.content.type !== 'Loading' &&
-        typeof metaDetails.metaItem.content.content?.background === 'string' &&
-        metaDetails.metaItem.content.content.background.length > 0
-    ), [metaPath, metaDetails]);
+        typeof seriesShown?.background === 'string' &&
+        seriesShown.background.length > 0
+    ), [metaPath, metaDetails, seriesShown]);
 
     useContentGamepadNavigation(contentRef, GAMEPAD_HANDLER_ID);
     return (
@@ -369,13 +374,14 @@ const MetaDetails = () => {
                                             <SeriesHero
                                                 key={'series-hero-streams'}
                                                 className={classnames(styles['series-hero'], 'animation-fade-in')}
-                                                name={metaReady.name}
-                                                logo={metaReady.logo}
+                                                name={seriesShown.name}
+                                                logo={seriesShown.logo}
+                                                fallbackLogo={seriesShown.casaFallbackLogo}
                                                 genres={seriesInfo.genres}
                                                 seasonCount={seasonCount}
                                                 episode={video}
                                                 episodeRuntime={previewVideoRuntime}
-                                                seriesDescription={metaReady.description}
+                                                seriesDescription={seriesShown.description}
                                                 imdbRating={letterboxd.imdb}
                                                 featured={null}
                                                 infoOnly={true}
@@ -385,13 +391,14 @@ const MetaDetails = () => {
                                                 <SeriesHero
                                                     key={'series-hero-episodes'}
                                                     className={classnames(styles['series-hero'], 'animation-fade-in')}
-                                                    name={metaReady.name}
-                                                    logo={metaReady.logo}
+                                                    name={seriesShown.name}
+                                                    logo={seriesShown.logo}
+                                                    fallbackLogo={seriesShown.casaFallbackLogo}
                                                     genres={seriesInfo.genres}
                                                     seasonCount={seasonCount}
                                                     episode={heroVideo}
                                                     episodeRuntime={heroRuntime}
-                                                    seriesDescription={metaReady.description}
+                                                    seriesDescription={seriesShown.description}
                                                     imdbRating={letterboxd.imdb}
                                                     featured={featuredVideo}
                                                     featuredRuntime={featuredRuntime}

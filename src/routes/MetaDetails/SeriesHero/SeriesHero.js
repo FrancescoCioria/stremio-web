@@ -48,7 +48,7 @@ const ACTION_SELECTOR = '[data-hero-action]';
 // ~2 righe del corpo pieno (830 px, 54 px, spaziatura 11).
 const WORDMARK_LONG_CHARS = 28;
 
-const SeriesHero = ({ className, name, logo, genres, seasonCount, episode, episodeRuntime, seriesDescription, imdbRating, featured, featuredRuntime, featuredSeasonWatched, trailerHref, inLibrary, onAddToLibrary, onRemoveFromLibrary, showNotifications, notificationsEnabled, onToggleNotifications, ratingInfo, onMarkSeasonWatched, autoFocus, infoOnly, kind, movieRuntime, year, letterboxdRating, rtScore, digitalReleaseLabel, watched, onToggleWatched }) => {
+const SeriesHero = ({ className, name, logo, fallbackLogo, genres, seasonCount, episode, episodeRuntime, seriesDescription, imdbRating, featured, featuredRuntime, featuredSeasonWatched, trailerHref, inLibrary, onAddToLibrary, onRemoveFromLibrary, showNotifications, notificationsEnabled, onToggleNotifications, ratingInfo, onMarkSeasonWatched, autoFocus, infoOnly, kind, movieRuntime, year, letterboxdRating, rtScore, digitalReleaseLabel, watched, onToggleWatched }) => {
     // Casa, 2026-09-21: anche i FILM (richiesta dell'utente). Stesso hero,
     // senza episodio: il kicker dice FILM, i metadati portano cio' che il film
     // aveva in MetaPreview (Letterboxd, RT, "Disponibile dal"), e tra le azioni
@@ -244,7 +244,14 @@ const SeriesHero = ({ className, name, logo, genres, seasonCount, episode, episo
                             className={styles['logo']}
                             src={logo}
                             alt={name}
-                            renderFallback={() => wordmark}
+                            // Logo che non carica (metahub 404): prima il logo TMDB,
+                            // poi il titolo scritto (casaSeriesFill.js).
+                            renderFallback={() => (
+                                fallbackLogo ?
+                                    <Image className={styles['logo']} src={fallbackLogo} alt={name} renderFallback={() => wordmark} />
+                                    :
+                                    wordmark
+                            )}
                         />
                         :
                         // Fallback tipografico dell'handoff: la copertura dei
@@ -409,6 +416,7 @@ SeriesHero.propTypes = {
     className: PropTypes.string,
     name: PropTypes.string,
     logo: PropTypes.string,
+    fallbackLogo: PropTypes.string,
     genres: PropTypes.arrayOf(PropTypes.string),
     seasonCount: PropTypes.number,
     episode: PropTypes.object,

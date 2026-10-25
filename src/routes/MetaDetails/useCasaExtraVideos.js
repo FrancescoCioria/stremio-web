@@ -2,7 +2,8 @@
 //
 // Casa: chiede al backend quali episodi di questa serie esistono ma non sono
 // elencati da Cinemeta (`videos`) e i dati TMDB per quelli che Cinemeta elenca
-// con la scheda grezza (`repairs`). Il perche' di entrambi in
+// con la scheda grezza (`repairs`), piu' i campi TMDB della scheda (`meta`,
+// common/casaSeriesFill.js). Il perche' degli episodi in
 // common/casaExtraVideos.js.
 //
 // Fail-soft in ogni ramo: backend spento, rete assente o risposta strana
@@ -12,7 +13,7 @@
 const React = require('react');
 const { casaBackendUrl } = require('stremio/common/casaBackend');
 
-const EMPTY = { videos: [], repairs: [] };
+const EMPTY = { videos: [], repairs: [], meta: null };
 
 const useCasaExtraVideos = (type, metaId) => {
     const [extra, setExtra] = React.useState(EMPTY);
@@ -29,6 +30,7 @@ const useCasaExtraVideos = (type, metaId) => {
                 setExtra({
                     videos: Array.isArray(d.videos) ? d.videos : [],
                     repairs: Array.isArray(d.repairs) ? d.repairs : [],
+                    meta: d.meta && typeof d.meta === 'object' ? d.meta : null,
                 });
             })
             .catch(() => { /* niente extra: la lista resta quella del core */ });
