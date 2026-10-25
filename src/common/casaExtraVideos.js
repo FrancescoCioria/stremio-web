@@ -158,10 +158,10 @@ const mergeCasaExtraVideos = (videos, extra, metaId, fallbackThumbnail, libraryS
 // `/stremio-addon/extra-videos`). Backend giu' = si ripara solo dall'id.
 // ⚠️ Solo i video SENZA stagione/episodio: una scheda normale esce identica
 // (stesso array), qualunque cosa dica il backend.
-// Limite noto: ripara la lista della pagina serie e del menu episodi del
-// player (useCasaSeriesVideos). La card in Continua a guardare
-// (casaMetaCache.fetchSeriesVideos) legge Cinemeta grezzo; "episodio
-// successivo" del core va per posizione nella lista e regge comunque.
+// Ripara la lista della pagina serie e del menu episodi del player
+// (useCasaSeriesVideos); la card in Continua a guardare prende solo le DATE
+// (casaMetaCache.withRepairDates). Limite noto: "episodio successivo" del core
+// nel player va per posizione e, senza date, propone anche un episodio futuro.
 // ⚠️ `released` dalla useMetaDetails arriva come Date anche quando manca
 // (`new Date(NaN)`): "c'e'" = Date valida.
 const isRaw = (v) => !!v && typeof v.id === 'string' && (typeof v.season !== 'number' || typeof v.episode !== 'number');

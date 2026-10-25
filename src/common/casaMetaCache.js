@@ -69,6 +69,25 @@ const withExtraVideos = (videos, extra) => {
     return out;
 };
 
+// Scheda Cinemeta GREZZA (casaExtraVideos.js, repairCoreVideos): episodi senza
+// `released` = "gia' uscito" per nextVideoAfter (come per il core). Caso: 883
+// (tt42026819), card su E04 nei titoli di coda -> E05, in onda il 30/10 ->
+// pagina torrent vuota. Si mette la data TMDB dei `repairs` del backend dove
+// manca. Puro; senza repairs = lista tale e quale.
+// Limite: "2026-10-30" = mezzanotte UTC, quindi il giorno della messa in onda
+// l'episodio conta come uscito dall'01:00 (come le righe extra).
+const withRepairDates = (videos, repairs) => {
+    if (!Array.isArray(videos) || !Array.isArray(repairs) || repairs.length === 0) return videos;
+    const byId = new Map(repairs.filter((r) => r && typeof r.id === 'string' && r.released).map((r) => [r.id, r.released]));
+    let changed = false;
+    const out = videos.map((v) => {
+        if (!v || v.released || !byId.has(v.id)) return v;
+        changed = true;
+        return { ...v, released: byId.get(v.id) };
+    });
+    return changed ? out : videos;
+};
+
 const fetchSeriesVideos = (type, id) => {
     const baseId = baseIdOf(id);
     if (!type || !baseId) return Promise.resolve(null);
@@ -78,8 +97,9 @@ const fetchSeriesVideos = (type, id) => {
         backend ? fetchJson(backend) : Promise.resolve(null),
     ]).then(([data, extra]) => {
         const videos = data && data.meta && Array.isArray(data.meta.videos) ? data.meta.videos : null;
-        return withExtraVideos(videos, extra && Array.isArray(extra.videos) ? extra.videos : null);
+        const dated = withRepairDates(videos, extra && Array.isArray(extra.repairs) ? extra.repairs : null);
+        return withExtraVideos(dated, extra && Array.isArray(extra.videos) ? extra.videos : null);
     });
 };
 
-module.exports = { baseIdOf, fetchSeriesVideos, withExtraVideos };
+module.exports = { baseIdOf, fetchSeriesVideos, withExtraVideos, withRepairDates };
