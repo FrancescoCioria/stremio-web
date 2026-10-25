@@ -89,6 +89,12 @@
             filter: drop-shadow(0 0 1rem rgba(0,0,0,0.5));
         }
 
+        /* ⚠️ `padding-bottom`: lo slot del logo allinea il titolo al suo bordo
+         * basso e (come tutto, `* { overflow: hidden }` in App/styles.less)
+         * ritaglia: con interlinea 1,05 le lettere che scendono sotto la riga
+         * dell'ultima riga uscivano dallo slot (g, p, q: "Col cuore in gola",
+         * 25/10/2026). Il margine le tiene dentro; 2 righe a 4rem + margine
+         * stanno nei 10rem dello slot. */
         .hero-title {
             width: 100%;
             font-size: 4rem;
@@ -96,7 +102,7 @@
             color: var(--primary-foreground-color);
             line-height: 1.05;
             letter-spacing: -0.02em;
-            overflow: hidden;
+            padding-bottom: 0.15em;
 
             &.long {
                 font-size: 2.6rem;
