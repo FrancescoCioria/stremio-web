@@ -10,16 +10,38 @@ function srt2webvtt(data) {
     var result = '';
     if (cuelist.length > 0) {
         result += 'WEBVTT\n\n';
+        var cues = [];
         for (var i = 0; i < cuelist.length; i = i + 1) {
-            result += convertSrtCue(cuelist[i]);
+            // Riga vuota DENTRO una battuta (Paperman, 29/10/2026: 24 volte in un file): il
+            // pezzo dopo e' solo testo, senza numero ne' tempi. Prima mandava in eccezione
+            // convertSrtCue e si perdeva TUTTA la traccia; ora si riattacca alla battuta prima.
+            if (!/\d+:\d+:\d+/.test(cuelist[i])) {
+                var last = cues.length - 1;
+                if (last >= 0 && /\n\n$/.test(cues[last]) && cuelist[i].trim().length > 0) {
+                    cues[last] = cues[last].replace(/\n\n$/, '\n' + stripHtmlTags(cuelist[i]) + '\n\n');
+                }
+                continue;
+            }
+
+            // Una battuta malformata si scarta da sola, mai l'intero file.
+            try {
+                cues.push(convertSrtCue(cuelist[i]));
+            } catch (error) {
+                cues.push('');
+            }
         }
+        result += cues.join('');
     }
     return result;
 }
 
-function convertSrtCue(caption) {
+function stripHtmlTags(text) {
     // remove all html tags for security reasons
-    caption = caption.replace(/<[a-zA-Z/][^>]*>/g, '');
+    return text.replace(/<[a-zA-Z/][^>]*>/g, '');
+}
+
+function convertSrtCue(caption) {
+    caption = stripHtmlTags(caption);
 
     var cue = '';
     var s = caption.split(/\n/);
