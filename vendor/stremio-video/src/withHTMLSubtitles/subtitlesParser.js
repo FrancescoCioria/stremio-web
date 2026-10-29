@@ -1,5 +1,6 @@
 var VTTJS = require('vtt.js');
 var binarySearchUpperBound = require('./binarySearchUpperBound');
+var stripAssOverrides = require('./casaAssTags').stripAssOverrides;
 
 var CRITICAL_ERROR_CODE = 0;
 
@@ -11,10 +12,15 @@ function parse(text) {
         var cuesByTime = {};
 
         parser.oncue = function(c) {
+            var text = stripAssOverrides(c.text);
+            if (text.trim().length === 0) {
+                return;
+            }
+
             var cue = {
                 startTime: (c.startTime * 1000) | 0,
                 endTime: (c.endTime * 1000) | 0,
-                text: c.text
+                text: text
             };
             cues.push(cue);
             cuesByTime[cue.startTime] = cuesByTime[cue.startTime] || [];
