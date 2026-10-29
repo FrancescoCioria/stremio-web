@@ -1,6 +1,6 @@
 var VTTJS = require('vtt.js');
 var binarySearchUpperBound = require('./binarySearchUpperBound');
-var stripAssOverrides = require('./casaAssTags').stripAssOverrides;
+var cleanCueText = require('./casaSubtitlesCleanup').cleanCueText;
 
 var CRITICAL_ERROR_CODE = 0;
 
@@ -12,7 +12,7 @@ function parse(text) {
         var cuesByTime = {};
 
         parser.oncue = function(c) {
-            var text = stripAssOverrides(c.text);
+            var text = cleanCueText(c.text);
             if (text.trim().length === 0) {
                 return;
             }
