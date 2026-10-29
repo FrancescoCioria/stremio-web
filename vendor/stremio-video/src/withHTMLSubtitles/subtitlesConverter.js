@@ -1,3 +1,5 @@
+var KEEP_STYLE_TAGS = require('./casaSubtitlesCleanup').KEEP_STYLE_TAGS;
+
 // from: https://github.com/silviapfeiffer/silviapfeiffer.github.io/blob/master/index.html#L150-L216
 
 function srt2webvtt(data) {
@@ -37,8 +39,11 @@ function srt2webvtt(data) {
 }
 
 function stripHtmlTags(text) {
-    // remove all html tags for security reasons
-    return text.replace(/<[a-zA-Z/][^>]*>/g, '');
+    // remove all html tags for security reasons (tranne <i> <b> <u>, senza attributi, se KEEP_STYLE_TAGS)
+    return text.replace(/<[a-zA-Z/][^>]*>/g, function(tag) {
+        var style = KEEP_STYLE_TAGS ? /^<(\/?)([ibu])(\s[^>]*)?>$/i.exec(tag) : null;
+        return style ? '<' + style[1] + style[2].toLowerCase() + '>' : '';
+    });
 }
 
 function convertSrtCue(caption) {

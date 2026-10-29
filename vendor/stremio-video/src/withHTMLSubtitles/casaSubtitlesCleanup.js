@@ -1,6 +1,12 @@
 // Pulizia del testo delle cue (tracce extra: OpenSubtitles, copie Casa). Misure su 155 SRT
 // OpenSubtitles visti dalla tile fra agosto e ottobre 2026 (29/10/2026).
 
+// FLAG: corsivo/grassetto/sottolineato degli SRT (<i> in 97 file su 155, ~11k tag; <b> in
+// pochi). Upstream li toglieva insieme a ogni altro tag HTML "for security reasons": voci fuori
+// campo e canzoni finivano in tondo. vtt.js li rende con createElement (niente innerHTML).
+// false = come prima, tutto in tondo.
+var KEEP_STYLE_TAGS = true;
+
 // Tag di override ASS dentro SRT/VTT ("{\an8}" = "mettilo in alto", 26 file su 155): ne'
 // srt2webvtt ne' vtt.js li capiscono, finivano a schermo come testo. Si tolgono solo i
 // blocchi che iniziano con "\": una "{" nel dialogo resta.
@@ -68,6 +74,7 @@ function cleanCueText(text) {
 }
 
 module.exports = {
+    KEEP_STYLE_TAGS: KEEP_STYLE_TAGS,
     cleanCueText: cleanCueText,
     stripAssOverrides: stripAssOverrides,
     fixMojibake: fixMojibake

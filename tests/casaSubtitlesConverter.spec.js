@@ -16,3 +16,18 @@ describe('srt2webvtt', () => {
         expect(convert(srt)).toBe('WEBVTT\n\n650\n00:37:40.000 --> 00:37:41.000\nBerlin?\n\n');
     });
 });
+
+describe('tag di stile (KEEP_STYLE_TAGS)', () => {
+    const { KEEP_STYLE_TAGS } = require('../vendor/stremio-video/src/withHTMLSubtitles/casaSubtitlesCleanup');
+
+    test('flag acceso: <i> <b> <u> restano (senza attributi), <font> e il resto no', () => {
+        expect(KEEP_STYLE_TAGS).toBe(true);
+        const srt = '1\n00:00:01,000 --> 00:00:02,000\n<font color="#ffff00"><i>Hear</i> the <B>bell</B></font> <u>now</u> <i class="x">x</i> <script>y</script>';
+        expect(convert(srt)).toBe('WEBVTT\n\n1\n00:00:01.000 --> 00:00:02.000\n<i>Hear</i> the <b>bell</b> <u>now</u> <i>x</i> y\n\n');
+    });
+});
+
+test('riga vuota doppia dentro una battuta: il pezzo riattaccato non porta righe vuote', () => {
+    const srt = '1\n00:00:01,000 --> 00:00:02,000\nUno\n\n\ndue\n\n2\n00:00:03,000 --> 00:00:04,000\nTre';
+    expect(convert(srt)).toContain('Uno\ndue\n\n2\n');
+});
