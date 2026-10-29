@@ -17,8 +17,9 @@ function srt2webvtt(data) {
             // convertSrtCue e si perdeva TUTTA la traccia; ora si riattacca alla battuta prima.
             if (!/\d+:\d+:\d+/.test(cuelist[i])) {
                 var last = cues.length - 1;
-                if (last >= 0 && /\n\n$/.test(cues[last]) && cuelist[i].trim().length > 0) {
-                    cues[last] = cues[last].replace(/\n\n$/, '\n' + stripHtmlTags(cuelist[i]) + '\n\n');
+                var text = cuelist[i].trim();
+                if (last >= 0 && /\n\n$/.test(cues[last]) && text.length > 0) {
+                    cues[last] = cues[last].replace(/\n\n$/, '\n' + stripHtmlTags(text) + '\n\n');
                 }
                 continue;
             }
