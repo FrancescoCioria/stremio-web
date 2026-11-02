@@ -6,7 +6,7 @@ const PropTypes = require('prop-types');
 const classnames = require('classnames');
 const useTranslate = require('stremio/common/useTranslate');
 const MetaRowPlaceholder = require('./MetaRowPlaceholder');
-const { casaBackendUrl } = require('stremio/common/casaBackend');
+const { casaBackendUrl, casaBeacon } = require('stremio/common/casaBackend');
 const { freshnessOrder } = require('stremio/common/casaSearchOrder');
 const styles = require('./styles');
 
@@ -22,7 +22,7 @@ const TV_PREVIEW_SIZE = 100;
 
 // `freshnessQuery` (solo la Ricerca): riordino "piu' recente fra titoli con
 // voti IMDb simili" sopra l'ordine di Cinemeta, vedi casaSearchOrder.js.
-const MetaRow = ({ className, title, catalog, message, itemComponent, notifications, freshnessQuery }) => {
+const MetaRow = ({ className, title, catalog, message, itemComponent, notifications, freshnessQuery, rowId }) => {
     const t = useTranslate();
 
     const catalogTitle = React.useMemo(() => {
@@ -121,35 +121,57 @@ const MetaRow = ({ className, title, catalog, message, itemComponent, notificati
     const rowRef = React.useRef(null);
     const itemsRef = React.useRef(items);
     itemsRef.current = items;
-    const onRowFocus = React.useCallback((e) => {
-        const btn = e.target.closest('a[href]');
-        if (!btn || !rowRef.current) return;
+    // Card (item + posizione nella riga) da un evento su un suo discendente.
+    const itemFromTarget = (target) => {
+        const btn = target.closest('a[href]');
+        if (!btn || !rowRef.current) return null;
         const href = btn.getAttribute('href') || '';
         // href pattern puo' essere:
         //   #/metadetails/{type}/{id}
         //   #/detail/{type}/{metaId}            (metaDetailsVideos)
         //   #/detail/{type}/{metaId}/{videoId}  (metaDetailsStreams)
         //   #/player/...                         (continue watching)
+        const idx = [...rowRef.current.querySelectorAll('a[href]')].indexOf(btn);
         let it = null;
         const m = href.match(/#\/(?:metadetails|detail)\/[^/]+\/([^/?]+)/);
         if (m) {
             const id = decodeURIComponent(m[1]);
             it = itemsRef.current.find((x) => x && (x.id === id || x._id === id));
         }
-        if (!it) {
-            // Fallback per CW e altri formati: trova l'item dalla posizione
-            // DOM della card focus-ata rispetto alle card della riga.
-            const card = btn;
-            const allCards = rowRef.current.querySelectorAll('a[href]');
-            const idx = [...allCards].indexOf(card);
-            if (idx >= 0) it = itemsRef.current[idx];
-        }
-        if (!it) return;
+        // Fallback per CW e altri formati: l'item alla posizione DOM della card.
+        if (!it && idx >= 0) it = itemsRef.current[idx];
+        return it ? { it, idx } : null;
+    };
+    const onRowFocus = React.useCallback((e) => {
+        const found = itemFromTarget(e.target);
+        if (!found) return;
+        const it = found.it;
         rowRef.current.dispatchEvent(new CustomEvent('casa-meta-focus', {
             bubbles: true,
             detail: { item: it },
         }));
     }, []);
+    // Casa: QUALE riga della home ha fatto aprire un titolo (2026-11-02).
+    // Senza, non si sa se una riga serve: le visioni dicono cosa si e'
+    // guardato, mai da dove si e' partiti. Si incrocia con `player-state`
+    // (stesso log, `videoId`). Click = mouse E Invio del telecomando (un <a>
+    // a fuoco riceve click): una strada sola. Non sono aperture: il menu della
+    // card (`selectPrevented`, lo mette MetaItem) e la X "Azzera" di Continua a
+    // guardare. ⚠️ NON `defaultPrevented`: MetaItem lo mette su OGNI click
+    // (naviga lui con navigateWithOrigin), non si loggherebbe niente.
+    const onRowClick = React.useCallback((e) => {
+        if (!rowId || e.nativeEvent.selectPrevented) return;
+        if (e.target.closest('[class*="dismiss-icon-layer"]')) return;
+        const found = itemFromTarget(e.target);
+        if (!found) return;
+        casaBeacon('/debug/player-event', {
+            ev: 'casa-board-open',
+            row: rowId,
+            id: found.it.id ?? found.it._id ?? null,
+            type: found.it.type ?? null,
+            pos: found.idx,
+        });
+    }, [rowId]);
     // Riordino (freshness) arrivato col focus gia' sulla riga: la card a fuoco
     // (key = indice) ora mostra un altro titolo -> riallinea l'hero.
     React.useEffect(() => {
@@ -162,7 +184,7 @@ const MetaRow = ({ className, title, catalog, message, itemComponent, notificati
     }, [catalog]);
 
     return (
-        <div ref={rowRef} onFocusCapture={onRowFocus} className={classnames(className, styles['meta-row-container'])}>
+        <div ref={rowRef} onFocusCapture={onRowFocus} onClick={onRowClick} className={classnames(className, styles['meta-row-container'])}>
             <div className={styles['header-container']}>
                 {
                     typeof catalogTitle === 'string' && catalogTitle.length > 0 ?
@@ -233,6 +255,8 @@ MetaRow.propTypes = {
     itemComponent: PropTypes.elementType,
     notifications: PropTypes.object,
     freshnessQuery: PropTypes.string,
+    // Casa: id della riga per il log delle aperture (solo la home).
+    rowId: PropTypes.string,
 };
 
 module.exports = MetaRow;
