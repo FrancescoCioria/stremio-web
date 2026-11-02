@@ -14,6 +14,7 @@ const ImdbMark = require('stremio/common/ImdbMark');
 const { NONE: NO_RATINGS } = require('stremio/common/useLetterboxdRating');
 const { NONE: NO_AVAILABILITY } = require('stremio/common/useTitleAvailability');
 const { getHero, fetchHero, subscribe, keyOf } = require('stremio/common/casaHero');
+const { useDarkLogo } = require('stremio/common/casaLogoTone');
 const styles = require('./styles');
 
 // Tutto cio' che l'hero mostra di un titolo, dal backend (`common/casaHero.js`):
@@ -100,6 +101,8 @@ const BoardHero = ({ meta: rawMeta }) => {
     // ⚠️ Prima delle uscite anticipate: gli hook non possono stare sotto un
     // `return`. Con `meta` nullo non chiede niente.
     const { meta, ratings, availability, suggestion, done: enrichmentDone } = useCasaHero(rawMeta);
+    // Logo nero su fondo scuro (NOCTURNE) -> disegnato bianco: casaLogoTone.js.
+    const darkLogo = useDarkLogo(meta ? meta.logo : null);
     if (!meta) {
         return <div className={styles['board-hero-container']} />;
     }
@@ -144,6 +147,23 @@ const BoardHero = ({ meta: rawMeta }) => {
             {meta.name}
         </div>
     );
+    const credits = directorText || castText ?
+        <div className={styles['hero-cast']}>
+            {directorText ?
+                <span className={styles['hero-credit']}>
+                    <span className={styles['hero-credit-label']}>{t('CASA_DIRECTOR')}</span>{directorText}
+                </span>
+                : null}
+            {directorText && castText ?
+                <span className={styles['hero-credit-sep']} aria-hidden={true} />
+                : null}
+            {castText ?
+                <span className={styles['hero-credit']}>
+                    <span className={styles['hero-credit-label']}>{t('CASA_CAST')}</span>{castText}
+                </span>
+                : null}
+        </div>
+        : null;
     return (
         <div className={classnames(styles['board-hero-container'], 'animation-fade-in')}>
             {
@@ -167,7 +187,7 @@ const BoardHero = ({ meta: rawMeta }) => {
                         typeof meta.logo === 'string' && meta.logo.length > 0 ?
                             <Image
                                 key={meta.id + '-logo'}
-                                className={styles['hero-logo']}
+                                className={classnames(styles['hero-logo'], { [styles['dark-logo']]: darkLogo })}
                                 src={meta.logo}
                                 alt={meta.name}
                                 renderFallback={() => title}
@@ -227,23 +247,7 @@ const BoardHero = ({ meta: rawMeta }) => {
                             <span className={styles['hero-credit-label']}>{t('CASA_WHY_FOR_YOU')}</span>{suggestion.reason}
                         </div>
                         :
-                    directorText || castText ?
-                        <div className={styles['hero-cast']}>
-                            {directorText ?
-                                <span className={styles['hero-credit']}>
-                                    <span className={styles['hero-credit-label']}>{t('CASA_DIRECTOR')}</span>{directorText}
-                                </span>
-                                : null}
-                            {directorText && castText ?
-                                <span className={styles['hero-credit-sep']} aria-hidden={true} />
-                                : null}
-                            {castText ?
-                                <span className={styles['hero-credit']}>
-                                    <span className={styles['hero-credit-label']}>{t('CASA_CAST')}</span>{castText}
-                                </span>
-                                : null}
-                        </div>
-                        : null
+                        credits
                 }
             </div>
         </div>

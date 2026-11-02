@@ -10,6 +10,7 @@ const { default: Image } = require('stremio/components/Image');
 const { default: ActionsGroup } = require('stremio/components/ActionsGroup');
 const LetterboxdMark = require('stremio/common/LetterboxdMark');
 const ImdbMark = require('stremio/common/ImdbMark');
+const { useDarkLogo } = require('stremio/common/casaLogoTone');
 const ModalDialog = require('stremio/components/ModalDialog');
 const SharePrompt = require('stremio/components/SharePrompt');
 const CONSTANTS = require('stremio/common/CONSTANTS');
@@ -29,6 +30,8 @@ const ALLOWED_LINK_REDIRECTS = [
 ];
 
 const MetaPreview = React.forwardRef(({ className, compact, name, logo, background, runtime, releaseInfo, released, description, deepLinks, links, trailerStreams, inLibrary, toggleInLibrary, watched, toggleWatched, ratingInfo, focusedEpisode, focusedEpisodeRuntime, movieDigitalReleaseLabel, typeLabel, letterboxdRating, letterboxdSlug, imdbRating, rtScore, hideActions, showWatchedToggle, showNotificationsToggle, notificationsEnabled, toggleNotifications }, ref) => {
+    // Logo nero su fondo scuro -> disegnato bianco (casaLogoTone.js), come nell'hero della home.
+    const darkLogo = useDarkLogo(logo);
     const { t } = useTranslation();
     const [shareModalOpen, openShareModal, closeShareModal] = useBinaryState(false);
     const linksGroups = React.useMemo(() => {
@@ -143,7 +146,7 @@ const MetaPreview = React.forwardRef(({ className, compact, name, logo, backgrou
                 {
                     typeof logo === 'string' && logo.length > 0 ?
                         <Image
-                            className={styles['logo']}
+                            className={classnames(styles['logo'], { [styles['dark-logo']]: darkLogo })}
                             src={logo}
                             alt={' '}
                             title={name}

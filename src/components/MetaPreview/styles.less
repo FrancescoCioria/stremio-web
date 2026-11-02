@@ -83,6 +83,11 @@
             height: 10rem;
             object-fit: contain;
             object-position: left center;
+
+            /* Logo troppo scuro per lo sfondo (casaLogoTone.js): bianco pieno. */
+            &.dark-logo {
+                filter: brightness(0) invert(1);
+            }
         }
 
         .logo-placeholder {

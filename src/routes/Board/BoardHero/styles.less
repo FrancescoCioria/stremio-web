@@ -87,6 +87,12 @@
             object-fit: contain;
             object-position: left bottom;
             filter: drop-shadow(0 0 1rem rgba(0,0,0,0.5));
+
+            /* Logo troppo scuro per lo sfondo (casaLogoTone.js): bianco pieno,
+             * come il titolo in testo. */
+            &.dark-logo {
+                filter: brightness(0) invert(1) drop-shadow(0 0 1rem rgba(0,0,0,0.5));
+            }
         }
 
         /* ⚠️ `padding-bottom`: lo slot del logo allinea il titolo al suo bordo
