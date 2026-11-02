@@ -13,6 +13,7 @@ module.exports = {
     CASA_WATCH: 'Guarda',
     CASA_DIRECTOR: 'Regista',
     CASA_CAST: 'Cast',
+    CASA_WHY_FOR_YOU: 'Per voi',
     CASA_TRAILER: 'Trailer',
     CASA_NOTIFICATIONS: 'Notifiche',
     CASA_REMOVE_FROM_LIBRARY: 'Rimuovi dalla libreria',

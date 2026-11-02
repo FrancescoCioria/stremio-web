@@ -50,6 +50,10 @@ const isFresh = (key) => {
 // beelink-cachyos dal Mac), come per tutte le chiamate al backend.
 const absolutize = (url) => (typeof url === 'string' && url.startsWith('/') ? casaBackendUrl(url) || url : url);
 
+const parseSuggestion = (s) => (s && typeof s === 'object' && typeof s.reason === 'string' && s.reason.length > 0
+    ? { reason: s.reason, score: typeof s.score === 'number' ? s.score : null }
+    : null);
+
 const parseHero = (j) => {
     if (!j || typeof j !== 'object' || !j.meta || typeof j.meta !== 'object') return null;
     const meta = { ...j.meta };
@@ -60,6 +64,9 @@ const parseHero = (j) => {
         ratings: parseRatings(j.ratings) || { ...NO_RATINGS, loaded: true },
         // null dal backend = titolo non in TMDB: un fatto, non "sto caricando".
         availability: parseAvailability(j.availability) || { ...NO_AVAILABILITY, loaded: true },
+        // "Perche' per voi" della riga Suggeriti per te (backend
+        // stremio_suggestions.ts): solo sui titoli di quella riga.
+        suggestion: parseSuggestion(j.suggestion),
     };
 };
 

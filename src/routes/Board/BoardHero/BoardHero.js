@@ -52,6 +52,9 @@ const useCasaHero = (rawMeta) => {
         meta: rawMeta && hero ? { ...rawMeta, ...hero.meta } : rawMeta,
         ratings: hero ? hero.ratings : NO_RATINGS,
         availability: hero ? hero.availability : NO_AVAILABILITY,
+        // Il "perche'" del giudice di "Suggeriti per te" (backend
+        // stremio_suggestions.ts), solo se il titolo sta in quella riga.
+        suggestion: hero ? hero.suggestion : null,
         done: !key || !!hero || settledKey === key,
     };
 };
@@ -96,7 +99,7 @@ const HERO_TITLE_LONG_CHARS = 20;
 const BoardHero = ({ meta: rawMeta }) => {
     // ⚠️ Prima delle uscite anticipate: gli hook non possono stare sotto un
     // `return`. Con `meta` nullo non chiede niente.
-    const { meta, ratings, availability, done: enrichmentDone } = useCasaHero(rawMeta);
+    const { meta, ratings, availability, suggestion, done: enrichmentDone } = useCasaHero(rawMeta);
     if (!meta) {
         return <div className={styles['board-hero-container']} />;
     }
@@ -215,6 +218,15 @@ const BoardHero = ({ meta: rawMeta }) => {
                         : null
                 }
                 {
+                    // Titolo suggerito: il "perche'" PRENDE IL POSTO di Regista/Cast.
+                    // ⚠️ Non in piu': l'hero ha l'altezza fissa (30rem) e una riga
+                    // in aggiunta finirebbe sopra la prima riga di card. Su una
+                    // novita' il motivo dice di piu' di tre nomi del cast.
+                    suggestion ?
+                        <div className={styles['hero-why']}>
+                            <span className={styles['hero-credit-label']}>{t('CASA_WHY_FOR_YOU')}</span>{suggestion.reason}
+                        </div>
+                        :
                     directorText || castText ?
                         <div className={styles['hero-cast']}>
                             {directorText ?
