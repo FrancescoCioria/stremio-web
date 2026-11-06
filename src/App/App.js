@@ -13,6 +13,7 @@ const SearchParamsHandler = require('./SearchParamsHandler');
 const CasaAutoSetup = require('./CasaAutoSetup');
 const CasaHomeOnColdStart = require('./CasaHomeOnColdStart');
 const CasaUpdater = require('./CasaUpdater');
+const { default: CasaInternetBanner } = require('./CasaInternetBanner');
 const CasaUiScaleInit = require('./CasaUiScaleInit');
 const DeepLinkHandler = require('./DeepLinkHandler');
 const { casaBackSkip } = require('stremio/common/casaNextVideoHistory');
@@ -245,6 +246,7 @@ const App = () => {
                                     <CasaHomeOnColdStart />
                                     <CasaAutoSetup />
                                     <CasaUpdater />
+                                    <CasaInternetBanner />
                                     <DeepLinkHandler />
                                     <UpdaterBanner className={styles['updater-banner-container']} />
                                     <ProtectedRoutes />

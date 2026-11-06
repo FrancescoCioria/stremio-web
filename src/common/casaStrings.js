@@ -29,4 +29,7 @@ module.exports = {
     CASA_DOWNLOADED: 'Scaricato',
     CASA_BUFFER: 'Buffer',
     CASA_LABEL: 'Casa',
+    CASA_NO_INTERNET: 'Niente internet in casa',
+    CASA_NO_INTERNET_DETAIL: 'Non è Stremio: aspetta qualche minuto o riavvia il router',
+    CASA_INTERNET_BACK: 'Internet tornato: si può riprovare',
 };
