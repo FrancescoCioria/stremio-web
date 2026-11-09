@@ -19,7 +19,7 @@ function stripAssOverrides(text) {
 // UTF-8 letto come Windows-1252 e salvato di nuovo ("justâ€¦" invece di "just…", 16 file su
 // 155, ~490 cue; nei file colpiti il carattere giusto non compare mai). Ogni sequenza
 // sospetta si riporta ai byte cp1252 e si ridecodifica come UTF-8: si sostituisce solo se
-// esce UN carattere Latin-1 o di punteggiatura: "ADAPTAÇÃO", un CJK per caso o l'italiano
+// esce UN carattere Latin-1, di punteggiatura o una nota musicale: "ADAPTAÇÃO", un CJK per caso o l'italiano
 // "È…" (= U+0205, Latin Extended-B) restano com'erano.
 var CP1252_SPECIALS = {
     '€': 0x80, '‚': 0x82, 'ƒ': 0x83, '„': 0x84, '…': 0x85, '†': 0x86,
@@ -39,7 +39,9 @@ function cp1252Byte(char) {
 
 function isLatinOrPunctuation(char) {
     var code = char.charCodeAt(0);
-    return (code >= 0xA0 && code <= 0xFF) || (code >= 0x2010 && code <= 0x206F) || code === 0x20AC || code === 0x2122;
+    // 0x2669-0x266F = note musicali ("â™ª" invece di "♪" sulle canzoni, 09/11/2026).
+    return (code >= 0xA0 && code <= 0xFF) || (code >= 0x2010 && code <= 0x206F) || code === 0x20AC || code === 0x2122 ||
+        (code >= 0x2669 && code <= 0x266F);
 }
 
 function fixMojibake(text) {
